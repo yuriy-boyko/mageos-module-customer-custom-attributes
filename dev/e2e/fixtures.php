@@ -14,6 +14,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
+ *   php dev/e2e/fixtures.php set-attribute <code> <required=0|1> <forms=a,b,...>  change whether a fixture attribute is required and the forms it is in
  *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
  *   php dev/e2e/fixtures.php purge       delete the orders and quotes of test runs (e-mail like %e2e%@example.com)
@@ -45,8 +46,8 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes'], true)) {
-    fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|drop-quotes <email>\n");
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute'], true)) {
+    fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
 
@@ -207,6 +208,27 @@ if ($command === 'seed') {
         echo 'created  relation ' . $relation['name'] . "\n";
     }
 
+    // test products (a virtual product for carts without shipping)
+    foreach ($fixtures['products'] ?? [] as $definition) {
+        $productRepository = $objectManager->get(\Magento\Catalog\Api\ProductRepositoryInterface::class);
+        try {
+            $productRepository->get($definition['sku']);
+            echo 'exists   product ' . $definition['sku'] . "\n";
+            continue;
+        } catch (\Magento\Framework\Exception\NoSuchEntityException $e) {
+            // not there yet
+        }
+        /** @var \Magento\Catalog\Model\Product $product */
+        $product = $objectManager->create(\Magento\Catalog\Model\Product::class);
+        $product->setTypeId($definition['type'])->setSku($definition['sku'])->setName($definition['name'])
+            ->setAttributeSetId((int) $product->getDefaultAttributeSetId())->setPrice($definition['price'])
+            ->setStatus(1)->setVisibility(4)->setUrlKey($definition['url_key'])->setWebsiteIds([1, 2])
+            ->setStockData(['qty' => $definition['qty'], 'is_in_stock' => 1, 'manage_stock' => 1, 'use_config_manage_stock' => 0]);
+        $product = $productRepository->save($product);
+        // the stock status index decides whether the product can be bought: update it for this product now
+        $objectManager->get(\Magento\CatalogInventory\Model\Indexer\Stock\Processor::class)->reindexRow((int) $product->getId(), true);
+        echo 'created  product ' . $definition['sku'] . "\n";
+    }
     $eavConfig->clear();
     echo "Flush the cache before testing: bin/magento cache:flush\n";
     exit(0);
@@ -307,6 +329,42 @@ if ($command === 'delete-option' || $command === 'delete-attribute') {
     exit(0);
 }
 
+if ($command === 'set-attribute') {
+    $code = (string) ($argv[2] ?? '');
+    $definition = null;
+    foreach ($fixtures['attributes'] as $candidate) {
+        if ($candidate['code'] === $code) {
+            $definition = $candidate;
+        }
+    }
+    if ($definition === null) {
+        fwrite(STDERR, "$code is not a fixture attribute.\n");
+        exit(2);
+    }
+    $settings = [];
+    foreach (array_slice($argv, 3) as $pair) {
+        [$key, $value] = array_pad(explode('=', $pair, 2), 2, '');
+        $settings[$key] = $value;
+    }
+    $attribute = $findAttribute($definition['entity'], $code);
+    if ($attribute === null) {
+        fwrite(STDERR, "$code does not exist (seed first).\n");
+        exit(1);
+    }
+    $objectManager->get(HttpRequest::class)->setParam(EntityContext::REQUEST_PARAM, $definition['entity']);
+    if (isset($settings['required'])) {
+        $attribute->setIsRequired($settings['required'] === '1' ? 1 : 0);
+    }
+    if (isset($settings['forms'])) {
+        // the forms the admin always adds are kept, like in the admin form
+        $attribute->setData('used_in_forms', $objectManager->get(EntityContext::class)->resolveForms(array_filter(explode(',', $settings['forms']))));
+    }
+    $attribute->save();
+    $eavConfig->clear();
+    echo "set      $code: " . implode(' ', array_map(static fn ($k, $v) => "$k=$v", array_keys($settings), $settings)) . "\n";
+    exit(0);
+}
+
 if ($command === 'drop-quotes') {
     $email = (string) ($argv[2] ?? '');
     $resource = $objectManager->get(ResourceConnection::class);
@@ -351,6 +409,14 @@ if ($command === 'set-customer') {
         }
         $given[$code] = $value;
     }
+    // the first option of every required dropdown: the default value of an account that has none
+    $firstOption = [];
+    foreach ($definitions as $code => $definition) {
+        if (!empty($definition['required']) && in_array($definition['input'], ['select', 'multiselect'], true)) {
+            $options = $findAttribute('customer', $code)->getSource()->getAllOptions(false);
+            $firstOption[$code] = (string) $options[0]['value'];
+        }
+    }
     // Load the customer only now: resolving the option labels above clears the EAV cache, and a customer loaded before that loses the
     // values set on it when it is saved.
     $customer = $findCustomer($email);
@@ -363,7 +429,12 @@ if ($command === 'set-customer') {
         if (!empty($definition['required']) && !isset($given[$code])) {
             $current = $customer->getCustomAttribute($code);
             if ($current === null || (string) $current->getValue() === '') {
-                $given[$code] = 'account value';
+                if (in_array($definition['input'], ['select', 'multiselect'], true)) {
+                    // an option id: the first option of the attribute
+                    $given[$code] = $firstOption[$code];
+                } else {
+                    $given[$code] = 'account value';
+                }
             }
         }
     }
@@ -408,6 +479,14 @@ foreach ($fixtures['attributes'] as $definition) {
     if ($attribute !== null) {
         $attribute->delete();
         echo 'removed  ' . $definition['entity'] . ' ' . $definition['code'] . "\n";
+    }
+}
+foreach ($fixtures['products'] ?? [] as $definition) {
+    try {
+        $objectManager->get(\Magento\Catalog\Api\ProductRepositoryInterface::class)->deleteById($definition['sku']);
+        echo 'removed  product ' . $definition['sku'] . "\n";
+    } catch (\Magento\Framework\Exception\NoSuchEntityException $e) {
+        // already gone
     }
 }
 foreach ($fixtures['customers'] as $definition) {

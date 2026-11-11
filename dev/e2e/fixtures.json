@@ -25,6 +25,11 @@
          "checkout": {"position": "shipping_address_below", "sort": 10, "prefill": true}},
         {"entity": "customer", "code": "e2e_c_rdep", "label": "E2E Customer Required Dependent", "input": "text", "required": true,
          "checkout": {"position": "payment_below", "sort": 8, "prefill": false}},
+        {"entity": "customer", "code": "e2e_c_rmulti", "label": "E2E Customer Required Multi", "input": "multiselect", "display": "checkbox", "required": true,
+         "options": ["Alpha", "Beta"], "forms": ["mageos_hyva_checkout", "adminhtml_checkout"],
+         "checkout": {"position": "payment_below", "sort": 9, "prefill": false}},
+        {"entity": "customer", "code": "e2e_c_areq", "label": "E2E Customer Account Required", "input": "text", "required": true,
+         "forms": ["customer_account_create", "customer_account_edit"]},
         {"entity": "customer", "code": "e2e_c_order", "label": "E2E Order Only", "input": "text",
          "forms": ["mageos_hyva_checkout", "adminhtml_checkout"],
          "checkout": {"position": "shipping_methods_below", "sort": 10, "prefill": false}},
@@ -44,6 +49,8 @@
         {"entity": "address", "code": "e2e_a_area", "label": "E2E Address Area", "input": "textarea"},
         {"entity": "address", "code": "e2e_a_bool", "label": "E2E Address Yes No", "input": "boolean"},
         {"entity": "address", "code": "e2e_a_dep", "label": "E2E Address Dependent", "input": "text"},
+        {"entity": "address", "code": "e2e_a_warn", "label": "E2E Address Warn", "input": "text"},
+        {"entity": "address", "code": "e2e_a_noform", "label": "E2E Address No Form", "input": "text", "forms": []},
         {"entity": "address", "code": "e2e_a_mdep", "label": "E2E Address Multi Dependent", "input": "text"},
         {"entity": "address", "code": "e2e_a_rsel", "label": "E2E Address Required Parent", "input": "select", "options": ["Show", "Hide"]},
         {"entity": "address", "code": "e2e_a_rdep", "label": "E2E Address Required Dependent", "input": "text", "required": true},
@@ -59,7 +66,8 @@
         {"name": "E2E customer relation", "entity": "customer",
          "rules": [
              {"parent": "e2e_c_sel", "option": "Gold", "dependent": "e2e_c_dep"},
-             {"parent": "e2e_c_sel", "option": "Silver", "dependent": "e2e_c_rdep"}
+             {"parent": "e2e_c_sel", "option": "Silver", "dependent": "e2e_c_rdep"},
+             {"parent": "e2e_c_sel", "option": "Silver", "dependent": "e2e_c_rmulti"}
          ]},
         {"name": "E2E address relation", "entity": "address",
          "rules": [{"parent": "e2e_a_sel", "option": "North", "dependent": "e2e_a_dep"}]},
@@ -79,6 +87,9 @@
          "rules": [{"parent": "e2e_a_osel", "option": "Alpha", "dependent": "e2e_a_odep"}]},
         {"name": "E2E address attribute deletion relation", "entity": "address",
          "rules": [{"parent": "e2e_a_xsel", "option": "Alpha", "dependent": "e2e_a_xdep"}]}
+    ],
+    "products": [
+        {"sku": "e2e-virtual-product", "name": "E2E Virtual Product", "type": "virtual", "price": 10, "qty": 100, "url_key": "e2e-virtual-product"}
     ],
     "customers": [
         {"email": "e2e.customer@example.com", "firstname": "E2E", "lastname": "Customer", "group": "General", "password_env": "E2E_CUSTOMER_PASSWORD"}

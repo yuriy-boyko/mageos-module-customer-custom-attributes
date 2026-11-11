@@ -181,9 +181,9 @@ function switchVariant(variant: string): void {
     fs.writeFileSync(marker, variant);
 }
 
-/** Adds the test product to a fresh guest cart and opens the checkout. */
-export async function openCheckoutAsGuest(page: Page): Promise<void> {
-    await page.goto(process.env.E2E_PRODUCT_URL || '/strive-shoulder-pack.html');
+/** Adds the test product (or the product page given, e.g. the virtual fixture product) to the cart and opens the checkout. */
+export async function openCheckoutAsGuest(page: Page, productUrl?: string): Promise<void> {
+    await page.goto(productUrl || process.env.E2E_PRODUCT_URL || '/strive-shoulder-pack.html');
     // wait for the add-to-cart request itself: leaving the page earlier would leave the cart empty
     await Promise.all([
         page.waitForResponse((response) => response.url().includes('/checkout/cart/add'), { timeout: 20_000 }),
@@ -255,8 +255,12 @@ export async function fillCheckout(page: Page, magewire: Magewire, overrides: Re
 
 /** Picks the first shipping method and the Check / Money order payment. */
 export async function chooseShippingAndPayment(page: Page, magewire: Magewire): Promise<void> {
-    await page.locator('[name="shipping-method-option"]').first().check();
-    await magewire.idle();
+    // a cart with only virtual products has no shipping methods
+    const shipping = page.locator('[name="shipping-method-option"]').first();
+    if (await shipping.count()) {
+        await shipping.check();
+        await magewire.idle();
+    }
     await page.locator('[name="payment-method-option"][value="checkmo"]').check();
     await magewire.idle();
 }
@@ -385,6 +389,11 @@ const endsWith = (label: string): RegExp => new RegExp(`(^|\\s)${label.replace(/
 /** A radio button or checkbox of a customer attribute section by its label. */
 export function optionOf(page: Page, code: string, role: 'radio' | 'checkbox', label: string) {
     return page.locator(`[data-code="${code}"]`).getByRole(role, { name: endsWith(label) });
+}
+
+/** A radio button or checkbox of a customer attribute in the account forms (not the checkout) by its label. */
+export function accountOptionOf(page: Page, code: string, role: 'radio' | 'checkbox', label: string) {
+    return page.locator(`.field.${code}`).getByRole(role, { name: endsWith(label) });
 }
 
 /** Picks a radio button of a customer attribute section by its label. */

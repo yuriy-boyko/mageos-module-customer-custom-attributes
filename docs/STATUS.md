@@ -35,7 +35,7 @@ with Hyvä Theme and Hyvä Checkout (one-page variant).
 
 Automated end-to-end checks (REST suite, database checks, browser tests; `dev/e2e/run-all.sh`) cover the rows marked `automated` in
 TESTING.md, among them the dependency rows DEP12 to DEP16. They found one bug, now fixed: the account address form could not be saved
-when a required attribute was hidden by a dependency rule (DEP14).
+when a required attribute was hidden by a dependency rule (DEP14), and the same for the account information form with a required customer attribute (CUS8). A required address attribute that is only in the address book form blocks the checkout (core's behaviour, kept); the admin warns about it (VAL6).
 
 ## Open
 - The ☐ rows in [TESTING.md](TESTING.md), including `setup:di:compile` on a store without Hyvä Checkout.

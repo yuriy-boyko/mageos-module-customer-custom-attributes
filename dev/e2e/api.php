@@ -113,6 +113,16 @@ $options = static function (string $code) use ($api, $admin): array {
     }
     return $map;
 };
+$customerOptions = static function (string $code) use ($api, $admin): array {
+    [, $meta] = $api('GET', '/attributeMetadata/customer/attribute/' . $code, null, $admin);
+    $map = [];
+    foreach ((array) ($meta['options'] ?? []) as $option) {
+        if (($option['value'] ?? '') !== '') {
+            $map[(string) $option['label']] = (string) $option['value'];
+        }
+    }
+    return $map;
+};
 $sel = $options('e2e_a_sel');
 $multi = $options('e2e_a_multi');
 if (!$check('fixture options readable (run fixtures.php seed first)', isset($sel['North'], $sel['South'], $multi['Red'], $multi['Blue']))) {
@@ -183,6 +193,11 @@ $check('[REST2][VAL1~] an unknown option id is refused', $result['status'] !== 2
 $result = $guestOrder($required + ['e2e_a_date' => '2030-01-01']);
 $check('[VAL1~] a date after the maximum is refused', $result['status'] !== 200 && stripos($result['message'], 'valid date') !== false, $result['message']);
 
+$result = $guestOrder($required + ['e2e_a_multi' => $multi['Red'] . ',99999']);
+$check('[VAL8] a multiple select with an unknown option id is refused', $result['status'] !== 200 && stripos($result['message'], 'e2e_a_multi') !== false, $result['message']);
+$result = $guestOrder($required + ['e2e_a_multi' => '99999']);
+$check('[VAL8] a multiple select with only an unknown option id is refused', $result['status'] !== 200 && stripos($result['message'], 'e2e_a_multi') !== false, $result['message']);
+
 echo "== Guest order with values on both addresses\n";
 $values = $required + [
     'e2e_a_text' => 'api note', 'e2e_a_sel' => $sel['North'], 'e2e_a_multi' => $multi['Red'] . ',' . $multi['Blue'],
@@ -207,6 +222,13 @@ if ($orderId > 0) {
     [$status, $list] = $api('GET', '/orders?searchCriteria[filterGroups][0][filters][0][field]=entity_id&searchCriteria[filterGroups][0][filters][0][value]=' . $orderId, null, $admin);
     $listed = $byCode($list['items'][0]['billing_address']['extension_attributes']['custom_attribute_values'] ?? []);
     $check('[API2] the order list returns the same address values', $status === 200 && ($listed['e2e_a_text']['value'] ?? '') === 'api note');
+}
+
+$result = $guestOrder($required + ['e2e_a_noform' => 'sent by api']);
+$check('[REG5] an order with a value for an attribute that is in no storefront form is placed', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
+if ($result['order_id'] > 0) {
+    $order = $readOrder($result['order_id']);
+    $check('[REG5] the value of an attribute that is in no storefront form is on both addresses', ($order['billing']['e2e_a_noform']['value'] ?? '') === 'sent by api' && ($order['shipping']['e2e_a_noform']['value'] ?? '') === 'sent by api', json_encode([$order['billing']['e2e_a_noform'] ?? null, $order['shipping']['e2e_a_noform'] ?? null]));
 }
 
 echo "== Rules\n";
@@ -234,6 +256,8 @@ if ($customerPassword === '') {
                 ['attribute_code' => 'e2e_c_account', 'value' => 'account value'],
                 ['attribute_code' => 'e2e_c_req', 'value' => 'admin value'],
                 ['attribute_code' => 'e2e_c_rdep', 'value' => 'admin value'],
+                ['attribute_code' => 'e2e_c_areq', 'value' => 'admin value'],
+                ['attribute_code' => 'e2e_c_rmulti', 'value' => (string) (array_values($customerOptions('e2e_c_rmulti'))[0] ?? '')],
             ];
             [$status, $saved] = $api('PUT', '/customers/' . $record['id'], ['customer' => $record], $admin);
             $check('an admin can write custom customer attributes', $status === 200, "status $status " . $message($saved));

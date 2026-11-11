@@ -126,7 +126,7 @@ browser, a second store or a card flow, ❌ fails. After each checkout case run 
 | REG2 | Create the test attributes | providers list all of them; the quote address attribute list contains them | ✅ |
 | REG3 | Delete an attribute | gone from the lists; quote rows cascade away | ✅ |
 | REG4 | System attributes (firstname, street, …) | never picked up | ☐ |
-| REG5 | Attribute not assigned to any form | not shown; submitted values still work | ☐ |
+| REG5 | Attribute not assigned to any form | not shown; submitted values still work | ✅ automated: api.php, playwright/tests/reg5-attribute-without-form.spec.ts |
 
 ### CHK. Hyvä Checkout: values reach the quote address
 Main run on the one-page variant. Cases marked ★ are repeated on the other variants (manual).
@@ -245,9 +245,9 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | CUS5 | Admin order view, Account Information | one line per value | ✅ |
 | CUS6 | Order API `customer_attribute_values` | rows present | ✅ |
 | CUS7 | Rename or delete the attribute after the order | order rows unchanged | ☐ |
-| CUS8 | Required customer attribute empty | inline message, nothing saved | ☐ |
+| CUS8 | Required customer attribute empty | inline message, nothing saved | ✅ (found and fixed: the account information form could not be saved while a required customer attribute was hidden by a dependency rule; `EavDataRequiredForHiddenAttribute` now covers customer attributes too) · automated: playwright/tests/cus8-account-forms.spec.ts |
 | CUS9 | Order placed in the Hyvä Checkout by a logged-in customer | same rows | **manual** |
-| CUS10 | Guest checkout | no customer rows, no errors | ☐ |
+| CUS10 | Guest checkout | no customer rows, no errors | ✅ automated: playwright/tests/val7-virtual-cart.spec.ts |
 | CUS11 | Value editable in the admin customer form | saved | ☐ |
 | CUS12 | Groups (radio/checkbox) and dependency rules in registration and account edit forms | render, save, hide | ☐ |
 
@@ -274,9 +274,9 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | VAL3 | Valid values | placed | ✅ |
 | VAL4 | Admin Edit Order Address with invalid values | not saved, message | ✅ (script), ☐ (browser) |
 | VAL5 | Rejection message on the Hyvä Checkout page | readable, values kept | **manual** |
-| VAL6 | Required attribute only in the address book form | does not block checkout | ☐ |
-| VAL7 | Virtual cart: shipping values not validated | placed | ☐ |
-| VAL8 | Multiselect with an unknown id | rejected | ☐ |
+| VAL6 | Required attribute only in the address book form | core blocks the checkout (the Hyvä Checkout form does not show it); the admin warns on the attribute's edit page; adding it to "Hyvä Checkout Address Forms" fixes it | ✅ automated: playwright/tests/val6-required-address-book-only.spec.ts |
+| VAL7 | Virtual cart: shipping values not validated | placed | ✅ automated: playwright/tests/val7-virtual-cart.spec.ts |
+| VAL8 | Multiselect with an unknown id | rejected | ✅ automated: api.php |
 
 ### DEP. Dependencies and customer groups
 | ID | Test | Expected | Status |
@@ -306,8 +306,8 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | RAD3 | Rules with radio and checkbox parents | instant show/hide | ✅ |
 | RAD4 | Hyvä Checkout one-page: render, saved values, instant visibility, order | works | ✅ |
 | RAD5 | Core metadata and REST output | standard input type plus rule `mageos_display` | ✅ |
-| RAD6 | Required checkbox group with nothing ticked | blocked (server) | ☐ |
-| RAD7 | Customer attributes as groups in registration and account edit | render and save | ☐ |
+| RAD6 | Required checkbox group with nothing ticked | blocked (server) | ✅ automated: playwright/tests/rad6-required-checkbox-group.spec.ts |
+| RAD7 | Customer attributes as groups in registration and account edit | render and save | ✅ automated: playwright/tests/cus8-account-forms.spec.ts |
 | RAD8 | Other checkout variants, hand-typed address, billing form | works | **manual** |
 | RAD9 | Keyboard use and screen reader labels | usable | **manual** |
 
@@ -362,7 +362,7 @@ multi-step (default) and the mobile checkout were tested; the sections use the c
 | CCO8 | Dependency rule across two positions (dropdown above shipping address shows the text below) | instant show and hide; hidden value dropped on the server; hidden required value does not block; order without it | ✅ · automated: playwright/tests/cco-guest-checkout.spec.ts |
 | CCO9 | Guest: fields shown, value saved on the guest quote, guest order | yes | ✅ (multi-step and mobile guest orders) · automated: playwright/tests/cco-guest-checkout.spec.ts |
 | CCO10 | Guest logs in after typing | customer without an active cart: typed values kept (prefill only fills empty ones); customer with an active cart: that cart and its values win | ✅ · automated: playwright/tests/cco10-guest-logs-in.spec.ts |
-| CCO22 | Required customer attribute placed at a shipping position, virtual-only cart | order not blocked | ✅ (found and fixed: shipping-position attributes are skipped for virtual carts) |
+| CCO22 | Required customer attribute placed at a shipping position, virtual-only cart | order not blocked | ✅ (found and fixed: shipping-position attributes are skipped for virtual carts) · automated: playwright/tests/val7-virtual-cart.spec.ts |
 | CCO11 | Customer group restriction hides the section for other groups | hidden | ✅ attributes limited to Wholesale: hidden for a General customer (the order has no value for them although the account holds one); a Wholesale customer sees them |
 | CCO12 | Website scope (disabled or required for one website) | follows the website | ✅ website 2 only: attribute disabled (field absent on the Italy checkout), required (radio without "None", `required` set); main website unchanged; server-side required check on the Italy site not placed |
 | CCO13 | Radio and checkbox display, multiselect, date, text area at checkout | work and save | ✅ radio, checkbox group (multiselect), date, text area and text saved on the quote and the order; the date label is "YYYY-MM-DD" |

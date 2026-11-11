@@ -81,6 +81,7 @@ php ... fixtures.php status
 php ... fixtures.php teardown
 php ... fixtures.php delete-option <code> <label>   # delete an option of a fixture attribute, like the admin (used by DEP16)
 php ... fixtures.php delete-attribute <code>         # delete a fixture attribute, like the admin; prints the rules and group rows left
+php ... fixtures.php set-attribute <code> required=0|1 forms=a,b   # change whether a fixture attribute is required and its forms (VAL6)
 php ... fixtures.php set-customer <email> <code=value>...  # set account values of the fixture customer (select: option label, several: a|b)
 php ... fixtures.php drop-quotes <email>             # give a customer no active cart
 php ... fixtures.php purge        # delete the orders and quotes of test e-mails (containing e2e, ending @example.com)
@@ -104,6 +105,9 @@ bin/magento cache:flush
 | Customer, other | order-only (checkout and admin form only), account-only (no checkout) |
 | Address | text, required text, a text field that depends on a multiple select (Red or Blue), a required field that depends on a dropdown (Show), a three-level nested chain (root On, middle Yes, leaf), a dropdown/dependent pair for deleting an option and one with group restrictions for deleting an attribute, text with length rules, dropdown (radio), multiple select, date with a maximum, text area, yes/no, a text field that depends on the dropdown |
 | Relations | one for customer and one for address attributes (dropdown option shows the dependent field) |
+| Customer, account forms | `e2e_c_areq` (required, only on the account forms), `e2e_c_rmulti` (required checkbox group, shown for Silver) |
+| Address, forms | `e2e_a_noform` (in no storefront form), `e2e_a_warn` (optional; VAL6 makes it required and address-book-only for the length of a test and puts it back) |
+| Product | `e2e-virtual-product` (virtual, in stock) for carts without shipping |
 | Customer | `e2e.customer@example.com`, group General |
 
 Relation rules are given with the parent's option label; `fixtures.php` stores the option id.
@@ -196,6 +200,11 @@ E2E_HEADED=1 ...                                                                
 | `cco-guest-checkout.spec.ts` | CCO9 guest values at every position saved on the quote and on the order (labels for dropdown, checkbox, date, yes/no); CCO7 a required customer attribute empty blocks the order; CCO8 a rule across two positions (instant show/hide, a hand-sent value for a hidden attribute is dropped by the server, a hidden required attribute does not block) |
 | `cco-logged-in-checkout.spec.ts` | CCO3 prefill on/off, CCO4 typing stores on the quote and leaves the account unchanged, CCO5 clearing a prefilled value, CCO6 the order carries the typed values and the account-only values |
 | `cco10-guest-logs-in.spec.ts` | CCO10 a guest signs in during the checkout: without an active cart the typed values are kept and empty fields are prefilled; with an active cart that cart's values win |
+| `val7-virtual-cart.spec.ts` | VAL7 / CCO22 / CUS10: a guest buys only a virtual product: no shipping step, the required attribute at a shipping position does not block, the order has billing values only and no customer rows |
+| `cus8-account-forms.spec.ts` | CUS8 a required customer attribute left empty is not saved on the account information form; RAD7 radio buttons and checkboxes render with saved values and save; CUS12 (part) dependency rules in the account form |
+| `val6-required-address-book-only.spec.ts` | VAL6: the admin warns when an address attribute is required and only in the address book form; such an attribute blocks the guest checkout until it is added to the Hyvä Checkout address forms |
+| `rad6-required-checkbox-group.spec.ts` | RAD6: a required checkbox group with nothing ticked blocks the order |
+| `reg5-attribute-without-form.spec.ts` | REG5: an attribute in no storefront form is not shown in the checkout or the account address form (the REST suite proves its submitted values still work) |
 | `dep12-multiselect-parent.spec.ts` | DEP12: a dependent address field follows a multiple select parent (shows for any matching option, hides and clears otherwise) |
 | `dep13-required-dependent.spec.ts` | DEP13: a shown required dependent left empty blocks the order (field marked, message names it), a hidden one does not; the order is placed once it is filled |
 | `dep14-account-address-hidden-required.spec.ts` | DEP14: the account address form saves with a required attribute hidden by a rule (it is disabled and not sent), and blocks when it is shown and empty |
