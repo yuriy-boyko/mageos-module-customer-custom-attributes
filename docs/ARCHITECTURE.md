@@ -101,9 +101,14 @@ Learned the hard way; check them before "simplifying":
   attributes must also be removed from the order address data key `mageos_cca_values`.
 - `AbstractExtensibleModel` keeps a posted flat key beside the custom attribute; `Model/QuoteAddressValueReader` prefers the flat
   key (admin order create).
-- Core validates saved addresses with the EAV `customer_address` validator, which would reject a required attribute that is hidden
-  by a rule: `Plugin/EavDataRequiredForHiddenAttribute` relaxes it. Core wraps validation messages of the shipping-information
-  endpoint into a generic text.
+- Core validates saved addresses and saved customers (account information form, registration, admin) with the EAV data models, which
+  would reject a required attribute that is hidden by a rule or a group restriction: `Plugin/EavDataRequiredForHiddenAttribute`
+  relaxes it, for address and customer attributes. A hidden field is disabled in the browser, so the form does not send it and core
+  passes `false` as the value. Core wraps validation messages of the shipping-information endpoint into a generic text.
+- Core also validates every required attribute of the address book form (`customer_address_edit`) on the quote address at the
+  checkout. A required attribute that is in that form but not in the Hyvä Checkout address forms can never be filled, so no order can
+  be placed. The module keeps core's behaviour and warns on the attribute's edit page (`Model/Attribute/RequiredAddressFormWarning`,
+  rule in the pure `Service/RequiredAddressFormCheck`).
 - Core's mass action reads ids without collection bind parameters: `Block/Adminhtml/Attribute/Grid/Massaction` overrides
   `getGridIdsJson` to use `getAllIds()`.
 - Customer and address attributes are loaded per website by `Eav\Config` (`customer_eav_attribute_website`); read

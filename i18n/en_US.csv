@@ -32,6 +32,7 @@ Enabled,Enabled
 "Customer Groups","Customer Groups"
 "Show the attribute only to customers in the selected groups. Leave empty to show it to all groups. Hold Ctrl or Cmd to select several.","Show the attribute only to customers in the selected groups. Leave empty to show it to all groups. Hold Ctrl or Cmd to select several."
 "Position at Checkout Step","Position at Checkout Step"
+"Applies when ""Hyvä Checkout"" is selected in Show in Forms.","Applies when ""Hyvä Checkout"" is selected in Show in Forms."
 "Checkout Sort Order","Checkout Sort Order"
 "Lower numbers are shown first inside the position.","Lower numbers are shown first inside the position."
 "Prefill from Customer","Prefill from Customer"
@@ -92,6 +93,7 @@ plural_label,plural_label
 "The admin value of every option is required.","The admin value of every option is required."
 "Add at least one option.","Add at least one option."
 "The admin value of each option must be unique.","The admin value of each option must be unique."
+"The attribute ""%1"" is required and in the address book form, but not in the Hyvä Checkout address forms. Magento checks every required attribute of the address book form at the checkout, so no order can be placed until you add the attribute to ""Hyvä Checkout Address Forms"" or make it optional.","The attribute ""%1"" is required and in the address book form, but not in the Hyvä Checkout address forms. Magento checks every required attribute of the address book form at the checkout, so no order can be placed until you add the attribute to ""Hyvä Checkout Address Forms"" or make it optional."
 "Billing Address","Billing Address"
 "Shipping Address","Shipping Address"
 billing,billing

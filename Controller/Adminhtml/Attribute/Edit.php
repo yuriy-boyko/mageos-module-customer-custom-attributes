@@ -8,14 +8,31 @@ declare(strict_types=1);
 namespace MageOS\CustomerCustomAttributes\Controller\Adminhtml\Attribute;
 
 use MageOS\CustomerCustomAttributes\Controller\Adminhtml\Attribute;
+use MageOS\CustomerCustomAttributes\Model\Attribute\EntityContext;
+use MageOS\CustomerCustomAttributes\Model\Attribute\RequiredAddressFormWarning;
+use Magento\Backend\App\Action\Context;
+use Magento\Customer\Model\AttributeFactory;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\Controller\ResultFactory;
+use Magento\Framework\Registry;
+use Magento\Store\Model\WebsiteFactory;
 
 /**
  * Edit form of an existing user-defined attribute.
  */
 class Edit extends Attribute implements HttpGetActionInterface
 {
+    public function __construct(
+        Context $context,
+        EntityContext $entityContext,
+        AttributeFactory $attributeFactory,
+        Registry $coreRegistry,
+        WebsiteFactory $websiteFactory,
+        private readonly RequiredAddressFormWarning $requiredFormWarning
+    ) {
+        parent::__construct($context, $entityContext, $attributeFactory, $coreRegistry, $websiteFactory);
+    }
+
     public function execute()
     {
         $attribute = $this->createAttribute();
@@ -30,6 +47,7 @@ class Edit extends Attribute implements HttpGetActionInterface
             $attribute->addData($data);
         }
         $this->coreRegistry->register(self::REGISTRY_KEY, $attribute);
+        $this->requiredFormWarning->warn($attribute, $this->entityContext->getKey());
 
         $label = $attribute->getFrontendLabel();
         $label = is_array($label) ? (string) reset($label) : (string) $label;

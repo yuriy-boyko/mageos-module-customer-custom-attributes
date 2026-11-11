@@ -39,6 +39,15 @@ switched off is hidden in all of these places.
 Address attributes can be hidden by rules and customer groups, instantly in the Hyvä Checkout address forms. See
 [Dependencies and groups](06-dependencies.md).
 
+## A required attribute must be in the checkout form
+
+Magento checks every **required** attribute of the address book form on the address of the quote when an order is placed. If an
+address attribute is required and ticked for **Address Book (Customer Account)**, but not for **Hyvä Checkout Address Forms**, nobody can
+fill it at the checkout and **no order can be placed** ("X" is a required value). The module keeps this behaviour of Magento and warns
+you instead: the attribute's edit page shows a warning when the attribute is required (for the store or for one website), is in the
+address book form and is not in the Hyvä Checkout address forms. Add the attribute to **Hyvä Checkout Address Forms** or make it
+optional.
+
 ## Saved addresses that lack a required value
 
 When an attribute becomes required after customers saved addresses, those addresses have no value. The module helps in two places:

@@ -10,6 +10,7 @@ namespace MageOS\CustomerCustomAttributes\Controller\Adminhtml\Attribute;
 use MageOS\CustomerCustomAttributes\Controller\Adminhtml\Attribute;
 use MageOS\CustomerCustomAttributes\Model\Attribute\EntityContext;
 use MageOS\CustomerCustomAttributes\Model\Attribute\FormProcessor;
+use MageOS\CustomerCustomAttributes\Model\Attribute\RequiredAddressFormWarning;
 use MageOS\CustomerCustomAttributes\Model\ResourceModel\AttributeGroupStorage;
 use MageOS\CustomerCustomAttributes\Model\ResourceModel\AttributeWebsiteStorage;
 use MageOS\CustomerCustomAttributes\Service\WebsiteScopeNormalizer;
@@ -41,7 +42,8 @@ class Save extends Attribute implements HttpPostActionInterface
         private readonly AttributeWebsiteStorage $websiteStorage,
         private readonly WebsiteScopeNormalizer $websiteNormalizer,
         private readonly StoreManagerInterface $storeManager,
-        private readonly EavConfig $eavConfig
+        private readonly EavConfig $eavConfig,
+        private readonly RequiredAddressFormWarning $requiredFormWarning
     ) {
         parent::__construct($context, $entityContext, $attributeFactory, $coreRegistry, $websiteFactory);
     }
@@ -105,6 +107,8 @@ class Save extends Attribute implements HttpPostActionInterface
             if ($this->getRequest()->getParam('back')) {
                 return $redirect->setPath('*/*/edit', $params + ['attribute_id' => $attribute->getId()]);
             }
+            // (the edit page shows the warning itself)
+            $this->requiredFormWarning->warn($attribute, $this->entityContext->getKey());
             return $redirect->setPath('*/*/', $params);
         } catch (LocalizedException $e) {
             $this->messageManager->addErrorMessage($e->getMessage());

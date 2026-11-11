@@ -22,7 +22,9 @@ The Hyvä Checkout enforces a strict Content Security Policy. Inline scripts of 
 
 ## The order is rejected
 
-- *"X is a required value"*: a visible required attribute is empty.
+- *"X is a required value"*: a visible required attribute is empty. If the attribute is not in the checkout form at all, it is
+  required but cannot be filled: tick "Hyvä Checkout Address Forms" for it or make it optional (the attribute's edit page warns about this,
+  see [Address attributes](05-address-attributes.md)).
 - *Your saved shipping address needs the field "X"*: a saved address has no value for a required attribute; follow the link to edit
   the address, or choose another address.
 - A message naming an attribute and a rule (length, email, date range, unknown option): the value breaks the attribute's rules.
