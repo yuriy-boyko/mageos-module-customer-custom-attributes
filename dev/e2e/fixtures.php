@@ -14,6 +14,8 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
+ *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
+ *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
  *   php dev/e2e/fixtures.php purge       delete the orders and quotes of test runs (e-mail like %e2e%@example.com)
  *
  * Run it from the Magento root (or set MAGENTO_ROOT). The test customer's password is read from the environment variable
@@ -43,8 +45,8 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute'], true)) {
-    fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>\n");
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes'], true)) {
+    fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|drop-quotes <email>\n");
     exit(2);
 }
 
@@ -302,6 +304,75 @@ if ($command === 'delete-option' || $command === 'delete-attribute') {
     $eavConfig->clear();
     echo "deleted  option \"$label\" of $code\n";
     echo "after    $code " . $references() . "\n";
+    exit(0);
+}
+
+if ($command === 'drop-quotes') {
+    $email = (string) ($argv[2] ?? '');
+    $resource = $objectManager->get(ResourceConnection::class);
+    $connection = $resource->getConnection();
+    $deleted = $connection->delete($resource->getTableName('quote'), ['customer_email = ?' => $email]);
+    $customer = $email !== '' ? $findCustomer($email) : null;
+    if ($customer !== null) {
+        $deleted += $connection->delete($resource->getTableName('quote'), ['customer_id = ?' => (int) $customer->getId()]);
+    }
+    echo "removed  $deleted quote(s) of $email\n";
+    exit(0);
+}
+
+if ($command === 'set-customer') {
+    $email = (string) ($argv[2] ?? '');
+    $definitions = [];
+    foreach ($fixtures['attributes'] as $candidate) {
+        if ($candidate['entity'] === 'customer') {
+            $definitions[$candidate['code']] = $candidate;
+        }
+    }
+    $given = [];
+    foreach (array_slice($argv, 3) as $pair) {
+        [$code, $value] = array_pad(explode('=', $pair, 2), 2, '');
+        if (!isset($definitions[$code])) {
+            fwrite(STDERR, "$code is not a fixture customer attribute.\n");
+            exit(2);
+        }
+        $attribute = $findAttribute('customer', $code);
+        // select and multiple select values are option labels: the store keeps option ids
+        if ($value !== '' && in_array($definitions[$code]['input'], ['select', 'multiselect'], true)) {
+            $ids = [];
+            foreach (explode('|', $value) as $label) {
+                $id = $attribute->getSource()->getOptionId($label);
+                if ($id === null || $id === '') {
+                    fwrite(STDERR, "$code has no option \"$label\".\n");
+                    exit(2);
+                }
+                $ids[] = (string) $id;
+            }
+            $value = implode(',', $ids);
+        }
+        $given[$code] = $value;
+    }
+    // Load the customer only now: resolving the option labels above clears the EAV cache, and a customer loaded before that loses the
+    // values set on it when it is saved.
+    $customer = $findCustomer($email);
+    if ($customer === null) {
+        fwrite(STDERR, "Customer $email not found (seed first).\n");
+        exit(1);
+    }
+    // the customer form always asks for required attributes: keep them filled unless a value is given
+    foreach ($definitions as $code => $definition) {
+        if (!empty($definition['required']) && !isset($given[$code])) {
+            $current = $customer->getCustomAttribute($code);
+            if ($current === null || (string) $current->getValue() === '') {
+                $given[$code] = 'account value';
+            }
+        }
+    }
+    foreach ($given as $code => $value) {
+        $customer->setCustomAttribute($code, $value);
+    }
+    $customerRepository->save($customer);
+    $eavConfig->clear();
+    echo 'set      ' . $email . ': ' . implode(', ', array_keys($given)) . "\n";
     exit(0);
 }
 

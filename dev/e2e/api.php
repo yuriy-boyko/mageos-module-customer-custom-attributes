@@ -229,10 +229,11 @@ if ($customerPassword === '') {
         $record = $customer['items'][0] ?? null;
         if ($record !== null) {
             // an attribute that is only on the account forms: its value is read from the customer when the order is placed
-            // (the admin customer form always includes every custom customer attribute, so the required e2e_c_req needs a value too)
+            // (the admin customer form always includes every custom customer attribute, so the required ones need a value too)
             $record['custom_attributes'] = [
                 ['attribute_code' => 'e2e_c_account', 'value' => 'account value'],
                 ['attribute_code' => 'e2e_c_req', 'value' => 'admin value'],
+                ['attribute_code' => 'e2e_c_rdep', 'value' => 'admin value'],
             ];
             [$status, $saved] = $api('PUT', '/customers/' . $record['id'], ['customer' => $record], $admin);
             $check('an admin can write custom customer attributes', $status === 200, "status $status " . $message($saved));

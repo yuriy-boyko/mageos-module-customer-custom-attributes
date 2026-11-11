@@ -159,11 +159,11 @@ if ($command === 'order') {
 
 // customer and quote commands work from the customer's e-mail
 $customerRow = $db->fetchRow($sql('SELECT entity_id FROM {{customer_entity}} WHERE email = ?'), [$argument]);
-if (!$customerRow) {
+if (!$customerRow && $command === 'customer') {
     fwrite(STDERR, "Customer $argument not found.\n");
     exit(1);
 }
-$customerId = (int) $customerRow['entity_id'];
+$customerId = $customerRow ? (int) $customerRow['entity_id'] : 0;
 
 if ($command === 'customer') {
     // Read through the EAV models so every backend type is covered; only user-defined attributes of the customer and its addresses.
@@ -192,7 +192,15 @@ if ($command === 'customer') {
 }
 
 // quote
-$quoteId = (int) $db->fetchOne($sql('SELECT MAX(entity_id) FROM {{quote}} WHERE customer_id = ?'), [$customerId]);
+// a customer's latest quote, or (a guest has no account) the latest quote with that e-mail
+// (a guest quote has no e-mail until the order is placed: `@latest` is the newest quote of all, which is the one a test just created)
+if ($argument === '@latest') {
+    $quoteId = (int) $db->fetchOne($sql('SELECT MAX(entity_id) FROM {{quote}}'));
+} else {
+    $quoteId = $customerId > 0
+        ? (int) $db->fetchOne($sql('SELECT MAX(entity_id) FROM {{quote}} WHERE customer_id = ?'), [$customerId])
+        : (int) $db->fetchOne($sql('SELECT MAX(entity_id) FROM {{quote}} WHERE customer_email = ?'), [$argument]);
+}
 if ($quoteId === 0) {
     fwrite(STDERR, "No quote for $argument.\n");
     exit(1);

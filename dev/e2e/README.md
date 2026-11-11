@@ -56,6 +56,10 @@ uncaught script error or a failed Magewire call:
 | `customerPage`, `adminPage` (fixtures) | a page already signed in as the fixture customer / an admin (the test is skipped without credentials) |
 | `adminOpen(page, 'mageos_cca/relation')` | open an admin page through its menu link (admin URLs carry a secret key) |
 | `useVariant('mobile')` | run the tests of this `describe` on another Hyvä Checkout variant (`onepage`, `default`, `mobile`) |
+| `sections(page)`, `walkSteps(page, magewire)` | the visible customer attribute sections (position -> field codes) and the sections of every step of a step variant |
+| `pickRadio`, `tickCheckbox`, `optionOf`, `sendMagewireValue` | choose options of a customer attribute section by label; send a value to a section as a hand-made request would |
+| `accountValues(email)`, `quoteValues(email \| '@latest')`, `setAccountValues`, `dropQuotes`, `loginAs`, `customerEmail()` | read the account or the quote from the database, set account values, give the customer no active cart, sign in. A guest quote has no e-mail until the order is placed: use `'@latest'` |
+| `customerPage` / `customerMagewire` | the page of the signed-in fixture customer and its Magewire idle wait |
 | `fillCheckout(page, magewire, overrides?)`, `chooseShippingAndPayment`, `placeOrder` | fill the guest shipping address with valid values (and the always-required fixtures), pick shipping and Check / Money order, click Place Order |
 | `placedOrderSnapshot(page)` | the order number from the success page and the module's snapshot of that order (customer attributes, billing, shipping by code), read from the database |
 | `benchCommand('E2E_FIXTURE_CMD' \| 'E2E_ASSERT_CMD', args)` | run `fixtures.php` or `assertions.php` on the store (the test is skipped without `run-all.sh`) |
@@ -77,6 +81,8 @@ php ... fixtures.php status
 php ... fixtures.php teardown
 php ... fixtures.php delete-option <code> <label>   # delete an option of a fixture attribute, like the admin (used by DEP16)
 php ... fixtures.php delete-attribute <code>         # delete a fixture attribute, like the admin; prints the rules and group rows left
+php ... fixtures.php set-customer <email> <code=value>...  # set account values of the fixture customer (select: option label, several: a|b)
+php ... fixtures.php drop-quotes <email>             # give a customer no active cart
 php ... fixtures.php purge        # delete the orders and quotes of test e-mails (containing e2e, ending @example.com)
 bin/magento cache:flush
 ```
@@ -94,7 +100,7 @@ bin/magento cache:flush
 
 | Kind | Attributes |
 |---|---|
-| Customer, in the checkout | text, required text, dropdown (radio), date, multiple select (checkboxes), text area, yes/no (radio), a text field that depends on the dropdown, one position per checkout position |
+| Customer, in the checkout | text, required text, dropdown (radio), date, multiple select (checkboxes), text area, yes/no (radio), a text field and a required text field that depend on the dropdown (Gold, Silver), one at each of the seven checkout positions |
 | Customer, other | order-only (checkout and admin form only), account-only (no checkout) |
 | Address | text, required text, a text field that depends on a multiple select (Red or Blue), a required field that depends on a dropdown (Show), a three-level nested chain (root On, middle Yes, leaf), a dropdown/dependent pair for deleting an option and one with group restrictions for deleting an attribute, text with length rules, dropdown (radio), multiple select, date with a maximum, text area, yes/no, a text field that depends on the dropdown |
 | Relations | one for customer and one for address attributes (dropdown option shows the dependent field) |
@@ -186,6 +192,10 @@ E2E_HEADED=1 ...                                                                
 | Test | Covers |
 |---|---|
 | `smoke-variants.spec.ts` | the checkout of each variant (one-page, multi-step, mobile) opens and shows the module's fields; proves the variant switch |
+| `cco2-positions.spec.ts` | CCO2: the seven customer attribute positions on the right step of each variant (one-page: all on the page; multi-step: shipping positions on the first step, payment positions on the payment step, summary on both; mobile: three steps) |
+| `cco-guest-checkout.spec.ts` | CCO9 guest values at every position saved on the quote and on the order (labels for dropdown, checkbox, date, yes/no); CCO7 a required customer attribute empty blocks the order; CCO8 a rule across two positions (instant show/hide, a hand-sent value for a hidden attribute is dropped by the server, a hidden required attribute does not block) |
+| `cco-logged-in-checkout.spec.ts` | CCO3 prefill on/off, CCO4 typing stores on the quote and leaves the account unchanged, CCO5 clearing a prefilled value, CCO6 the order carries the typed values and the account-only values |
+| `cco10-guest-logs-in.spec.ts` | CCO10 a guest signs in during the checkout: without an active cart the typed values are kept and empty fields are prefilled; with an active cart that cart's values win |
 | `dep12-multiselect-parent.spec.ts` | DEP12: a dependent address field follows a multiple select parent (shows for any matching option, hides and clears otherwise) |
 | `dep13-required-dependent.spec.ts` | DEP13: a shown required dependent left empty blocks the order (field marked, message names it), a hidden one does not; the order is placed once it is filled |
 | `dep14-account-address-hidden-required.spec.ts` | DEP14: the account address form saves with a required attribute hidden by a rule (it is disabled and not sent), and blocks when it is shown and empty |

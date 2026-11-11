@@ -293,7 +293,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | DEP10 | Hand-typed new address: change the parent several times, "Ship here", place the order | order has the parent and visible dependents only | **manual** |
 | DEP11 | Default and mobile variants, billing form, guest, second store | works | **manual** |
 | DEP12 | Multiselect parent in the checkout | dependent follows | ✅ automated: playwright/tests/dep12-multiselect-parent.spec.ts (fails when the rule is broken, checked) |
-| DEP13 | Required dependent shown and left empty | place order blocked with the field message | ✅ automated: playwright/tests/dep13-required-dependent.spec.ts (fails when the field is not required, checked) |
+| DEP13 | Required dependent shown and left empty | place order blocked with the field message | ✅ automated: playwright/tests/dep13-required-dependent.spec.ts |
 | DEP14 | Account address form saved with a hidden required attribute | saves | ✅ (found and fixed: the account form did not send the hidden field and the plugin treated that as a value; `EavDataRequiredForHiddenAttribute` now handles `false`) · automated: playwright/tests/dep14-account-address-hidden-required.spec.ts |
 | DEP15 | Nested rules (A → B → C) | C only when A and B match | ✅ automated: playwright/tests/dep15-nested-rules.spec.ts (fails when the B to C rule is broken, checked) |
 | DEP16 | Parent option deleted later; attribute deleted | rule never matches; rules and group rows disappear | ✅ automated: playwright/tests/dep16-deleted-option-and-attribute.spec.ts |
@@ -353,15 +353,15 @@ multi-step (default) and the mobile checkout were tested; the sections use the c
 | ID | Test | Expected | Status |
 |---|---|---|---|
 | CCO1 | Admin: position, sort order and prefill are always listed and greyed out while "Hyvä Checkout" is not ticked; saved in the rules | stored as `mageos_checkout_*` | ✅ |
-| CCO2 | Sections render at their positions | at the right containers | ✅ all seven positions rendered across the variants (one-page: shipping methods below, payment above/below, order summary, shipping address above; multi-step: shipping address above/below, shipping methods below, payment above/below, order summary; mobile: shipping address below, shipping methods above, payment above); ✅ mobile order summary step with a field, ☐ shipping methods above on multi-step |
-| CCO3 | Prefill on: logged-in customer sees the saved value; prefill off: empty (default value only) | as set | ✅ |
-| CCO4 | Typing a value | stored on the quote, customer account unchanged | ✅ |
-| CCO5 | Clearing a prefilled value | stored as empty, the account keeps its value, no refill until the next page load | ✅ |
-| CCO6 | Order placed | snapshot rows carry the typed values; attributes not shown in the checkout still come from the customer | ✅ |
-| CCO7 | Required attribute empty | the order is blocked with "…is a required value." | ✅ |
-| CCO8 | Dependency rule across two positions (dropdown above shipping address shows the text below) | instant show and hide; hidden value dropped on the server; hidden required value does not block; order without it | ✅ |
-| CCO9 | Guest: fields shown, value saved on the guest quote, guest order | yes | ✅ (multi-step and mobile guest orders) |
-| CCO10 | Guest logs in after typing | customer without an active cart: typed values kept (prefill only fills empty ones); customer with an active cart: that cart and its values win | ✅ |
+| CCO2 | Sections render at their positions | at the right containers | ✅ automated: playwright/tests/cco2-positions.spec.ts (all seven positions on the one-page, multi-step and mobile checkouts, each on the right step) |
+| CCO3 | Prefill on: logged-in customer sees the saved value; prefill off: empty (default value only) | as set | ✅ · automated: playwright/tests/cco-logged-in-checkout.spec.ts |
+| CCO4 | Typing a value | stored on the quote, customer account unchanged | ✅ · automated: playwright/tests/cco-logged-in-checkout.spec.ts |
+| CCO5 | Clearing a prefilled value | stored as empty (no row on the quote), the account keeps its value, no refill until the next page load | ✅ · automated: playwright/tests/cco-logged-in-checkout.spec.ts |
+| CCO6 | Order placed | snapshot rows carry the typed values; attributes not shown in the checkout still come from the customer | ✅ · automated: playwright/tests/cco-logged-in-checkout.spec.ts |
+| CCO7 | Required attribute empty | the order is blocked with "…is a required value." | ✅ · automated: playwright/tests/cco-guest-checkout.spec.ts |
+| CCO8 | Dependency rule across two positions (dropdown above shipping address shows the text below) | instant show and hide; hidden value dropped on the server; hidden required value does not block; order without it | ✅ · automated: playwright/tests/cco-guest-checkout.spec.ts |
+| CCO9 | Guest: fields shown, value saved on the guest quote, guest order | yes | ✅ (multi-step and mobile guest orders) · automated: playwright/tests/cco-guest-checkout.spec.ts |
+| CCO10 | Guest logs in after typing | customer without an active cart: typed values kept (prefill only fills empty ones); customer with an active cart: that cart and its values win | ✅ · automated: playwright/tests/cco10-guest-logs-in.spec.ts |
 | CCO22 | Required customer attribute placed at a shipping position, virtual-only cart | order not blocked | ✅ (found and fixed: shipping-position attributes are skipped for virtual carts) |
 | CCO11 | Customer group restriction hides the section for other groups | hidden | ✅ attributes limited to Wholesale: hidden for a General customer (the order has no value for them although the account holds one); a Wholesale customer sees them |
 | CCO12 | Website scope (disabled or required for one website) | follows the website | ✅ website 2 only: attribute disabled (field absent on the Italy checkout), required (radio without "None", `required` set); main website unchanged; server-side required check on the Italy site not placed |

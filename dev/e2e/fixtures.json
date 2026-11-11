@@ -21,6 +21,10 @@
          "checkout": {"position": "order_summary", "sort": 10, "prefill": true}},
         {"entity": "customer", "code": "e2e_c_dep", "label": "E2E Customer Dependent", "input": "text",
          "checkout": {"position": "payment_below", "sort": 5, "prefill": false}},
+        {"entity": "customer", "code": "e2e_c_below", "label": "E2E Customer Below Address", "input": "text",
+         "checkout": {"position": "shipping_address_below", "sort": 10, "prefill": true}},
+        {"entity": "customer", "code": "e2e_c_rdep", "label": "E2E Customer Required Dependent", "input": "text", "required": true,
+         "checkout": {"position": "payment_below", "sort": 8, "prefill": false}},
         {"entity": "customer", "code": "e2e_c_order", "label": "E2E Order Only", "input": "text",
          "forms": ["mageos_hyva_checkout", "adminhtml_checkout"],
          "checkout": {"position": "shipping_methods_below", "sort": 10, "prefill": false}},
@@ -53,7 +57,10 @@
     ],
     "relations": [
         {"name": "E2E customer relation", "entity": "customer",
-         "rules": [{"parent": "e2e_c_sel", "option": "Gold", "dependent": "e2e_c_dep"}]},
+         "rules": [
+             {"parent": "e2e_c_sel", "option": "Gold", "dependent": "e2e_c_dep"},
+             {"parent": "e2e_c_sel", "option": "Silver", "dependent": "e2e_c_rdep"}
+         ]},
         {"name": "E2E address relation", "entity": "address",
          "rules": [{"parent": "e2e_a_sel", "option": "North", "dependent": "e2e_a_dep"}]},
         {"name": "E2E address multiselect relation", "entity": "address",
