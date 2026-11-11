@@ -1,0 +1,39 @@
+{
+    "name": "mage-os/module-customer-custom-attributes",
+    "description": "Customer and customer address custom attributes for Magento Open Source and Mage-OS, built Hyvä Theme and Hyvä Checkout first",
+    "type": "magento2-module",
+    "license": [
+        "OSL-3.0",
+        "AFL-3.0"
+    ],
+    "authors": [
+        {
+            "name": "Yuriy Boyko",
+            "email": "info@yuriy-boyko.com"
+        }
+    ],
+    "require": {
+        "php": "~8.3.0||~8.4.0||~8.5.0",
+        "magento/framework": "*",
+        "magento/module-backend": "*",
+        "magento/module-catalog": "*",
+        "magento/module-config": "*",
+        "magento/module-customer": "*",
+        "magento/module-eav": "*",
+        "magento/module-quote": "*",
+        "magento/module-sales": "*",
+        "magento/module-store": "*",
+        "magento/module-ui": "*"
+    },
+    "suggest": {
+        "mage-os/module-customer-custom-attributes-hyva-checkout": "Hyvä Checkout integration: shows and hides the custom address attributes in the checkout address forms"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "MageOS\\CustomerCustomAttributes\\": ""
+        }
+    }
+}

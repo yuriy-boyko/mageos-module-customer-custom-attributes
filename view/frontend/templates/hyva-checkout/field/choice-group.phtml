@@ -1,0 +1,79 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+use Hyva\Checkout\Model\Form\EntityField\AbstractEntityField;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var AbstractEntityField $element */
+
+// Radio buttons (dropdown and yes/no attributes) or checkboxes (multiple select attributes): the same options and values
+// as the dropdown or list, drawn as a group. Used through the field renderer alias set by AttributeVisibilityModifier.
+$element = $block->getData('element');
+$display = (string) $block->getData('display') === 'checkbox' ? 'checkbox' : 'radio';
+$renderer = $element->getRenderer();
+$attributes = $element->getAttributes();
+
+$baseId = (string) ($attributes['id'] ?? $element->getId());
+$name = rtrim((string) ($attributes['name'] ?? $element->getId()), '[]') . ($display === 'checkbox' ? '[]' : '');
+$skip = ['id', 'name', 'type', 'value', 'class', 'multiple', 'checked'];
+$extra = '';
+foreach ($attributes as $attribute => $attributeValue) {
+    if (in_array($attribute, $skip, true)) {
+        continue;
+    }
+    $extra .= $attributeValue === null
+        ? ' ' . $escaper->escapeHtmlAttr($attribute)
+        : ' ' . $escaper->escapeHtmlAttr($attribute) . '="' . $escaper->escapeHtmlAttr((string) $attributeValue) . '"';
+}
+
+$choices = [];
+foreach ($element->getOptions() as $key => $option) {
+    if (is_object($option)) {
+        $choices[] = ['value' => (string) $option->getValue(), 'label' => (string) $option->getLabel()];
+    } elseif (is_array($option)) {
+        $choices[] = ['value' => (string) $option['value'], 'label' => (string) $option['label']];
+    } else {
+        $choices[] = ['value' => (string) $key, 'label' => (string) $option];
+    }
+}
+$choices = array_values(array_filter($choices, static fn (array $choice): bool => $display === 'radio' || $choice['value'] !== ''));
+if ($display === 'radio' && !$element->isRequired()) {
+    // A radio button cannot be unticked: give an optional attribute a "None" choice, like the empty option of a dropdown.
+    $choices = array_values(array_filter($choices, static fn (array $choice): bool => $choice['value'] !== ''));
+    array_unshift($choices, ['value' => '', 'label' => (string) __('None')]);
+}
+$selected = array_map('strval', array_filter((array) $element->getValue(), static fn ($v): bool => $v !== null));
+$cssClassesFieldWrapperInner = $element->renderClass(['field'], 'field-wrapper-inner');
+?>
+<div class="<?= $escaper->escapeHtmlAttr($cssClassesFieldWrapperInner) ?>">
+    <?= /* @noEscape */ $renderer->renderLabel($element) ?>
+    <?= /* @noEscape */ $renderer->renderBefore($element) ?>
+    <div class="flex flex-col gap-2 mageos-cca-choices" role="<?= $display === 'radio' ? 'radiogroup' : 'group' ?>">
+        <?php foreach ($choices as $index => $choice): ?>
+            <?php
+            $optionId = $index === 0 ? $baseId : $baseId . '-' . $index;
+            $isChecked = in_array($choice['value'], $selected, true)
+                || ($display === 'radio' && $choice['value'] === '' && ($selected === [] || $selected === ['']));
+            ?>
+            <label class="inline-flex items-center gap-2 my-0 cursor-pointer" for="<?= $escaper->escapeHtmlAttr($optionId) ?>">
+                <input type="<?= $escaper->escapeHtmlAttr($display) ?>"
+                       id="<?= $escaper->escapeHtmlAttr($optionId) ?>"
+                       name="<?= $escaper->escapeHtmlAttr($name) ?>"
+                       value="<?= $escaper->escapeHtmlAttr($choice['value']) ?>"
+                       class="<?= $display === 'radio' ? 'form-radio' : 'form-checkbox' ?>"<?= /* @noEscape */ $extra ?>
+                       <?= $isChecked ? 'checked' : '' ?>>
+                <span><?= $escaper->escapeHtml($choice['label']) ?></span>
+            </label>
+        <?php endforeach; ?>
+    </div>
+    <?= /* @noEscape */ $renderer->renderHintText($element) ?>
+    <?= /* @noEscape */ $renderer->renderComment($element) ?>
+    <?= /* @noEscape */ $renderer->renderAfter($element) ?>
+</div>

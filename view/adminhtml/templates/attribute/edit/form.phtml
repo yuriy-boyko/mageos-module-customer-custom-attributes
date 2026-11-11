@@ -1,0 +1,24 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+/** @var \MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Edit $block */
+/** @var \Magento\Framework\Escaper $escaper */
+?>
+<?= /* @noEscape */ $block->getFormInitScripts() ?>
+<form id="edit_form" class="admin__scope-old edit-form" action="<?= $escaper->escapeUrl($block->getSaveUrl()) ?>" method="post">
+    <input name="form_key" type="hidden" value="<?= $escaper->escapeHtmlAttr($block->getFormKey()) ?>" />
+    <input name="entity" type="hidden" value="<?= $escaper->escapeHtmlAttr($block->getEntityKey()) ?>" />
+    <?= $block->getChildHtml('form') ?>
+</form>
+<script type="text/x-magento-init">
+    {
+        "#edit_form": {
+            "Magento_Catalog/catalog/product/edit/attribute": {
+                "validationUrl": "<?= $escaper->escapeJs($escaper->escapeUrl($block->getValidationUrl())) ?>"
+            }
+        }
+    }
+</script>
+<?= /* @noEscape */ $block->getFormScripts() ?>

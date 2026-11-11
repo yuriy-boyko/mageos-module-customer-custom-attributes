@@ -1,0 +1,66 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+use MageOS\CustomerCustomAttributes\Block\Adminhtml\Relation\Relation;
+use Magento\Framework\Escaper;
+
+/** @var Relation $block */
+/** @var Escaper $escaper */
+/** @var \Magento\Framework\View\Helper\SecureHtmlRenderer $secureRenderer */
+$relations = $block->getRelations();
+?>
+<div class="page-main-actions">
+    <div class="page-actions-placeholder"></div>
+    <div class="page-actions">
+        <div class="page-actions-inner">
+            <div class="page-actions-buttons">
+                <button type="button" class="action-default scalable add primary" id="mageos-cca-relation-new"
+                        data-url="<?= $escaper->escapeUrl($block->getUrl('*/*/new')) ?>">
+                    <span><?= $escaper->escapeHtml(__('Add New Relation')) ?></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<p class="message message-notice"><?= $escaper->escapeHtml(__('A relation shows attributes only when another attribute has a chosen option, for example "Company VAT number" only when "Customer type" is "Business".')) ?></p>
+<div class="admin__data-grid-wrap admin__data-grid-wrap-static">
+    <table class="data-grid">
+        <thead>
+            <tr>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Name')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('For')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Rules')) ?></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if ($relations === []): ?>
+            <tr class="data-grid-tr-no-data"><td colspan="3"><?= $escaper->escapeHtml(__('No relations yet.')) ?></td></tr>
+        <?php endif; ?>
+        <?php foreach ($relations as $index => $relation): ?>
+            <tr class="data-row mageos-cca-relation-row <?= $index % 2 ? '_even-row' : '_odd-row' ?>"
+                data-url="<?= $escaper->escapeUrl($block->getUrl('*/*/edit', ['relation_id' => $relation['relation_id']])) ?>">
+                <td><?= $escaper->escapeHtml($relation['name']) ?></td>
+                <td><?= $escaper->escapeHtml($block->getEntityLabel($relation['entity_type'])) ?></td>
+                <td><?= (int) $relation['rule_count'] ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php $script = <<<'JS'
+    document.getElementById('mageos-cca-relation-new').addEventListener('click', function () {
+        window.location = this.getAttribute('data-url');
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.mageos-cca-relation-row'), function (row) {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function () {
+            window.location = this.getAttribute('data-url');
+        });
+    });
+JS;
+?>
+<?= /* @noEscape */ $secureRenderer->renderTag('script', [], $script, false) ?>

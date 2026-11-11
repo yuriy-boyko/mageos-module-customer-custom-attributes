@@ -1,0 +1,96 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var \Hyva\Theme\ViewModel\HyvaCsp $hyvaCsp */
+
+$config = $block->getData('visibility');
+$hasLogic = !empty($config['rules']) || !empty((array) ($config['restrictions'] ?? []));
+if (!$hasLogic) {
+    return;
+}
+?>
+<script>
+(function () {
+    // Same rules as Service\VisibilityResolver on the server: an attribute without rules is visible; one with rules is
+    // visible when a rule matches a visible parent that has the option (rules nest); a group restriction hides it from
+    // other customer groups. Hidden fields are disabled, so they are neither validated nor submitted.
+    var config = <?= /* @noEscape */ json_encode($config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var root = document.currentScript.previousElementSibling;
+    if (!root) { return; }
+
+    function container(code) { return root.querySelector('.field.' + code); }
+    function controls(code) { return root.querySelectorAll('[name="' + code + '"], [name="' + code + '[]"]'); }
+
+    function value(code) {
+        var elements = controls(code);
+        if (!elements.length) { return ''; }
+        var first = elements[0];
+        if (first.type === 'radio' || first.type === 'checkbox') {
+            return Array.prototype.filter.call(elements, function (e) { return e.checked && e.value !== ''; })
+                .map(function (e) { return e.value; }).join(',');
+        }
+        if (first.tagName === 'SELECT' && first.multiple) {
+            return Array.prototype.filter.call(first.options, function (o) { return o.selected && o.value !== ''; })
+                .map(function (o) { return o.value; }).join(',');
+        }
+        return first.value;
+    }
+
+    function resolve() {
+        var codes = config.codes;
+        var restrictions = config.restrictions || {};
+        var allowed = {}, byDependent = {}, visible = {};
+        codes.forEach(function (code) {
+            var groups = restrictions[code] || [];
+            allowed[code] = groups.length === 0 || (config.groupId !== null && groups.indexOf(config.groupId) !== -1);
+        });
+        config.rules.forEach(function (rule) {
+            if (codes.indexOf(rule.parent) !== -1 && codes.indexOf(rule.dependent) !== -1) {
+                (byDependent[rule.dependent] = byDependent[rule.dependent] || []).push(rule);
+            }
+        });
+        codes.forEach(function (code) { if (allowed[code] && !byDependent[code]) { visible[code] = true; } });
+        var changed;
+        do {
+            changed = false;
+            Object.keys(byDependent).forEach(function (dependent) {
+                if (visible[dependent] || !allowed[dependent]) { return; }
+                byDependent[dependent].some(function (rule) {
+                    if (visible[rule.parent] && value(rule.parent).split(',').indexOf(rule.option) !== -1) {
+                        visible[dependent] = true;
+                        changed = true;
+                        return true;
+                    }
+                    return false;
+                });
+            });
+        } while (changed);
+        return visible;
+    }
+
+    function apply() {
+        var visible = resolve();
+        config.codes.forEach(function (code) {
+            var box = container(code);
+            if (!box) { return; }
+            var show = !!visible[code];
+            box.style.display = show ? '' : 'none';
+            Array.prototype.forEach.call(controls(code), function (element) { element.disabled = !show; });
+        });
+    }
+
+    root.addEventListener('change', apply);
+    root.addEventListener('input', apply);
+    apply();
+})();
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

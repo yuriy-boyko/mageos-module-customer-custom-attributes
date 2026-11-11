@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Api/etc/extension_attributes.xsd">
+    <extension_attributes for="Magento\Sales\Api\Data\OrderAddressInterface">
+        <attribute code="custom_attribute_values" type="MageOS\CustomerCustomAttributes\Api\Data\AddressAttributeValueInterface[]"/>
+    </extension_attributes>
+    <extension_attributes for="Magento\Sales\Api\Data\OrderInterface">
+        <attribute code="customer_attribute_values" type="MageOS\CustomerCustomAttributes\Api\Data\AddressAttributeValueInterface[]"/>
+    </extension_attributes>
+</config>

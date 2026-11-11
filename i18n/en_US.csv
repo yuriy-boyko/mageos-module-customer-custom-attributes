@@ -1,0 +1,123 @@
+"Add New %1","Add New %1"
+"Save Attribute","Save Attribute"
+"Save and Continue Edit","Save and Continue Edit"
+"Delete Attribute","Delete Attribute"
+"Edit %1 ""%2""","Edit %1 ""%2"""
+"New %1","New %1"
+"Input Validation","Input Validation"
+None,None
+"Letters (a-z, A-Z) or Numbers (0-9)","Letters (a-z, A-Z) or Numbers (0-9)"
+"Numbers (0-9)","Numbers (0-9)"
+"Letters (a-z, A-Z)","Letters (a-z, A-Z)"
+URL,URL
+Email,Email
+"Length Only","Length Only"
+"Minimum Text Length","Minimum Text Length"
+"Maximum Text Length","Maximum Text Length"
+"Minimum Date","Minimum Date"
+"Format YYYY-MM-DD. Leave empty for no limit.","Format YYYY-MM-DD. Leave empty for no limit."
+"Maximum Date","Maximum Date"
+"Storefront Display","Storefront Display"
+"Display As","Display As"
+"Default (dropdown or list)","Default (dropdown or list)"
+"Radio buttons","Radio buttons"
+Checkboxes,Checkboxes
+"Dropdown and Yes/No attributes can be shown as radio buttons, multiple select attributes as checkboxes. The saved values do not change.","Dropdown and Yes/No attributes can be shown as radio buttons, multiple select attributes as checkboxes. The saved values do not change."
+"Storefront Properties","Storefront Properties"
+Enabled,Enabled
+"Sort Order","Sort Order"
+"Lower numbers are shown first.","Lower numbers are shown first."
+"Show in Forms","Show in Forms"
+"The attribute is always available in the admin forms. Hold Ctrl or Cmd to select several forms.","The attribute is always available in the admin forms. Hold Ctrl or Cmd to select several forms."
+"Customer Groups","Customer Groups"
+"Show the attribute only to customers in the selected groups. Leave empty to show it to all groups. Hold Ctrl or Cmd to select several.","Show the attribute only to customers in the selected groups. Leave empty to show it to all groups. Hold Ctrl or Cmd to select several."
+"Position at Checkout Step","Position at Checkout Step"
+"Checkout Sort Order","Checkout Sort Order"
+"Lower numbers are shown first inside the position.","Lower numbers are shown first inside the position."
+"Prefill from Customer","Prefill from Customer"
+"Fill an empty field with the logged-in customer's saved value. Values typed in the checkout are kept on the order only; the customer account is not changed.","Fill an empty field with the logged-in customer's saved value. Values typed in the checkout are kept on the order only; the customer account is not changed."
+"Input Type","Input Type"
+"Used internally. Lowercase letters, digits and underscores only, starting with a letter, at most %1 characters. Cannot be changed later.","Used internally. Lowercase letters, digits and underscores only, starting with a letter, at most %1 characters. Cannot be changed later."
+"Use Default (Yes)","Use Default (Yes)"
+"Use Default (No)","Use Default (No)"
+Yes,Yes
+No,No
+"Values Required","Values Required"
+"Default Value","Default Value"
+"Use Default","Use Default"
+"Leave empty to use the default of the Properties tab.","Leave empty to use the default of the Properties tab."
+"Attribute Information","Attribute Information"
+Properties,Properties
+"Manage Labels","Manage Labels"
+Websites,Websites
+"Attribute Code","Attribute Code"
+"Default Label","Default Label"
+Required,Required
+Enable,Enable
+Disable,Disable
+Delete,Delete
+"Delete the selected attributes? Orders keep their values. This cannot be undone.","Delete the selected attributes? Orders keep their values. This cannot be undone."
+Customer,Customer
+"Customer Address","Customer Address"
+"%1 attribute(s) were skipped (not found, not editable or an error).","%1 attribute(s) were skipped (not found, not editable or an error)."
+"Please select attributes.","Please select attributes."
+Stores,Stores
+"This attribute no longer exists or cannot be deleted.","This attribute no longer exists or cannot be deleted."
+"You deleted the attribute.","You deleted the attribute."
+"We can't delete the attribute right now.","We can't delete the attribute right now."
+"This attribute no longer exists or cannot be edited.","This attribute no longer exists or cannot be edited."
+"We can't delete the attribute ""%1"".","We can't delete the attribute ""%1""."
+"A total of %1 attribute(s) have been deleted.","A total of %1 attribute(s) have been deleted."
+"We can't update the attribute ""%1"".","We can't update the attribute ""%1""."
+"A total of %1 attribute(s) have been enabled.","A total of %1 attribute(s) have been enabled."
+"A total of %1 attribute(s) have been disabled.","A total of %1 attribute(s) have been disabled."
+"The attribute could not be saved. Verify your information and try again.","The attribute could not be saved. Verify your information and try again."
+"You saved the attribute.","You saved the attribute."
+"We can't save the attribute right now.","We can't save the attribute right now."
+"The attribute could not be validated. Verify your information and try again.","The attribute could not be validated. Verify your information and try again."
+"Attribute Relations","Attribute Relations"
+"You deleted the relation.","You deleted the relation."
+"This relation no longer exists.","This relation no longer exists."
+"Edit Relation","Edit Relation"
+"New Relation","New Relation"
+message,message
+"You saved the relation.","You saved the relation."
+"We can't save the relation right now.","We can't save the relation right now."
+label,label
+plural_label,plural_label
+"Please select a valid input type.","Please select a valid input type."
+"An attribute with the code ""%1"" already exists.","An attribute with the code ""%1"" already exists."
+"The default label is required.","The default label is required."
+"Sort order must be a whole number, zero or greater.","Sort order must be a whole number, zero or greater."
+"The admin value of every option is required.","The admin value of every option is required."
+"Add at least one option.","Add at least one option."
+"The admin value of each option must be unique.","The admin value of each option must be unique."
+"Billing Address","Billing Address"
+"Shipping Address","Shipping Address"
+billing,billing
+shipping,shipping
+"Your saved %1 address needs the field %2. Please edit the address in My Account > Address Book, or choose another address.","Your saved %1 address needs the field %2. Please edit the address in My Account > Address Book, or choose another address."
+"Your saved %1 address has some required fields missing. Please edit the address in My Account > Address Book, or choose another address.","Your saved %1 address has some required fields missing. Please edit the address in My Account > Address Book, or choose another address."
+pattern_message,pattern_message
+"Your saved address needs the field %1.","Your saved address needs the field %1."
+"Your saved address has some required fields missing.","Your saved address has some required fields missing."
+"Click here to edit it","Click here to edit it"
+Back,Back
+"Save Relation","Save Relation"
+Name,Name
+"Relation For","Relation For"
+"Customer Address Attributes","Customer Address Attributes"
+"Customer Attributes","Customer Attributes"
+"Rules: show the dependent attribute when the parent attribute has the option","Rules: show the dependent attribute when the parent attribute has the option"
+"Parent attribute","Parent attribute"
+"Has option","Has option"
+"Show dependent attribute","Show dependent attribute"
+"Add Rule","Add Rule"
+"Delete this relation? The attributes become visible again.","Delete this relation? The attributes become visible again."
+"Please select","Please select"
+Remove,Remove
+"Add New Relation","Add New Relation"
+"A relation shows attributes only when another attribute has a chosen option, for example ""Company VAT number"" only when ""Customer type"" is ""Business"".","A relation shows attributes only when another attribute has a chosen option, for example ""Company VAT number"" only when ""Customer type"" is ""Business""."
+For,For
+Rules,Rules
+"No relations yet.","No relations yet."

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ *
+ * Hyvä only: the hyva_ prefix makes Hyvä themes load this file, other themes ignore it.
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="fieldset.address.info.additional">
+            <block class="Magento\Framework\View\Element\Template" name="mageos.cca.address.attributes"
+                   template="MageOS_CustomerCustomAttributes::address/custom-attributes.phtml">
+                <arguments>
+                    <argument name="view_model" xsi:type="object">MageOS\CustomerCustomAttributes\ViewModel\FormAttributes</argument>
+                    <argument name="form_code" xsi:type="string">customer_address_edit</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+    </body>
+</page>

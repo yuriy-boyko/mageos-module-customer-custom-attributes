@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Backend:etc/menu.xsd">
+    <menu>
+        <add id="MageOS_CustomerCustomAttributes::customer_attributes" title="Customer Attributes" translate="title"
+             module="MageOS_CustomerCustomAttributes" sortOrder="40" parent="Magento_Backend::stores_attributes"
+             action="mageos_cca/attribute/index/entity/customer" resource="MageOS_CustomerCustomAttributes::customer_attributes"/>
+        <add id="MageOS_CustomerCustomAttributes::customer_address_attributes" title="Customer Address Attributes" translate="title"
+             module="MageOS_CustomerCustomAttributes" sortOrder="45" parent="Magento_Backend::stores_attributes"
+             action="mageos_cca/attribute/index/entity/address" resource="MageOS_CustomerCustomAttributes::customer_address_attributes"/>
+        <add id="MageOS_CustomerCustomAttributes::relations" title="Attribute Relations" translate="title"
+             module="MageOS_CustomerCustomAttributes" sortOrder="50" parent="Magento_Backend::stores_attributes"
+             action="mageos_cca/relation/index" resource="MageOS_CustomerCustomAttributes::relations"/>
+    </menu>
+</config>

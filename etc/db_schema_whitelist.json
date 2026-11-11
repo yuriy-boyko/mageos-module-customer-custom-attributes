@@ -1,0 +1,99 @@
+{
+    "mageos_cca_quote_value": {
+        "column": {
+            "value_id": true,
+            "quote_id": true,
+            "attribute_id": true,
+            "value": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "MAGEOS_CCA_QUOTE_VALUE_QUOTE_ID_QUOTE_ENTITY_ID": true,
+            "MAGEOS_CCA_QUOTE_VALUE_ATTRIBUTE_ID_EAV_ATTRIBUTE_ATTRIBUTE_ID": true,
+            "MAGEOS_CCA_QUOTE_VALUE_QUOTE_ID_ATTRIBUTE_ID": true
+        }
+    },
+    "mageos_cca_quote_address_value": {
+        "column": {
+            "value_id": true,
+            "quote_address_id": true,
+            "attribute_id": true,
+            "value": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "MAGEOS_CCA_QUOTE_ADDR_VAL_QUOTE_ADDR_ID_QUOTE_ADDR_ADDR_ID": true,
+            "MAGEOS_CCA_QUOTE_ADDR_VAL_ATTR_ID_EAV_ATTR_ATTR_ID": true,
+            "MAGEOS_CCA_QUOTE_ADDRESS_VALUE_QUOTE_ADDRESS_ID_ATTRIBUTE_ID": true
+        }
+    },
+    "mageos_cca_order_value": {
+        "column": {
+            "value_id": true,
+            "order_id": true,
+            "attribute_code": true,
+            "attribute_label": true,
+            "input_type": true,
+            "value": true,
+            "value_label": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "MAGEOS_CCA_ORDER_VALUE_ORDER_ID_SALES_ORDER_ENTITY_ID": true,
+            "MAGEOS_CCA_ORDER_VALUE_ORDER_ID_ATTRIBUTE_CODE": true
+        }
+    },
+    "mageos_cca_order_address_value": {
+        "column": {
+            "value_id": true,
+            "order_address_id": true,
+            "attribute_code": true,
+            "attribute_label": true,
+            "input_type": true,
+            "value": true,
+            "value_label": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "MAGEOS_CCA_ORDER_ADDR_VAL_ORDER_ADDR_ID_SALES_ORDER_ADDR_ENTT_ID": true,
+            "MAGEOS_CCA_ORDER_ADDRESS_VALUE_ORDER_ADDRESS_ID_ATTRIBUTE_CODE": true
+        }
+    },
+    "mageos_cca_relation": {
+        "column": {
+            "relation_id": true,
+            "name": true,
+            "entity_type": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "mageos_cca_relation_detail": {
+        "column": {
+            "detail_id": true,
+            "relation_id": true,
+            "parent_attribute_id": true,
+            "option_value": true,
+            "dependent_attribute_id": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "FK_0591BC7FBAEA1E6BED80F6D52D484921": true,
+            "MAGEOS_CCA_RELATION_DETAIL_PARENT_ATTR_ID_EAV_ATTR_ATTR_ID": true,
+            "MAGEOS_CCA_RELATION_DETAIL_DEPENDENT_ATTR_ID_EAV_ATTR_ATTR_ID": true,
+            "UNQ_94B59A367E8A2C54396E7B91062592BB": true
+        }
+    },
+    "mageos_cca_attribute_group": {
+        "column": {
+            "attribute_id": true,
+            "customer_group_id": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "MAGEOS_CCA_ATTR_GROUP_ATTR_ID_EAV_ATTR_ATTR_ID": true,
+            "MAGEOS_CCA_ATTR_GROUP_CSTR_GROUP_ID_CSTR_GROUP_CSTR_GROUP_ID": true
+        }
+    }
+}

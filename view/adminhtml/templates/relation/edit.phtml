@@ -1,0 +1,166 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+use MageOS\CustomerCustomAttributes\Block\Adminhtml\Relation\Relation;
+use Magento\Framework\Escaper;
+
+/** @var Relation $block */
+/** @var Escaper $escaper */
+/** @var \Magento\Framework\View\Helper\SecureHtmlRenderer $secureRenderer */
+$relation = $block->getRelation();
+$id = (int) ($relation['relation_id'] ?? 0);
+$entity = (string) ($relation['entity_type'] ?? '');
+?>
+<form id="mageos-cca-relation-form" action="<?= $escaper->escapeUrl($block->getUrl('*/*/save')) ?>" method="post">
+    <input type="hidden" name="form_key" value="<?= $escaper->escapeHtmlAttr($block->getFormKey()) ?>"/>
+    <input type="hidden" name="relation_id" value="<?= $id ?>"/>
+    <input type="hidden" name="back" id="mageos-cca-relation-back" value=""/>
+
+    <div class="page-main-actions">
+        <div class="page-actions-placeholder"></div>
+        <div class="page-actions">
+            <div class="page-actions-inner">
+                <div class="page-actions-buttons">
+                    <button type="button" class="action- scalable back" id="mageos-cca-relation-back-button"
+                            data-url="<?= $escaper->escapeUrl($block->getUrl('*/*/')) ?>"><span><?= $escaper->escapeHtml(__('Back')) ?></span></button>
+                    <?php if ($id): ?>
+                        <button type="button" class="action- scalable delete" id="mageos-cca-relation-delete"><span><?= $escaper->escapeHtml(__('Delete')) ?></span></button>
+                    <?php endif; ?>
+                    <button type="submit" class="action-default scalable save" id="mageos-cca-relation-save-continue"><span><?= $escaper->escapeHtml(__('Save and Continue Edit')) ?></span></button>
+                    <button type="submit" class="action-default scalable save primary" id="mageos-cca-relation-save"><span><?= $escaper->escapeHtml(__('Save Relation')) ?></span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <fieldset class="admin__fieldset">
+        <div class="admin__field required">
+            <label class="admin__field-label" for="mageos-cca-relation-name"><span><?= $escaper->escapeHtml(__('Name')) ?></span></label>
+            <div class="admin__field-control">
+                <input type="text" class="admin__control-text" id="mageos-cca-relation-name" name="name" required
+                       value="<?= $escaper->escapeHtmlAttr((string) ($relation['name'] ?? '')) ?>"/>
+            </div>
+        </div>
+        <div class="admin__field required">
+            <label class="admin__field-label" for="mageos-cca-relation-entity"><span><?= $escaper->escapeHtml(__('Relation For')) ?></span></label>
+            <div class="admin__field-control">
+                <select class="admin__control-select" id="mageos-cca-relation-entity" name="entity_type"<?= $id ? ' disabled' : '' ?>>
+                    <option value="address"<?= $entity === 'address' ? ' selected' : '' ?>><?= $escaper->escapeHtml(__('Customer Address Attributes')) ?></option>
+                    <option value="customer"<?= $entity === 'customer' ? ' selected' : '' ?>><?= $escaper->escapeHtml(__('Customer Attributes')) ?></option>
+                </select>
+                <?php if ($id): ?>
+                    <input type="hidden" name="entity_type" value="<?= $escaper->escapeHtmlAttr($entity) ?>"/>
+                <?php endif; ?>
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset class="admin__fieldset">
+        <legend class="admin__legend"><span><?= $escaper->escapeHtml(__('Rules: show the dependent attribute when the parent attribute has the option')) ?></span></legend>
+        <table class="admin__control-table" id="mageos-cca-relation-rules">
+            <thead>
+                <tr>
+                    <th><?= $escaper->escapeHtml(__('Parent attribute')) ?></th>
+                    <th><?= $escaper->escapeHtml(__('Has option')) ?></th>
+                    <th><?= $escaper->escapeHtml(__('Show dependent attribute')) ?></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr><td colspan="4"><button type="button" class="action-default" id="mageos-cca-relation-add"><span><?= $escaper->escapeHtml(__('Add Rule')) ?></span></button></td></tr>
+            </tfoot>
+        </table>
+    </fieldset>
+</form>
+<?php if ($id): ?>
+<form id="mageos-cca-relation-delete-form" action="<?= $escaper->escapeUrl($block->getUrl('*/*/delete')) ?>" method="post">
+    <input type="hidden" name="form_key" value="<?= $escaper->escapeHtmlAttr($block->getFormKey()) ?>"/>
+    <input type="hidden" name="relation_id" value="<?= $id ?>"/>
+</form>
+<?php endif; ?>
+<?php ob_start(); ?>
+(function () {
+    var attributes = <?= /* @noEscape */ $block->getAttributeDataJson() ?>;
+    var rules = <?= /* @noEscape */ json_encode($relation['rules'] ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var deleteMessage = <?= /* @noEscape */ json_encode((string) __('Delete this relation? The attributes become visible again.')) ?>;
+    var pleaseSelect = <?= /* @noEscape */ json_encode((string) __('Please select')) ?>;
+    var removeLabel = <?= /* @noEscape */ json_encode((string) __('Remove')) ?>;
+    var entitySelect = document.getElementById('mageos-cca-relation-entity');
+    var body = document.querySelector('#mageos-cca-relation-rules tbody');
+
+    function list() { return attributes[entitySelect.value] || []; }
+    function find(code) { return list().filter(function (a) { return a.code === code; })[0]; }
+
+    function fill(select, items, selected) {
+        select.innerHTML = '';
+        var empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = pleaseSelect;
+        select.appendChild(empty);
+        items.forEach(function (item) {
+            var option = document.createElement('option');
+            option.value = item.value;
+            option.textContent = item.label;
+            if (item.value === selected) { option.selected = true; }
+            select.appendChild(option);
+        });
+    }
+
+    function addRow(rule) {
+        var index = body.children.length;
+        var row = document.createElement('tr');
+        row.innerHTML = '<td><select class="admin__control-select"></select></td>'
+            + '<td><select class="admin__control-select"></select></td>'
+            + '<td><select class="admin__control-select"></select></td>'
+            + '<td><button type="button" class="action-delete"><span></span></button></td>';
+        var selects = row.querySelectorAll('select');
+        var parent = selects[0], option = selects[1], dependent = selects[2];
+        parent.name = 'rules[' + index + '][parent]';
+        option.name = 'rules[' + index + '][option]';
+        dependent.name = 'rules[' + index + '][dependent]';
+        row.querySelector('button span').textContent = removeLabel;
+
+        fill(parent, list().filter(function (a) { return a.parent; }).map(function (a) { return {value: a.code, label: a.label}; }), rule && rule.parent);
+        function fillOptions(selected) {
+            var attribute = find(parent.value);
+            fill(option, attribute ? attribute.options : [], selected);
+        }
+        fillOptions(rule && rule.option);
+        fill(dependent, list().map(function (a) { return {value: a.code, label: a.label}; }), rule && rule.dependent);
+        parent.addEventListener('change', function () { fillOptions(''); });
+        row.querySelector('button').addEventListener('click', function () { row.remove(); renumber(); });
+        body.appendChild(row);
+    }
+
+    function renumber() {
+        Array.prototype.forEach.call(body.children, function (row, index) {
+            var selects = row.querySelectorAll('select');
+            ['parent', 'option', 'dependent'].forEach(function (field, i) { selects[i].name = 'rules[' + index + '][' + field + ']'; });
+        });
+    }
+
+    rules.forEach(addRow);
+    if (!rules.length) { addRow(null); }
+    document.getElementById('mageos-cca-relation-add').addEventListener('click', function () { addRow(null); });
+    entitySelect.addEventListener('change', function () { body.innerHTML = ''; addRow(null); });
+    document.getElementById('mageos-cca-relation-save-continue').addEventListener('click', function () {
+        document.getElementById('mageos-cca-relation-back').value = '1';
+    });
+    document.getElementById('mageos-cca-relation-back-button').addEventListener('click', function () {
+        window.location = this.getAttribute('data-url');
+    });
+    var del = document.getElementById('mageos-cca-relation-delete');
+    if (del) {
+        del.addEventListener('click', function () {
+            if (window.confirm(deleteMessage)) { document.getElementById('mageos-cca-relation-delete-form').submit(); }
+        });
+    }
+})();
+<?php $script = ob_get_clean(); ?>
+<?= /* @noEscape */ $secureRenderer->renderTag('script', [], $script, false) ?>
+

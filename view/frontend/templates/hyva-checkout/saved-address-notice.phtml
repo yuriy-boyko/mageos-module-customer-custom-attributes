@@ -1,0 +1,90 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+use MageOS\CustomerCustomAttributes\ViewModel\HyvaCheckoutVisibility;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var \Hyva\Theme\ViewModel\HyvaCsp $hyvaCsp */
+/** @var HyvaCheckoutVisibility $viewModel */
+
+$viewModel = $block->getData('view_model');
+$config = $viewModel->getSavedAddressNotice();
+if (empty((array) $config['missing'])) {
+    return;
+}
+?>
+<script>
+(function () {
+    // A saved address that lacks a required attribute (for example one added after the address was saved) would stop the order.
+    // Hyvä Checkout does not edit address book entries, so a notice with a link to the account address form is shown next to the
+    // address list while such an address is selected. The error banner of the checkout shows plain text only, so the link cannot
+    // be part of it.
+    var config = <?= /* @noEscape */ json_encode($config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var notices = {};
+
+    function listControl(type) {
+        var radio = document.querySelector('input[type="radio"][name="address_' + type + '"]');
+        if (radio) { return {id: (document.querySelector('input[type="radio"][name="address_' + type + '"]:checked') || {}).value || '', anchor: radio}; }
+        var selects = document.querySelectorAll('select#address-list');
+        for (var i = 0; i < selects.length; i++) {
+            var root = selects[i].closest('[wire\\:id]');
+            if (root && (root.getAttribute('wire:id') || '').indexOf(type) !== -1) { return {id: selects[i].value, anchor: selects[i]}; }
+        }
+        return null;
+    }
+
+    function notice(type, anchor) {
+        var root = anchor.closest('[wire\\:id]') || anchor;
+        var element = notices[type];
+        if (!element) {
+            element = document.createElement('div');
+            element.className = 'mageos-cca-address-notice message warning mb-4';
+            element.setAttribute('role', 'alert');
+            element.appendChild(document.createElement('span'));
+            element.appendChild(document.createTextNode(' '));
+            var link = document.createElement('a');
+            link.className = 'underline font-semibold';
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = config.link;
+            element.appendChild(link);
+            notices[type] = element;
+        }
+        // Outside the Magewire component, so its updates do not remove the notice.
+        if (element.previousElementSibling !== root) { root.parentNode.insertBefore(element, root.nextSibling); }
+        return element;
+    }
+
+    function update() {
+        ['shipping', 'billing'].forEach(function (type) {
+            var control = listControl(type);
+            var problems = control ? config.missing[control.id] : null;
+            if (!control || !problems) {
+                if (notices[type]) { notices[type].style.display = 'none'; }
+                return;
+            }
+            var element = notice(type, control.anchor);
+            // One missing field is named; several get a generic text.
+            element.firstChild.textContent = problems.length === 1
+                ? config.text.replace('__FIELDS__', '"' + problems[0].label + '"')
+                : config.textMany;
+            element.querySelector('a').href = config.editUrl.replace('__ID__', control.id);
+            element.style.display = '';
+        });
+    }
+
+    var timer = null;
+    function schedule() { clearTimeout(timer); timer = setTimeout(update, 50); }
+    document.addEventListener('change', schedule);
+    new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
+    update();
+})();
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

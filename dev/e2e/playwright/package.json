@@ -1,0 +1,13 @@
+{
+    "name": "mageos-cca-e2e",
+    "private": true,
+    "description": "Browser tests for MageOS_CustomerCustomAttributes on a test store with Hyvä Checkout (installed outside the module by run-playwright.sh)",
+    "scripts": {
+        "test": "playwright test"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.65.0",
+        "@types/node": "24.0.0",
+        "typescript": "5.9.3"
+    }
+}

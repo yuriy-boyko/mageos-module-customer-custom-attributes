@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    name: Checks and unit tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer
+      - name: PHP syntax, XML, JSON and PHPUnit
+        run: dev/check.sh
+
+  magento:
+    name: Compile and static analysis (Mage-OS, PHP 8.4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: module
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          extensions: bcmath, ctype, curl, dom, gd, intl, mbstring, pdo_mysql, simplexml, soap, sockets, xsl, zip
+          ini-values: memory_limit=-1
+      - name: Create a Mage-OS project and require the module
+        run: |
+          composer create-project --no-interaction --no-install --repository-url=https://repo.mage-os.org/ mage-os/project-community-edition magento
+          cd magento
+          composer config repositories.module path ../module
+          composer config minimum-stability dev
+          composer config --no-plugins allow-plugins.magento/composer-dependency-version-audit-plugin true
+          composer require --no-interaction --no-update mage-os/module-customer-custom-attributes:@dev
+          composer install --no-interaction --no-progress
+      - name: Enable all modules and compile
+        run: |
+          cd magento
+          bin/magento module:enable --all
+          bin/magento setup:di:compile
+      - name: PHPStan
+        run: |
+          cd magento
+          vendor/bin/phpstan analyse -c vendor/mage-os/module-customer-custom-attributes/phpstan.neon.dist --no-progress --memory-limit=4G

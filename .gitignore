@@ -1,0 +1,13 @@
+# Dev tooling / test artifacts (PHPUnit is installed outside the module, see dev/check.sh)
+/dev/vendor/
+/dev/composer.lock
+/.phpunit.cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# End-to-end test settings (passwords)
+/dev/e2e/local.env

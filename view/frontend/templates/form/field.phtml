@@ -1,0 +1,88 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ *
+ * One custom attribute field of a Hyvä storefront form. Field names are the attribute codes, as the core form handling
+ * expects them. Validation uses native HTML attributes, which the Hyvä form validation reads.
+ */
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+
+$field = $block->getData('field');
+$code = $field['code'];
+$input = $field['input'];
+$value = $field['value'];
+$isMultiple = $input === 'multiselect';
+$display = (string) ($field['display'] ?? '');
+$isGroup = $display === 'radio' || $display === 'checkbox';
+$attrs = '';
+foreach ($field['attributes'] as $name => $attrValue) {
+    $attrs .= $attrValue === true
+        ? ' ' . $escaper->escapeHtmlAttr($name)
+        : ' ' . $escaper->escapeHtmlAttr($name) . '="' . $escaper->escapeHtmlAttr((string) $attrValue) . '"';
+}
+// Inside a Magewire component (checkout section) the field is bound to a component property instead of the form script.
+$wire = (string) ($field['wire'] ?? '');
+$wireAttr = $wire === '' ? '' : ' wire:model.lazy="' . $escaper->escapeHtmlAttr($wire) . '"';
+$base = 'id="' . $escaper->escapeHtmlAttr($code) . '" name="' . $escaper->escapeHtmlAttr($code . ($isMultiple ? '[]' : ''))
+    . '" title="' . $escaper->escapeHtmlAttr($field['label']) . '"';
+?>
+<div class="field field-reserved <?= $field['required'] ? 'required' : '' ?> <?= $escaper->escapeHtmlAttr($code) ?> w-full<?= $input === 'textarea' ? ' md:col-span-2' : '' ?>">
+    <label class="label" for="<?= $escaper->escapeHtmlAttr($code) ?>">
+        <span><?= $escaper->escapeHtml($field['label']) ?></span>
+    </label>
+    <div class="control">
+        <?php if ($isGroup): ?>
+            <?php
+            // Radio buttons (dropdown and yes/no) or checkboxes (multiple select): the same values as the dropdown or list.
+            // A required checkbox group is enforced by the server, one box cannot carry a native "required".
+            $groupAttrs = $display === 'checkbox' ? str_replace(' required', '', $attrs) : $attrs;
+            $selected = array_map('strval', (array) $value);
+            $choices = $field['options'];
+            if ($display === 'radio' && !$field['required']) {
+                array_unshift($choices, ['value' => '', 'label' => (string) __('None')]);
+            }
+            ?>
+            <div class="flex flex-col gap-2 mageos-cca-choices" role="<?= $display === 'radio' ? 'radiogroup' : 'group' ?>">
+                <?php foreach ($choices as $index => $option): ?>
+                    <?php $optionId = $index === 0 ? $code : $code . '-' . $index; ?>
+                    <label class="inline-flex items-center gap-2 my-0 cursor-pointer" for="<?= $escaper->escapeHtmlAttr($optionId) ?>">
+                        <input type="<?= $escaper->escapeHtmlAttr($display) ?>"
+                               id="<?= $escaper->escapeHtmlAttr($optionId) ?>"
+                               name="<?= $escaper->escapeHtmlAttr($code . ($display === 'checkbox' ? '[]' : '')) ?>"
+                               value="<?= $escaper->escapeHtmlAttr($option['value']) ?>"
+                               class="<?= $display === 'radio' ? 'form-radio' : 'form-checkbox' ?>"<?= /* @noEscape */ $groupAttrs ?>
+                               <?= in_array((string) $option['value'], $selected, true) || ($display === 'radio' && $option['value'] === '' && $selected === ['']) ? 'checked' : '' ?>
+                               <?= /* @noEscape */ $wireAttr ?>>
+                        <span><?= $escaper->escapeHtml($option['label']) ?></span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        <?php elseif ($input === 'textarea'): ?>
+            <textarea <?= /* @noEscape */ $base ?> rows="4" class="form-textarea w-full"<?= /* @noEscape */ $attrs . $wireAttr ?>><?= $escaper->escapeHtml((string) $value) ?></textarea>
+        <?php elseif ($input === 'select' || $input === 'boolean'): ?>
+            <select <?= /* @noEscape */ $base ?> class="form-select w-full"<?= /* @noEscape */ $attrs . $wireAttr ?>>
+                <option value=""><?= $escaper->escapeHtml(__('Please select')) ?></option>
+                <?php foreach ($field['options'] as $option): ?>
+                    <option value="<?= $escaper->escapeHtmlAttr($option['value']) ?>"<?= (string) $value === $option['value'] ? ' selected' : '' ?>><?= $escaper->escapeHtml($option['label']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        <?php elseif ($isMultiple): ?>
+            <select <?= /* @noEscape */ $base ?> multiple class="form-multiselect w-full"<?= /* @noEscape */ $attrs . $wireAttr ?>>
+                <?php foreach ($field['options'] as $option): ?>
+                    <option value="<?= $escaper->escapeHtmlAttr($option['value']) ?>"<?= in_array($option['value'], (array) $value, true) ? ' selected' : '' ?>><?= $escaper->escapeHtml($option['label']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        <?php elseif ($input === 'date'): ?>
+            <input type="date" <?= /* @noEscape */ $base ?> value="<?= $escaper->escapeHtmlAttr((string) $value) ?>" class="form-input w-full"<?= /* @noEscape */ $attrs . $wireAttr ?>>
+        <?php else: ?>
+            <input <?= /* @noEscape */ $base ?> value="<?= $escaper->escapeHtmlAttr((string) $value) ?>" class="form-input w-full"<?= /* @noEscape */ $attrs . $wireAttr ?>>
+        <?php endif; ?>
+    </div>
+</div>

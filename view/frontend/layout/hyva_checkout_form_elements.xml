@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceBlock name="entity-form.field-renderers">
+            <!-- Dropdown and yes/no attributes shown as radio buttons -->
+            <block name="form-field.mageos-radio-group" as="mageos_radio_group"
+                   template="MageOS_CustomerCustomAttributes::hyva-checkout/field/choice-group.phtml">
+                <arguments>
+                    <argument name="display" xsi:type="string">radio</argument>
+                </arguments>
+            </block>
+            <!-- Multiple select attributes shown as checkboxes -->
+            <block name="form-field.mageos-checkbox-group" as="mageos_checkbox_group"
+                   template="MageOS_CustomerCustomAttributes::hyva-checkout/field/choice-group.phtml">
+                <arguments>
+                    <argument name="display" xsi:type="string">checkbox</argument>
+                </arguments>
+            </block>
+        </referenceBlock>
+    </body>
+</page>

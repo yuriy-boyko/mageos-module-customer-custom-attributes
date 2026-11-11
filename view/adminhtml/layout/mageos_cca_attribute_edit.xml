@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" layout="admin-2columns-left"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="left">
+            <block class="MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Edit\Tabs" name="mageos_cca_attribute_tabs">
+                <container label="Main" name="main">
+                    <block class="MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Edit\Tab\Main" name="main.base" as="base"/>
+                    <block class="Magento\Eav\Block\Adminhtml\Attribute\Edit\Options\Options" name="main.options" as="options"/>
+                    <block class="MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Edit\Tab\Advanced" name="main.advanced" as="advanced"/>
+                </container>
+                <block class="Magento\Eav\Block\Adminhtml\Attribute\Edit\Options\Labels" name="mageos_cca_attribute_tabs.labels" as="labels"/>
+                <block class="MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Edit\Tab\Front" name="mageos_cca_attribute_tabs.front" as="front"/>
+                <block class="MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Edit\Tab\Websites" name="mageos_cca_attribute_tabs.websites" as="websites"/>
+            </block>
+        </referenceContainer>
+        <referenceContainer name="content">
+            <block class="MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Edit" name="mageos_cca_attribute_edit"/>
+        </referenceContainer>
+        <referenceContainer name="js">
+            <block class="Magento\Backend\Block\Template" name="mageos_cca_attribute_js"
+                   template="MageOS_CustomerCustomAttributes::attribute/edit/js.phtml"/>
+        </referenceContainer>
+    </body>
+</page>

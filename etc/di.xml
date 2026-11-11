@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Link 1 of the chain: make the quote address keep customer address custom attributes (core returns []) -->
+    <preference for="Magento\Quote\Model\Quote\Address\CustomAttributeListInterface"
+                type="MageOS\CustomerCustomAttributes\Model\Quote\Address\CustomAttributeList"/>
+
+    <!-- Link 2: store the quote address values on every save of the quote address -->
+    <type name="Magento\Quote\Model\ResourceModel\Quote\Address">
+        <plugin name="mageos_cca_quote_address_save_values" type="MageOS\CustomerCustomAttributes\Plugin\QuoteAddressSaveValues"/>
+    </type>
+
+    <!-- Keep custom attributes when core converts a quote address to/from a customer address -->
+    <type name="Magento\Quote\Model\Quote\Address">
+        <plugin name="mageos_cca_quote_address_customer_address_conversion"
+                type="MageOS\CustomerCustomAttributes\Plugin\QuoteAddressCustomerAddressConversion"/>
+    </type>
+
+    <!-- Hyvä Checkout: user-defined address attributes follow the "Hyvä Checkout Address Forms" option -->
+    <type name="Hyva\Checkout\Model\Form\AddressAttributeFormFilter">
+        <plugin name="mageos_cca_hyva_checkout_address_attributes"
+                type="MageOS\CustomerCustomAttributes\Plugin\HyvaCheckoutAddressAttributeFilter"/>
+    </type>
+
+    <!-- Add the custom attributes to every address text (cards, account, order pages, emails, PDFs, admin views) -->
+    <type name="Magento\Customer\Block\Address\Renderer\DefaultRenderer">
+        <plugin name="mageos_cca_address_text"
+                type="MageOS\CustomerCustomAttributes\Plugin\AddressRendererCustomAttributes"/>
+    </type>
+
+    <!-- API: custom values of the order addresses as an extension attribute -->
+    <preference for="MageOS\CustomerCustomAttributes\Api\Data\AddressAttributeValueInterface"
+                type="MageOS\CustomerCustomAttributes\Model\Data\AddressAttributeValue"/>
+    <type name="Magento\Sales\Api\OrderRepositoryInterface">
+        <plugin name="mageos_cca_order_address_extension" type="MageOS\CustomerCustomAttributes\Plugin\OrderAddressExtensionAttributes"/>
+    </type>
+    <type name="Magento\Sales\Api\OrderAddressRepositoryInterface">
+        <plugin name="mageos_cca_order_address_repository_extension" type="MageOS\CustomerCustomAttributes\Plugin\OrderAddressExtensionAttributes"/>
+        <plugin name="mageos_cca_order_address_save_submitted" type="MageOS\CustomerCustomAttributes\Plugin\OrderAddressSaveSubmittedValues"/>
+    </type>
+
+    <!-- Admin order view: customer attributes in "Account Information" -->
+    <type name="Magento\Sales\Block\Adminhtml\Order\View\Info">
+        <plugin name="mageos_cca_admin_order_account_data" type="MageOS\CustomerCustomAttributes\Plugin\AdminOrderAccountData"/>
+    </type>
+
+    <!-- Admin order address edit form: prefill from the order snapshot -->
+    <type name="Magento\Sales\Block\Adminhtml\Order\Address\Form">
+        <plugin name="mageos_cca_admin_order_address_form_values" type="MageOS\CustomerCustomAttributes\Plugin\AdminOrderAddressFormValues"/>
+    </type>
+
+    <!-- Admin order create: prefill the billing and shipping address forms with the quote address values -->
+    <type name="Magento\Sales\Block\Adminhtml\Order\Create\Billing\Address">
+        <plugin name="mageos_cca_admin_create_billing_values" type="MageOS\CustomerCustomAttributes\Plugin\AdminOrderCreateAddressFormValues"/>
+    </type>
+    <type name="Magento\Sales\Block\Adminhtml\Order\Create\Shipping\Address">
+        <plugin name="mageos_cca_admin_create_shipping_values" type="MageOS\CustomerCustomAttributes\Plugin\AdminOrderCreateAddressFormValues"/>
+    </type>
+
+    <!-- A required address attribute that a dependency rule or group restriction hides is not required in core's address validation -->
+    <type name="Magento\Eav\Model\Attribute\Data\AbstractData">
+        <plugin name="mageos_cca_hidden_required" type="MageOS\CustomerCustomAttributes\Plugin\EavDataRequiredForHiddenAttribute"/>
+    </type>
+
+    <!-- A saved address that lacks a required attribute: say which one, instead of core's bare attribute name -->
+    <type name="Magento\Quote\Model\CustomerManagement">
+        <plugin name="mageos_cca_saved_address_message" type="MageOS\CustomerCustomAttributes\Plugin\CustomerManagementSavedAddressMessage"/>
+    </type>
+
+    <!-- Link 3: quote address -> order address when the order is placed -->
+    <type name="Magento\Quote\Model\Quote\Address\ToOrderAddress">
+        <plugin name="mageos_cca_quote_address_to_order_address"
+                type="MageOS\CustomerCustomAttributes\Plugin\ConvertQuoteAddressToOrderAddress"/>
+    </type>
+</config>

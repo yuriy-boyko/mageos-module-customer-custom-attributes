@@ -1,0 +1,116 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+namespace MageOS\CustomerCustomAttributes\Observer;
+
+use MageOS\CustomerCustomAttributes\Model\Checkout\CustomerCheckoutAttributes;
+use MageOS\CustomerCustomAttributes\Model\CustomerAttributeProvider;
+use MageOS\CustomerCustomAttributes\Model\Dependency\VisibilityService;
+use MageOS\CustomerCustomAttributes\Model\OptionLabels;
+use MageOS\CustomerCustomAttributes\Service\SnapshotRowBuilder;
+use MageOS\CustomerCustomAttributes\Service\ValueNormalizer;
+use Magento\Customer\Api\CustomerRepositoryInterface;
+use Magento\Framework\App\Area;
+use Magento\Framework\App\State;
+use Magento\Framework\Event\Observer;
+use Magento\Framework\Event\ObserverInterface;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Exception\NoSuchEntityException;
+
+/**
+ * Event sales_model_service_quote_submit_before: reads the customer's attribute values at the moment the order is placed
+ * and puts them on the new order as snapshot rows (saved by OrderSaveAfter). Values typed into the admin order create
+ * form win over the stored customer values. Attributes shown in the checkout (ticked for "Hyvä Checkout") take their value
+ * from what the customer typed there (kept on the quote, guests included) and never from the customer account; in the
+ * storefront their required flag and rules are enforced here. Other attributes have no value for guests.
+ */
+class QuoteSubmitBefore implements ObserverInterface
+{
+    public const DATA_KEY = 'mageos_cca_customer_values';
+
+    public function __construct(
+        private readonly CustomerAttributeProvider $attributeProvider,
+        private readonly CustomerRepositoryInterface $customerRepository,
+        private readonly SnapshotRowBuilder $rowBuilder,
+        private readonly ValueNormalizer $normalizer,
+        private readonly OptionLabels $optionLabels,
+        private readonly VisibilityService $visibility,
+        private readonly CustomerCheckoutAttributes $checkoutAttributes,
+        private readonly State $appState
+    ) {
+    }
+
+    public function execute(Observer $observer): void
+    {
+        $order = $observer->getEvent()->getOrder();
+        $quote = $observer->getEvent()->getQuote();
+        $customerId = (int) $quote->getCustomerId();
+        $attributes = $this->attributeProvider->getUserDefined();
+        $checkoutCodes = $this->checkoutAttributes->getCodes();
+        if ($attributes === [] || ($customerId <= 0 && $checkoutCodes === [])) {
+            return;
+        }
+        if ($checkoutCodes !== [] && $this->isStorefront()) {
+            $messages = $this->checkoutAttributes->validate($quote);
+            if ($messages !== []) {
+                throw new LocalizedException(__(implode(' ', array_unique($messages))));
+            }
+        }
+        $customer = null;
+        if ($customerId > 0) {
+            try {
+                $customer = $this->customerRepository->getById($customerId);
+            } catch (NoSuchEntityException) {
+                $customer = null;
+            }
+        }
+        $checkoutValues = $checkoutCodes === [] ? [] : $this->checkoutAttributes->getOrderValues($quote);
+
+        $values = [];
+        foreach ($attributes as $code => $attribute) {
+            // The admin order create form puts the submitted account values on the quote as customer_<code>.
+            $quoteKey = 'customer_' . $code;
+            if ($quote->hasData($quoteKey)) {
+                $raw = $quote->getData($quoteKey);
+            } elseif (in_array($code, $checkoutCodes, true)) {
+                $raw = $checkoutValues[$code] ?? null;
+            } elseif ($customer !== null) {
+                $raw = $customer->getCustomAttribute($code)?->getValue();
+            } else {
+                continue;
+            }
+            $values[$code] = $this->normalizer->normalizeForInput((string) $attribute->getFrontendInput(), $raw);
+        }
+        // Attributes hidden by a dependency rule or a customer group restriction are not part of the order.
+        $values = $this->visibility->dropHidden('customer', $values, (int) $quote->getCustomerGroupId());
+
+        $rows = [];
+        foreach ($attributes as $code => $attribute) {
+            $value = $values[$code] ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $rows[] = $this->rowBuilder->build(
+                $code,
+                $attribute->getStoreLabel($order->getStoreId()),
+                (string) $attribute->getFrontendInput(),
+                $value,
+                $this->optionLabels->forAttribute($attribute)
+            );
+        }
+        $order->setData(self::DATA_KEY, $rows);
+    }
+
+    private function isStorefront(): bool
+    {
+        try {
+            return $this->appState->getAreaCode() === Area::AREA_FRONTEND;
+        } catch (LocalizedException) {
+            return false;
+        }
+    }
+}

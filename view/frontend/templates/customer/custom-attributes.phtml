@@ -1,0 +1,29 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+use MageOS\CustomerCustomAttributes\ViewModel\FormAttributes;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var FormAttributes $viewModel */
+
+$viewModel = $block->getData('view_model');
+// The parent of this block is a layout container, so the form block is looked up by name (only the edit form has a customer).
+$formBlock = $block->getLayout()->getBlock((string) $block->getData('form_block'));
+$customer = $formBlock && method_exists($formBlock, 'getCustomer') ? $formBlock->getCustomer() : null;
+$fields = $viewModel->getCustomerFields((string) $block->getData('form_code'), $customer);
+?>
+<?php if ($fields): ?>
+    <div class="mageos-cca-customer-attributes grid gap-4 md:grid-cols-2 mt-4">
+        <?php foreach ($fields as $field): ?>
+            <?= $block->setData('field', $field)->fetchView($block->getTemplateFile('MageOS_CustomerCustomAttributes::form/field.phtml')) ?>
+        <?php endforeach; ?>
+    </div>
+    <?= $block->setData('visibility', $viewModel->getVisibilityConfig('customer', $fields))->fetchView($block->getTemplateFile('MageOS_CustomerCustomAttributes::form/visibility.phtml')) ?>
+<?php endif; ?>

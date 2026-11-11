@@ -1,0 +1,71 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+/** @var \Magento\Framework\View\Helper\SecureHtmlRenderer $secureRenderer */
+
+$script = <<<'script'
+require(['jquery', 'uiRegistry'], function ($, registry) {
+    'use strict';
+
+    var optionsPanelId = 'manage-options-panel',
+        rows = {
+            default_value_text: ['text'],
+            default_value_textarea: ['textarea'],
+            default_value_yesno: ['boolean'],
+            input_validation: ['text', 'textarea'],
+            min_text_length: ['text', 'textarea'],
+            max_text_length: ['text', 'textarea'],
+            date_range_min: ['date'],
+            date_range_max: ['date']
+        };
+
+    function toggleFields() {
+        var type = $('#frontend_input').val(),
+            usesOptions = type === 'select' || type === 'multiselect',
+            $panel = $('#' + optionsPanelId);
+
+        $.each(rows, function (id, types) {
+            $('#' + id).closest('.field').toggle(types.indexOf(type) !== -1);
+        });
+        $('#validation_fieldset').toggle(['text', 'textarea', 'date'].indexOf(type) !== -1);
+        var displayTypes = ['select', 'multiselect', 'boolean'];
+        $('#display_fieldset').toggle(displayTypes.indexOf(type) !== -1);
+        var $display = $('#display_as'), allowed = type === 'multiselect' ? 'checkbox' : 'radio';
+        $display.find('option').each(function () {
+            var value = $(this).val(), invalid = value !== '' && value !== allowed;
+            $(this).prop('disabled', invalid).toggle(!invalid);
+        });
+        if ($display.val() !== '' && $display.val() !== allowed) {
+            $display.val('');
+        }
+
+        $panel.closest('.fieldset').toggle(usesOptions);
+        $panel.toggleClass('selected-type-options', usesOptions);
+        if (usesOptions) {
+            registry.get(optionsPanelId, function () {
+                $panel.trigger('render');
+            });
+        }
+    }
+
+    // Position, sort order and prefill of a customer attribute apply only when it is shown in the checkout: the fields are
+    // always listed and look inactive (the settings are kept) while "Hyvä Checkout" is not selected.
+    function toggleCheckoutFields() {
+        var active = ($('#used_in_forms').val() || []).indexOf('mageos_hyva_checkout') !== -1;
+        $('#checkout_position, #checkout_sort, #checkout_prefill').each(function () {
+            $(this).closest('.field').css('opacity', active ? '' : '0.5');
+        });
+    }
+
+    $(function () {
+        $('#used_in_forms').on('change', toggleCheckoutFields);
+        toggleCheckoutFields();
+        $('#frontend_input').on('change', toggleFields);
+        toggleFields();
+    });
+});
+script;
+?>
+<?= /* @noEscape */ $secureRenderer->renderTag('script', [], $script, false) ?>

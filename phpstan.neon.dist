@@ -1,0 +1,38 @@
+# Static analysis for the module. It needs a Magento install (the module is analysed together with the Magento code it extends):
+#
+#   vendor/bin/phpstan analyse -c vendor/mage-os/module-customer-custom-attributes/phpstan.neon.dist
+#   (or, with the module symlinked from a folder: -c packages/mageos-module-customer-custom-attributes/phpstan.neon.dist)
+#
+# Level 5. The ignored messages are Magento's own typing habits (Phrase passed where core documents string, magic getters on
+# DataObject, generated factories and extension classes, result interfaces that are always the concrete page or redirect).
+parameters:
+    level: 5
+    paths:
+        - Api
+        - Block
+        - Controller
+        - Model
+        - Observer
+        - Plugin
+        - Service
+        - ViewModel
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        - '#Parameter \#\d \$\w+ of method .* expects (string|string\|null|int\|string), Magento\\Framework\\Phrase given#'
+        - '#should return string but returns Magento\\Framework\\Phrase#'
+        - '#Call to an undefined method Magento\\Framework\\(Controller\\ResultInterface|App\\RequestInterface|Event|DataObject)::#'
+        - '#Call to an undefined method Magento\\(Eav\\Model\\Entity\\Attribute\\AbstractAttribute|Sales\\Api\\Data\\\w+|Framework\\DB\\Adapter\\AdapterInterface)::#'
+        - '#expects Magento\\Backend\\Model\\View\\Result\\Page, Magento\\Framework\\Controller\\ResultInterface given#'
+        - '#(unknown class|invalid type|unknown class) .*(Factory|Extension\w*)(Interface)?\b#'
+        - '#on an unknown class .*(Factory|Extension\w*)#'
+        - '#Using nullsafe method call on non-nullable type#'
+        - '#Constant BP not found#'
+        - '#getAllOptions\(\) invoked with 1 parameter#'
+        # Magic getters and setters (DataObject, blocks, sessions, EAV models)
+        - '#Call to an undefined method [\w\\]+::(set|get|has|uns|add|can)\w*\(#'
+        - '#Cannot call method \w+\(\) on (bool\|)?Magento\\Framework\\View\\Element\\AbstractBlock(\|true)?#'
+        - '#Parameter \#\d \$\w+ of method .* expects (string|array\|string\|null), (array<.*>|int) given#'
+        # Grid::_prepareMassaction follows the legacy core signature; defensive checks on loosely typed core values
+        - '#_prepareMassaction\(\)#'
+        - '#PHPDoc tag @param references unknown parameter#'
+        - '#(always exists and is not nullable|always evaluate to false|Left side of && is always true)#'

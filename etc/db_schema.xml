@@ -1,0 +1,150 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ *
+ * Fixed-schema value tables: one row per (parent, attribute). No column is ever added or dropped at runtime.
+ *
+ * Quote side: working data. Rows reference eav_attribute and are removed with the attribute or the quote.
+ * Order side: history. Rows carry a snapshot of code, label, input type and option label and have NO foreign key to
+ * eav_attribute, so deleting or changing an attribute later never changes an existing order.
+ */
+-->
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+
+    <!-- Customer attribute values on the quote (checkout connection) -->
+    <table name="mageos_cca_quote_value" resource="checkout" engine="innodb" comment="Customer attribute values on quote">
+        <column xsi:type="int" name="value_id" unsigned="true" nullable="false" identity="true" comment="Value ID"/>
+        <column xsi:type="int" name="quote_id" unsigned="true" nullable="false" identity="false" comment="Quote ID"/>
+        <column xsi:type="smallint" name="attribute_id" unsigned="true" nullable="false" identity="false" comment="Attribute ID"/>
+        <column xsi:type="text" name="value" nullable="true" comment="Value"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="value_id"/>
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_QUOTE_VALUE_QUOTE_ID_QUOTE_ENTITY_ID"
+                    table="mageos_cca_quote_value" column="quote_id" referenceTable="quote"
+                    referenceColumn="entity_id" onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_QUOTE_VALUE_ATTRIBUTE_ID_EAV_ATTRIBUTE_ATTRIBUTE_ID"
+                    table="mageos_cca_quote_value" column="attribute_id" referenceTable="eav_attribute"
+                    referenceColumn="attribute_id" onDelete="CASCADE"/>
+        <constraint xsi:type="unique" referenceId="MAGEOS_CCA_QUOTE_VALUE_QUOTE_ID_ATTRIBUTE_ID">
+            <column name="quote_id"/>
+            <column name="attribute_id"/>
+        </constraint>
+    </table>
+
+    <!-- Address attribute values on the quote address (checkout connection) -->
+    <table name="mageos_cca_quote_address_value" resource="checkout" engine="innodb" comment="Address attribute values on quote address">
+        <column xsi:type="int" name="value_id" unsigned="true" nullable="false" identity="true" comment="Value ID"/>
+        <column xsi:type="int" name="quote_address_id" unsigned="true" nullable="false" identity="false" comment="Quote Address ID"/>
+        <column xsi:type="smallint" name="attribute_id" unsigned="true" nullable="false" identity="false" comment="Attribute ID"/>
+        <column xsi:type="text" name="value" nullable="true" comment="Value"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="value_id"/>
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_QUOTE_ADDR_VAL_QUOTE_ADDR_ID_QUOTE_ADDR_ADDR_ID"
+                    table="mageos_cca_quote_address_value" column="quote_address_id" referenceTable="quote_address"
+                    referenceColumn="address_id" onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_QUOTE_ADDR_VAL_ATTR_ID_EAV_ATTR_ATTR_ID"
+                    table="mageos_cca_quote_address_value" column="attribute_id" referenceTable="eav_attribute"
+                    referenceColumn="attribute_id" onDelete="CASCADE"/>
+        <constraint xsi:type="unique" referenceId="MAGEOS_CCA_QUOTE_ADDRESS_VALUE_QUOTE_ADDRESS_ID_ATTRIBUTE_ID">
+            <column name="quote_address_id"/>
+            <column name="attribute_id"/>
+        </constraint>
+    </table>
+
+    <!-- Customer attribute values on the order: snapshot, no FK to eav_attribute (sales connection) -->
+    <table name="mageos_cca_order_value" resource="sales" engine="innodb" comment="Customer attribute values on order (snapshot)">
+        <column xsi:type="int" name="value_id" unsigned="true" nullable="false" identity="true" comment="Value ID"/>
+        <column xsi:type="int" name="order_id" unsigned="true" nullable="false" identity="false" comment="Order ID"/>
+        <column xsi:type="varchar" name="attribute_code" nullable="false" length="60" comment="Attribute code at order time"/>
+        <column xsi:type="varchar" name="attribute_label" nullable="true" length="255" comment="Attribute label at order time"/>
+        <column xsi:type="varchar" name="input_type" nullable="true" length="32" comment="Input type at order time"/>
+        <column xsi:type="text" name="value" nullable="true" comment="Raw value"/>
+        <column xsi:type="text" name="value_label" nullable="true" comment="Displayed value at order time"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="value_id"/>
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_ORDER_VALUE_ORDER_ID_SALES_ORDER_ENTITY_ID"
+                    table="mageos_cca_order_value" column="order_id" referenceTable="sales_order"
+                    referenceColumn="entity_id" onDelete="CASCADE"/>
+        <constraint xsi:type="unique" referenceId="MAGEOS_CCA_ORDER_VALUE_ORDER_ID_ATTRIBUTE_CODE">
+            <column name="order_id"/>
+            <column name="attribute_code"/>
+        </constraint>
+    </table>
+
+    <!-- Address attribute values on the order address: snapshot, no FK to eav_attribute (sales connection) -->
+    <table name="mageos_cca_order_address_value" resource="sales" engine="innodb" comment="Address attribute values on order address (snapshot)">
+        <column xsi:type="int" name="value_id" unsigned="true" nullable="false" identity="true" comment="Value ID"/>
+        <column xsi:type="int" name="order_address_id" unsigned="true" nullable="false" identity="false" comment="Order Address ID"/>
+        <column xsi:type="varchar" name="attribute_code" nullable="false" length="60" comment="Attribute code at order time"/>
+        <column xsi:type="varchar" name="attribute_label" nullable="true" length="255" comment="Attribute label at order time"/>
+        <column xsi:type="varchar" name="input_type" nullable="true" length="32" comment="Input type at order time"/>
+        <column xsi:type="text" name="value" nullable="true" comment="Raw value"/>
+        <column xsi:type="text" name="value_label" nullable="true" comment="Displayed value at order time"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="value_id"/>
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_ORDER_ADDR_VAL_ORDER_ADDR_ID_SALES_ORDER_ADDR_ENTT_ID"
+                    table="mageos_cca_order_address_value" column="order_address_id" referenceTable="sales_order_address"
+                    referenceColumn="entity_id" onDelete="CASCADE"/>
+        <constraint xsi:type="unique" referenceId="MAGEOS_CCA_ORDER_ADDRESS_VALUE_ORDER_ADDRESS_ID_ATTRIBUTE_CODE">
+            <column name="order_address_id"/>
+            <column name="attribute_code"/>
+        </constraint>
+    </table>
+    <!-- Dependencies: a named relation (default connection) with one detail row per "show attribute X when parent P has option O" -->
+    <table name="mageos_cca_relation" resource="default" engine="innodb" comment="Attribute dependency relation">
+        <column xsi:type="int" name="relation_id" unsigned="true" nullable="false" identity="true" comment="Relation ID"/>
+        <column xsi:type="varchar" name="name" nullable="false" length="255" comment="Name"/>
+        <column xsi:type="varchar" name="entity_type" nullable="false" length="32" comment="customer or address"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="relation_id"/>
+        </constraint>
+    </table>
+    <table name="mageos_cca_relation_detail" resource="default" engine="innodb" comment="Attribute dependency relation details">
+        <column xsi:type="int" name="detail_id" unsigned="true" nullable="false" identity="true" comment="Detail ID"/>
+        <column xsi:type="int" name="relation_id" unsigned="true" nullable="false" identity="false" comment="Relation ID"/>
+        <column xsi:type="smallint" name="parent_attribute_id" unsigned="true" nullable="false" identity="false" comment="Parent attribute ID"/>
+        <column xsi:type="varchar" name="option_value" nullable="false" length="255" comment="Option value of the parent that shows the dependent"/>
+        <column xsi:type="smallint" name="dependent_attribute_id" unsigned="true" nullable="false" identity="false" comment="Dependent attribute ID"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="detail_id"/>
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="FK_0591BC7FBAEA1E6BED80F6D52D484921"
+                    table="mageos_cca_relation_detail" column="relation_id" referenceTable="mageos_cca_relation"
+                    referenceColumn="relation_id" onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_RELATION_DETAIL_PARENT_ATTR_ID_EAV_ATTR_ATTR_ID"
+                    table="mageos_cca_relation_detail" column="parent_attribute_id" referenceTable="eav_attribute"
+                    referenceColumn="attribute_id" onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_RELATION_DETAIL_DEPENDENT_ATTR_ID_EAV_ATTR_ATTR_ID"
+                    table="mageos_cca_relation_detail" column="dependent_attribute_id" referenceTable="eav_attribute"
+                    referenceColumn="attribute_id" onDelete="CASCADE"/>
+        <constraint xsi:type="unique" referenceId="UNQ_94B59A367E8A2C54396E7B91062592BB">
+            <column name="relation_id"/>
+            <column name="parent_attribute_id"/>
+            <column name="option_value"/>
+            <column name="dependent_attribute_id"/>
+        </constraint>
+    </table>
+
+    <!-- Customer group restriction: an attribute with rows here is shown only to those groups; no rows = all groups -->
+    <table name="mageos_cca_attribute_group" resource="default" engine="innodb" comment="Customer groups an attribute is limited to">
+        <column xsi:type="smallint" name="attribute_id" unsigned="true" nullable="false" identity="false" comment="Attribute ID"/>
+        <column xsi:type="int" name="customer_group_id" unsigned="true" nullable="false" identity="false" comment="Customer group ID"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="attribute_id"/>
+            <column name="customer_group_id"/>
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_ATTR_GROUP_ATTR_ID_EAV_ATTR_ATTR_ID"
+                    table="mageos_cca_attribute_group" column="attribute_id" referenceTable="eav_attribute"
+                    referenceColumn="attribute_id" onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="MAGEOS_CCA_ATTR_GROUP_CSTR_GROUP_ID_CSTR_GROUP_CSTR_GROUP_ID"
+                    table="mageos_cca_attribute_group" column="customer_group_id" referenceTable="customer_group"
+                    referenceColumn="customer_group_id" onDelete="CASCADE"/>
+    </table>
+</schema>

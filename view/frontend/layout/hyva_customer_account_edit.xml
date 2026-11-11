@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="fieldset.edit.info.additional">
+            <block class="Magento\Framework\View\Element\Template" name="mageos.cca.customer.attributes"
+                   template="MageOS_CustomerCustomAttributes::customer/custom-attributes.phtml">
+                <arguments>
+                    <argument name="view_model" xsi:type="object">MageOS\CustomerCustomAttributes\ViewModel\FormAttributes</argument>
+                    <argument name="form_code" xsi:type="string">customer_account_edit</argument>
+                    <argument name="form_block" xsi:type="string">customer_edit</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+    </body>
+</page>

@@ -1,0 +1,29 @@
+<?php
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+declare(strict_types=1);
+
+use MageOS\CustomerCustomAttributes\ViewModel\FormAttributes;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var FormAttributes $viewModel */
+
+$viewModel = $block->getData('view_model');
+// The parent of this block is a layout container, so the address form block is looked up by name.
+$addressBlock = $block->getLayout()->getBlock('customer_address_edit');
+$address = $addressBlock && method_exists($addressBlock, 'getAddress') ? $addressBlock->getAddress() : null;
+$fields = $viewModel->getAddressFields((string) $block->getData('form_code'), $address);
+?>
+<?php if ($fields): ?>
+    <div class="mageos-cca-address-attributes grid gap-4 md:grid-cols-2 mt-4">
+        <?php foreach ($fields as $field): ?>
+            <?= $block->setData('field', $field)->fetchView($block->getTemplateFile('MageOS_CustomerCustomAttributes::form/field.phtml')) ?>
+        <?php endforeach; ?>
+    </div>
+    <?= $block->setData('visibility', $viewModel->getVisibilityConfig('address', $fields))->fetchView($block->getTemplateFile('MageOS_CustomerCustomAttributes::form/visibility.phtml')) ?>
+<?php endif; ?>
