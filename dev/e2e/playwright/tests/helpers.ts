@@ -1,4 +1,4 @@
-import { expect, test as base, Browser, BrowserContext, Page, Request } from '@playwright/test';
+import { expect, test as base, Browser, BrowserContext, Locator, Page, Request } from '@playwright/test';
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -302,21 +302,23 @@ export async function placedOrderSnapshot(page: Page): Promise<{ incrementId: st
         throw new Error('No order number found on the success page.');
     }
     const incrementId = match[1];
+    return { incrementId, snapshot: snapshotOf(incrementId) };
+}
+
+/** The module's snapshot of an order (customer attributes and both addresses, by attribute code), read from the database. */
+export function snapshotOf(incrementId: string): Snapshot {
     const data = JSON.parse(benchCommand('E2E_ASSERT_CMD', ['order', incrementId]));
     const byCode = (rows: { attribute_code: string; value: string; value_label: string }[] = []) =>
         Object.fromEntries(rows.map((row) => [row.attribute_code, { value: row.value, value_label: row.value_label }]));
     return {
-        incrementId,
-        snapshot: {
-            customer: byCode(data.customer_attributes),
-            billing: byCode(data.addresses?.billing),
-            shipping: byCode(data.addresses?.shipping),
-        },
+        customer: byCode(data.customer_attributes),
+        billing: byCode(data.addresses?.billing),
+        shipping: byCode(data.addresses?.shipping),
     };
 }
 
 /** What the bench commands return, parsed (see assertions.php). */
-export type CustomerValues = { customer_attributes: Record<string, string | null>; addresses: Record<string, Record<string, string | null>> };
+export type CustomerValues = { customer_id: number; customer_attributes: Record<string, string | null>; addresses: Record<string, Record<string, string | null>> };
 export type QuoteValues = { quote_id: number; active: boolean; customer_attributes: Record<string, string>; addresses: Record<string, Record<string, string>> };
 
 /** The custom attribute values stored on a customer's account (read from the database). */
@@ -440,3 +442,389 @@ export async function loginAs(page: Page, email: string): Promise<void> {
 
 /** The e-mail of the fixture customer. */
 export const customerEmail = (): string => process.env.E2E_CUSTOMER_EMAIL || 'e2e.customer@example.com';
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Admin: the attribute edit page (Stores > Attributes > Customer / Customer Address Attributes). Shared by the ADM and ACL specs.
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+export type AdminEntity = 'customer' | 'address';
+
+/** How an attribute is stored (see `assertions.php attribute`); `exists` is false when there is no such attribute. */
+export type AttributeRow = {
+    exists: boolean;
+    id: number;
+    label: string;
+    store_labels: Record<string, string>;
+    input: string;
+    backend_type: string;
+    required: boolean;
+    user_defined: boolean;
+    default_value: string | null;
+    is_visible: boolean;
+    sort_order: number;
+    forms: string[];
+    options: { label: string; sort_order: number; is_default: boolean; store_labels: Record<string, string> }[];
+    rules: Record<string, unknown>;
+};
+
+/** Reads an attribute from the database. */
+export function attributeRow(entity: AdminEntity, code: string): AttributeRow {
+    return JSON.parse(benchCommand('E2E_ASSERT_CMD', ['attribute', entity, code]));
+}
+
+/** Deletes an attribute a test created through the admin (only codes starting with e2e_); nothing happens when it is gone. */
+/** Creates plain optional text attributes (codes starting with e2e_) without the browser; delete them with `deleteCreated`. */
+export function createAttributes(entity: AdminEntity, codes: string[]): void {
+    benchCommand('E2E_FIXTURE_CMD', ['create-attributes', entity, ...codes]);
+}
+
+export function deleteCreated(code: string): void {
+    benchCommand('E2E_FIXTURE_CMD', ['delete-created', code]);
+}
+
+/** Opens the "Add New" page of the attribute grid of an entity. */
+export async function openNewAttribute(page: Page, entity: AdminEntity): Promise<void> {
+    await adminOpen(page, `mageos_cca/attribute/index/entity/${entity}`);
+    await page.locator('.page-actions-buttons button, .page-actions a, .page-actions button').filter({ hasText: /Add New/i }).first().click();
+    await expect(page).toHaveURL(/mageos_cca\/attribute\/new/);
+}
+
+/** Opens the edit page of an attribute: grid, filter by code, click the row. */
+export async function openAttribute(page: Page, entity: AdminEntity, code: string): Promise<void> {
+    await adminOpen(page, `mageos_cca/attribute/index/entity/${entity}`);
+    const filter = page.locator('[name="attribute_code"]');
+    await filter.fill(code);
+    await filter.press('Enter');
+    await page.locator('tbody tr', { hasText: code }).first().click();
+    await expect(page).toHaveURL(/mageos_cca\/attribute\/edit/);
+}
+
+/** Switches to a tab of the edit page: Properties, Manage Labels or Storefront Properties. */
+export async function attributeTab(page: Page, name: 'Properties' | 'Manage Labels' | 'Storefront Properties' | 'Input Validation' | string): Promise<void> {
+    await page.locator('#mageos_cca_attribute_tabs a, .admin__page-nav-link').filter({ hasText: name }).first().click();
+}
+
+/** Fills the Properties tab of a new attribute: default label, code, input type and "Values Required". */
+export async function fillAttributeMain(page: Page, main: { label?: string; code?: string; input?: string; required?: boolean }): Promise<void> {
+    if (main.label !== undefined) await page.locator('#attribute_label').fill(main.label);
+    if (main.code !== undefined) await page.locator('#attribute_code').fill(main.code);
+    if (main.input !== undefined) await page.locator('#frontend_input').selectOption(main.input);
+    if (main.required !== undefined) await page.locator('#is_required').selectOption(main.required ? '1' : '0');
+}
+
+/** The option rows of a dropdown, multiselect, radio or checkbox group attribute on the edit page. */
+export function optionRows(page: Page) {
+    return page.locator('tr').filter({ has: page.locator('input[name^="option[value]"]') });
+}
+
+/** Adds an option row and fills its admin label (and, optionally, store view labels by store id); returns its row. */
+export async function addOption(page: Page, label: string, storeLabels: Record<number, string> = {}) {
+    const before = await optionRows(page).count();
+    await page.locator('#add_new_option_button').click();
+    const row = optionRows(page).nth(before);
+    await row.locator('input[name$="[0]"]').fill(label);
+    for (const [store, text] of Object.entries(storeLabels)) {
+        await row.locator(`input[name$="[${store}]"]`).fill(text);
+    }
+    return row;
+}
+
+/** Clicks "Save Attribute" (or "Save and Continue Edit" with `stay`) and waits for the page that follows. */
+export async function saveAttribute(page: Page, stay = false): Promise<void> {
+    await page.locator(stay ? '#save_and_edit_button' : '#save').click();
+    await page.waitForLoadState('networkidle');
+}
+
+/** The admin messages on the page, as text. */
+export async function adminMessages(page: Page): Promise<string> {
+    return (await page.locator('.messages, #messages, .message').allInnerTexts()).join(' | ');
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Admin: the attribute grid (filters, sorting, pager, mass actions)
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/** Opens the attribute grid of an entity with the filter reset (the grid keeps its filter in the session between visits). */
+export async function openGrid(page: Page, entity: AdminEntity): Promise<void> {
+    await adminOpen(page, `mageos_cca/attribute/index/entity/${entity}`);
+    await page.locator('[data-action="grid-filter-reset"]').click();
+    await page.waitForLoadState('networkidle');
+}
+
+/** Filters the grid by typing into the filter fields (by field name) and pressing Enter; selects are chosen by value. */
+export async function gridFilter(page: Page, filters: Record<string, string>): Promise<void> {
+    for (const [name, value] of Object.entries(filters)) {
+        const field = page.locator(`#mageosCcaAttributeGrid_filter_${name}`);
+        if ((await field.evaluate((element) => element.tagName)) === 'SELECT') {
+            await field.selectOption(value);
+        } else {
+            await field.fill(value);
+        }
+    }
+    await page.locator('#mageosCcaAttributeGrid_filter_attribute_code').press('Enter');
+    await page.waitForLoadState('networkidle');
+}
+
+/** The text of one grid column (`attribute_code`, `frontend_label`, `frontend_input`, `is_required`, `is_visible`, `sort_order`) in row order. */
+export async function gridColumn(page: Page, column: string): Promise<string[]> {
+    return (await page.locator(`#mageosCcaAttributeGrid tbody td.col-${column}`).allInnerTexts()).map((text) => text.trim());
+}
+
+/**
+ * Runs a mass action on the grid. `rows` ticks the rows with these codes; `'all'` uses "Select All" (every row of the current filter,
+ * on every page). A delete is confirmed.
+ */
+export async function gridMassAction(page: Page, action: 'enable' | 'disable' | 'delete', rows: string[] | 'all'): Promise<void> {
+    if (rows === 'all') {
+        await page.locator('#mageosCcaAttributeGrid_massaction-mass-select').selectOption('selectAll');
+    } else {
+        for (const code of rows) {
+            await page.locator('#mageosCcaAttributeGrid tbody tr', { has: page.locator('td.col-attribute_code', { hasText: new RegExp(`^\\s*${code}\\s*$`) }) }).locator('input[data-role="select-row"]').check();
+        }
+    }
+    await page.locator('#mageosCcaAttributeGrid_massaction-select').selectOption(action);
+    await page.locator('#mageosCcaAttributeGrid_massaction-form button[title="Submit"]').click();
+    const confirm = page.locator('.modal-popup._show .action-accept');
+    if (await confirm.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false)) {
+        await confirm.click();
+    }
+    await page.waitForLoadState('networkidle');
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Admin: customers
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/** Opens the admin edit page of a customer: Customers > All Customers, search by e-mail, open the row. */
+export async function openCustomerEdit(page: Page, email: string): Promise<void> {
+    await adminOpen(page, 'customer/index');
+    const search = page.locator('input[placeholder*="Search by keyword"]').first();
+    await search.fill(email);
+    await search.press('Enter');
+    // the Edit link sits in the row's action menu; its address has the secret key
+    const link = page.locator('tr.data-row', { hasText: email }).first().locator('a[href*="customer/index/edit"]').first();
+    await link.waitFor({ state: 'attached' });
+    await page.goto((await link.getAttribute('href')) as string);
+    await expect(page).toHaveURL(/customer\/index\/edit/);
+}
+
+/** Opens a tab of the admin customer edit page, e.g. "Account Information" or "Addresses". */
+export async function customerTab(page: Page, name: string): Promise<void> {
+    await page.locator('.admin__page-nav-link, [role=tab]').filter({ hasText: name }).first().click();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Admin: a restricted test admin (ACL specs)
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+export const ACL_ADMIN = 'e2e_acl_user';
+export const ACL_BASE = ['Magento_Backend::stores', 'Magento_Backend::stores_attributes'];
+export const ACL = {
+    customer: 'MageOS_CustomerCustomAttributes::customer_attributes',
+    address: 'MageOS_CustomerCustomAttributes::customer_address_attributes',
+    relations: 'MageOS_CustomerCustomAttributes::relations',
+};
+
+/** Creates the test admin (or changes its role) so that its role allows exactly these resources besides the Stores menu path. */
+export function setAclAdmin(resources: string[]): void {
+    benchCommand('E2E_FIXTURE_CMD', ['set-admin', ACL_ADMIN, [...ACL_BASE, ...resources].join(',')]);
+}
+
+export function deleteAclAdmin(): void {
+    benchCommand('E2E_FIXTURE_CMD', ['delete-admin', ACL_ADMIN]);
+}
+
+/** A page signed in to the admin as the restricted test admin; close its context when done. */
+export async function signInAclAdmin(browser: Browser, baseURL: string): Promise<{ page: Page; context: BrowserContext }> {
+    const password = process.env.E2E_CUSTOMER_PASSWORD;
+    if (!password) {
+        test.skip(true, 'E2E_CUSTOMER_PASSWORD is not set');
+    }
+    const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true, viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await page.goto('/backend/');
+    await page.locator('#username').fill(ACL_ADMIN);
+    await page.locator('#login').fill(password as string);
+    await page.locator('.action-login').click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#username')).toHaveCount(0);
+    return { page, context };
+}
+
+/** The admin menu links of the module's screens: which of customer, address, relations the signed-in admin can see. */
+export async function aclMenu(page: Page): Promise<{ customer: number; address: number; relations: number }> {
+    await page.goto('/backend/');
+    const count = (part: string) => page.locator(`a[href*="${part}"]`).count();
+    return {
+        customer: await count('mageos_cca/attribute/index/entity/customer'),
+        address: await count('mageos_cca/attribute/index/entity/address'),
+        relations: await count('mageos_cca/relation'),
+    };
+}
+
+/** Opens an address with the secret key of an earlier link and expects Magento's "no permission" answer (403). */
+export async function expectForbidden(page: Page, url: string): Promise<void> {
+    const response = await page.goto(url);
+    expect(response?.status(), url).toBe(403);
+    await expect(page.locator('body')).toContainText(/need permissions|permission/i);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Admin: order create and order address edit (AOC specs)
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/** The three parts of the admin order form that hold custom attribute fields. */
+export type OrderArea = 'account' | 'billing_address' | 'shipping_address';
+
+/** A field of the admin order form by area and attribute code (ids: `e2e_c_text`, `order-billing_address_e2e_a_text`). */
+export function orderField(page: Page, area: OrderArea, code: string) {
+    return area === 'account' ? page.locator(`#${code}`) : page.locator(`#order-${area}_${code}`);
+}
+
+/** Waits until the admin order form finished its Ajax update (the page shows a loading mask meanwhile). */
+export async function adminOrderIdle(page: Page): Promise<void> {
+    await page.waitForTimeout(300);
+    await expect.poll(async () => {
+        try {
+            return await page.locator('.loading-mask, #loading-mask').evaluateAll((nodes) =>
+                nodes.some((node) => (node as HTMLElement).offsetParent !== null || getComputedStyle(node as HTMLElement).display === 'block'));
+        } catch {
+            return true; // the page is navigating: look again
+        }
+    },
+    { message: 'the admin order form is still loading', timeout: 30_000 }).toBe(false);
+}
+
+/** Starts a new admin order for a customer: Sales > Orders > Create New Order, pick the customer and the store view. */
+export async function startAdminOrder(page: Page, email: string, storeView = 'Default Store View'): Promise<void> {
+    await adminOpen(page, 'sales/order/');
+    await page.locator('#add').click();
+    const filter = page.locator('#sales_order_create_customer_grid_filter_email');
+    await filter.fill(email);
+    await filter.press('Enter');
+    await adminOrderIdle(page);
+    await page.locator('#sales_order_create_customer_grid_table tbody tr', { hasText: email }).first().click();
+    await page.locator('#order-store-selector').getByLabel(storeView, { exact: true }).check();
+    await expect(page.locator('#order-items')).toBeVisible({ timeout: 30_000 });
+    await adminOrderIdle(page);
+}
+
+/** Adds a product to the admin order by SKU through the "Add Products" grid. */
+export async function addAdminOrderProduct(page: Page, sku: string): Promise<void> {
+    await page.locator('#add_products, button:has-text("Add Products")').first().click();
+    const filter = page.locator('#sales_order_create_search_grid_filter_sku');
+    await filter.fill(sku);
+    await filter.press('Enter');
+    await adminOrderIdle(page);
+    await page.locator('#sales_order_create_search_grid_table tbody tr', { hasText: sku }).first().locator('input[type=checkbox]').check();
+    await page.locator('button:has-text("Add Selected Product(s) to Order")').first().click();
+    await adminOrderIdle(page);
+    await expect(page.locator('#order-items').first()).toContainText(sku, { timeout: 15_000 });
+}
+
+/** Gives the fixture customer one saved address with custom values (`code: 'option label' | 'a|b' | 'YYYY-MM-DD' | text`). */
+export function setSavedAddress(email: string, values: Record<string, string> = {}): void {
+    benchCommand('E2E_FIXTURE_CMD', ['set-address', email, ...Object.entries(values).map(([code, value]) => `${code}=${value}`)]);
+}
+
+/** Removes every saved address of a customer. */
+export function deleteSavedAddresses(email: string): void {
+    benchCommand('E2E_FIXTURE_CMD', ['set-address', email, '--delete']);
+}
+
+/** The labels of the chosen options of a select or multiselect field. */
+export async function chosenLabels(field: Locator): Promise<string[]> {
+    return (await field.locator('option:checked').allInnerTexts()).map((text) => text.trim()).filter((text) => text !== '');
+}
+
+/**
+ * Fills the standard fields of an address block of the admin order form (billing or shipping) and the custom attributes that are
+ * required there. Values for the other custom attributes go through `fillOrderValues`.
+ */
+export async function fillOrderAddress(page: Page, area: 'billing_address' | 'shipping_address', name = 'Ada Admin'): Promise<void> {
+    const [first, last] = name.split(' ');
+    const id = (field: string) => page.locator(`#order-${area}_${field}`);
+    await id('firstname').fill(first);
+    await id('lastname').fill(last);
+    await id('street0').fill('1 Admin Road');
+    await id('city').fill('Austin');
+    await id('country_id').selectOption('US');
+    await adminOrderIdle(page);
+    await id('region_id').selectOption({ label: 'Texas' });
+    await id('postcode').fill('78701');
+    await id('telephone').fill('5125550100');
+    await adminOrderIdle(page);
+}
+
+/** A value for a field of the admin order form: text, an option label, several option labels, or `{ checked }`. */
+export type OrderValue = string | string[];
+
+/** Types or chooses values in the custom attribute fields of one area of the admin order form (by attribute code). */
+export async function fillOrderValues(page: Page, area: OrderArea, values: Record<string, OrderValue>): Promise<void> {
+    for (const [code, value] of Object.entries(values)) {
+        const field = orderField(page, area, code);
+        const tag = await field.evaluate((node) => node.tagName.toLowerCase());
+        if (tag === 'select') {
+            await field.selectOption((Array.isArray(value) ? value : [value]).map((label) => ({ label })));
+        } else {
+            await field.fill(value as string);
+        }
+    }
+}
+
+/** Loads the shipping rates (the first click only ends the editing of the field before, so it retries) and picks the first method. */
+export async function chooseAdminShipping(page: Page): Promise<void> {
+    const method = page.locator('input[name="order[shipping_method]"]').first();
+    await expect(async () => {
+        await page.locator('#order-shipping-method-summary a').first().click({ timeout: 3000 }).catch(() => undefined);
+        await expect(method).toBeVisible({ timeout: 6000 });
+    }).toPass({ timeout: 40_000 });
+    await method.check();
+    await adminOrderIdle(page);
+}
+
+/** Picks Check / Money order as the payment method of the admin order. */
+export async function chooseAdminPayment(page: Page): Promise<void> {
+    const payment = page.locator('#p_method_checkmo');
+    await expect(async () => {
+        await page.locator('#order-billing_method_summary a').first().click({ timeout: 2000 }).catch(() => undefined);
+        await expect(payment).toBeVisible({ timeout: 4000 });
+    }).toPass({ timeout: 30_000 });
+    await payment.check();
+    await adminOrderIdle(page);
+}
+
+/** Submits the admin order; returns the increment id (from the order view's title) and the entity id. */
+export async function submitAdminOrder(page: Page): Promise<{ incrementId: string; orderId: string }> {
+    await page.locator('#submit_order_top_button').click();
+    await page.waitForURL(/sales\/order\/view\/order_id\/\d+/, { timeout: 60_000 });
+    const incrementId = ((await page.locator('.page-title').first().innerText()).match(/\d{9,10}/) ?? [''])[0];
+    const orderId = (page.url().match(/order_id\/(\d+)/) ?? ['', ''])[1];
+    expect(incrementId, 'order number on the admin order view').not.toBe('');
+    return { incrementId, orderId };
+}
+
+/** Everything the admin order needs besides the values under test; fills only what core and the fixtures require. */
+export async function completeAdminOrder(page: Page, billing: Record<string, OrderValue> = {}): Promise<{ incrementId: string; orderId: string }> {
+    await addAdminOrderProduct(page, '24-MB04');
+    await fillOrderAddress(page, 'billing_address');
+    // required address attributes of the fixtures (a value given by the test wins)
+    await fillOrderValues(page, 'billing_address', { e2e_a_req: 'required text', e2e_a_rdep: 'required dep', ...billing });
+    await chooseAdminShipping(page);
+    await chooseAdminPayment(page);
+    return submitAdminOrder(page);
+}
+
+/** Opens the Edit Order Address page of an order's billing or shipping address from the admin order view. */
+export async function openOrderAddressEdit(page: Page, which: 'billing' | 'shipping'): Promise<void> {
+    await page.locator(`.order-${which}-address a[href*="sales/order/address"]`).first().click();
+    await expect(page).toHaveURL(/sales\/order\/address\/address_id/);
+}
+
+/** The text of the address blocks on the admin order view (billing and shipping, one string per block). */
+export async function orderViewAddresses(page: Page): Promise<{ billing: string; shipping: string }> {
+    return {
+        billing: await page.locator('.order-billing-address').first().innerText(),
+        shipping: await page.locator('.order-shipping-address').first().innerText(),
+    };
+}

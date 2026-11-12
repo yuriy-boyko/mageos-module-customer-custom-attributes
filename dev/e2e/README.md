@@ -62,6 +62,9 @@ uncaught script error or a failed Magewire call:
 | `customerPage` / `customerMagewire` | the page of the signed-in fixture customer and its Magewire idle wait |
 | `fillCheckout(page, magewire, overrides?)`, `chooseShippingAndPayment`, `placeOrder` | fill the guest shipping address with valid values (and the always-required fixtures), pick shipping and Check / Money order, click Place Order |
 | `placedOrderSnapshot(page)` | the order number from the success page and the module's snapshot of that order (customer attributes, billing, shipping by code), read from the database |
+| `openNewAttribute`, `openAttribute`, `attributeTab`, `fillAttributeMain`, `addOption`, `optionRows`, `saveAttribute`, `attributeRow`, `deleteCreated` | the admin attribute edit page: open, fill, save, read the stored attribute back, delete what a test created |
+| `openGrid`, `gridFilter`, `gridColumn`, `gridMassAction`, `createAttributes`, `openCustomerEdit`, `customerTab` | the admin attribute grid (filter, sort, mass actions) and the customer edit page |
+| `setAclAdmin`, `deleteAclAdmin`, `signInAclAdmin`, `aclMenu`, `expectForbidden` | a restricted test admin (own role) and the checks of its menu and 403 answers |
 | `benchCommand('E2E_FIXTURE_CMD' \| 'E2E_ASSERT_CMD', args)` | run `fixtures.php` or `assertions.php` on the store (the test is skipped without `run-all.sh`) |
 | `uniqueEmail()` | an e-mail no earlier run used; `fixtures.php purge` removes the orders and quotes of such e-mails |
 
@@ -81,6 +84,11 @@ php ... fixtures.php status
 php ... fixtures.php teardown
 php ... fixtures.php delete-option <code> <label>   # delete an option of a fixture attribute, like the admin (used by DEP16)
 php ... fixtures.php delete-attribute <code>         # delete a fixture attribute, like the admin; prints the rules and group rows left
+php ... fixtures.php create-attributes <customer|address> <code>...   # plain optional text attributes (e2e_ codes) for admin tests; delete with delete-created
+php ... fixtures.php set-admin <e2e_acl...> <resource,...>   # a test admin whose role allows only these ACL resources (delete-admin removes it; purge removes leftovers)
+php ... fixtures.php secret-key <route/controller/action> <form key>   # the admin URL key of an action for a session
+php ... fixtures.php set-address <email> <code=value>...   # one saved address (default billing and shipping) with custom values; `--delete` removes the saved addresses
+php ... fixtures.php delete-created <code>           # delete an attribute a test created through the admin (code starts with e2e_), no error when absent
 php ... fixtures.php set-attribute <code> required=0|1 forms=a,b   # change whether a fixture attribute is required and its forms (VAL6)
 php ... fixtures.php set-customer <email> <code=value>...  # set account values of the fixture customer (select: option label, several: a|b)
 php ... fixtures.php drop-quotes <email>             # give a customer no active cart
@@ -124,6 +132,7 @@ php dev/e2e/assertions.php check                   # invariants that must always
 php dev/e2e/assertions.php order <increment_id>    # the order's snapshot rows (customer attributes and both addresses) as JSON
 php dev/e2e/assertions.php customer <email>        # all custom customer and address attribute values stored on the account, as JSON
 php dev/e2e/assertions.php quote <email>           # the module's values on the customer's latest quote, as JSON
+php dev/e2e/assertions.php attribute <customer|address> <code>   # how an attribute is stored (labels, options, default, forms, rules), as JSON
 ```
 
 `check` covers: no orphan rows (quote, quote address, order and order address values, relation rules, group restrictions),
@@ -216,3 +225,5 @@ E2E_HEADED=1 ...                                                                
 Add an entry to `fixtures.json` (keep the `e2e_` prefix) and describe it here. Keys: `entity` (`customer` or `address`), `code`,
 `label`, `input`, `required`, `display`, `options`, `rules`, `forms` (replaces the default form list), `checkout`
 (`position`, `sort`, `prefill`), `groups` (customer group ids), `websites` (rows by website id).
+
+Admin order helpers (`helpers.ts`): `startAdminOrder`, `addAdminOrderProduct`, `fillOrderAddress`, `fillOrderValues`, `chooseAdminShipping`, `chooseAdminPayment`, `submitAdminOrder`, `completeAdminOrder(page, billingValues)`, `orderField(page, area, code)`, `openOrderAddressEdit`, `orderViewAddresses`, `snapshotOf(incrementId)`, `setSavedAddress`, `deleteSavedAddresses`, `chosenLabels`, `adminOrderIdle`.

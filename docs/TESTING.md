@@ -189,32 +189,32 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 ### ADM. Admin attribute screens
 | ID | Test | Expected | Status |
 |---|---|---|---|
-| ADM1 | Stores → Attributes lists both entities | both grids open | ✅ |
-| ADM2 | Grid filters, sorting, pagination | work; system attributes not listed | ☐ (empty state ✅) |
-| ADM3 | Create dropdown with 3 options, text with max length, date with min/max | saved with the right rules | ✅ |
-| ADM4 | Entity type, backend type, `is_user_defined`, form assignments in the database | as expected | ✅ |
-| ADM5 | Input type switch shows/hides default value, validation rows, options | per type | ✅ |
-| ADM6 | Edit: code and input type read-only; options and values reload | yes | ✅ |
-| ADM7 | Change, add, delete options; change default option | saved | ☐ |
-| ADM8 | Manage Labels per store view | `eav_attribute_label` rows | ☐ |
-| ADM9 | Storefront Properties: forms, status, sort order | updated | ☐ |
-| ADM10 | Delete with confirmation | deleted, message | ✅ |
-| ADM11 | Validation: duplicate, reserved, malformed code, missing label, unsupported type, min > max, dropdown without options | clear message each | ✅ (validate endpoint), ☐ (browser) |
-| ADM12 | Failed save keeps the entered data | yes | ☐ |
-| ADM13 | URL tampering (`entity=foo`, id of another area, system attribute) | refused or fallback | ✅ (system attribute), ☐ rest |
-| ADM14 | Code length limits (51 customer, 60 address) | enforced | ☐ |
-| ADM15 | Mass enable, disable, delete (address grid) | messages, grid updated | ✅ |
-| ADM16 | Mass actions on the customer grid; Select All with a filter; nothing selected; system id posted by hand | filtered rows only; "Please select attributes."; skipped | ☐ |
-| ADM17 | Attribute shown in the admin customer and address edit forms | field present | ☐ |
+| ADM1 | Stores → Attributes lists both entities | both grids open | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM2 | Grid filters, sorting, pagination | work; system attributes not listed | ✅ automated: playwright/tests/adm-grid.spec.ts |
+| ADM3 | Create dropdown with 3 options, text with max length, date with min/max | saved with the right rules | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM4 | Entity type, backend type, `is_user_defined`, form assignments in the database | as expected | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM5 | Input type switch shows/hides default value, validation rows, options | per type | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM6 | Edit: code and input type read-only; options and values reload | yes | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM7 | Change, add, delete options; change default option | saved | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
+| ADM8 | Manage Labels per store view | `eav_attribute_label` rows | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
+| ADM9 | Storefront Properties: forms, status, sort order | updated | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
+| ADM10 | Delete with confirmation | deleted, message | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM11 | Validation: duplicate, reserved, malformed code, missing label, unsupported type, min > max, dropdown without options | clear message each | ✅ automated: playwright/tests/adm-attribute-validation.spec.ts |
+| ADM12 | Failed save keeps the entered data | yes | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
+| ADM13 | URL tampering (`entity=foo`, id of another area, system attribute) | refused or fallback | ✅ automated: playwright/tests/adm-attribute-validation.spec.ts |
+| ADM14 | Code length limits (51 customer, 60 address) | enforced | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
+| ADM15 | Mass enable, disable, delete (address grid) | messages, grid updated | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM16 | Mass actions on the customer grid; Select All with a filter; nothing selected; system id posted by hand | filtered rows only; "Please select attributes."; skipped | ✅ automated: playwright/tests/adm-grid.spec.ts |
+| ADM17 | Attribute shown in the admin customer and address edit forms | field present | ✅ automated: playwright/tests/adm-entity-forms.spec.ts |
 
 ### ACL. Permissions
 | ID | Test | Expected | Status |
 |---|---|---|---|
-| ACL1 | Role with only Customer Address Attributes | only that menu entry | ✅ |
-| ACL2 | Same role, `entity=customer` for index, new, save | 403, nothing created | ✅ |
-| ACL3 | Role with only Customer Attributes, `entity=address` | 403 | ☐ |
-| ACL4 | Role with neither | no menu entries, 403 | ☐ |
-| ACL5 | Attribute Relations screen with a restricted role | 403 without the resource | ☐ |
+| ACL1 | Role with only Customer Address Attributes | only that menu entry | ✅ automated: playwright/tests/acl-permissions.spec.ts |
+| ACL2 | Same role, `entity=customer` for index, new, save | 403, nothing created | ✅ automated: playwright/tests/acl-permissions.spec.ts |
+| ACL3 | Role with only Customer Attributes, `entity=address` | 403 | ✅ automated: playwright/tests/acl-permissions.spec.ts |
+| ACL4 | Role with neither | no menu entries, 403 | ✅ automated: playwright/tests/acl-permissions.spec.ts |
+| ACL5 | Attribute Relations screen with a restricted role | 403 without the resource | ✅ automated: playwright/tests/acl-permissions.spec.ts |
 
 ### DSP. Display and account forms
 | ID | Test | Expected | Status |
@@ -254,11 +254,11 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 ### AOC. Admin order create and order address edit
 | ID | Test | Expected | Status |
 |---|---|---|---|
-| AOC1 | Edit Order Address shows the order's values | prefilled | ✅ |
-| AOC2 | Save changed, cleared, locale-date and multiselect values | snapshot updated, cleared row removed, labels kept | ✅ |
-| AOC3 | Order create: Account Information shows customer attributes with the customer's values | yes | ✅ |
-| AOC4 | Pick a saved address | custom fields filled | ✅ |
-| AOC5 | Edit values, same as billing, place the order | both addresses carry the typed values | ✅ |
+| AOC1 | Edit Order Address shows the order's values | prefilled | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
+| AOC2 | Save changed, cleared, locale-date and multiselect values | snapshot updated, cleared row removed, labels kept | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
+| AOC3 | Order create: Account Information shows customer attributes with the customer's values | yes | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
+| AOC4 | Pick a saved address | custom fields filled | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
+| AOC5 | Edit values, same as billing, place the order | both addresses carry the typed values | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
 | AOC6 | "Add to address book" ticked | customer address gets the values | ☐ |
 | AOC7 | New customer | no errors, form values on the order | ☐ |
 | AOC8 | Reorder from the admin | values copied | ☐ |

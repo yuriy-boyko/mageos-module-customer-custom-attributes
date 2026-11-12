@@ -12,6 +12,7 @@ declare(strict_types=1);
  *   php dev/e2e/assertions.php order <increment_id>        the module's snapshot rows of one order as JSON
  *   php dev/e2e/assertions.php customer <email>            the stored values of all custom customer attributes as JSON
  *   php dev/e2e/assertions.php quote <email>               the module's values on the customer's latest quote as JSON
+ *   php dev/e2e/assertions.php attribute <entity> <code>   how an attribute is stored (labels, options, forms, rules) as JSON; entity customer|address
  *
  * `customer` before and after a checkout, compared with `diff`, proves the account was not changed:
  *
@@ -29,8 +30,8 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote'], true) || ($command !== 'check' && $argument === '')) {
-    fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email>\n");
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute'], true) || ($command !== 'check' && $argument === '')) {
+    fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
 
@@ -136,6 +137,58 @@ $json = static function (array $data): void {
     echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 };
 
+if ($command === 'attribute') {
+    $code = (string) ($argv[3] ?? '');
+    $typeCode = $argument === 'address' ? 'customer_address' : 'customer';
+    $row = $db->fetchRow(
+        $sql('SELECT a.attribute_id, a.frontend_label, a.frontend_input, a.backend_type, a.is_required, a.is_user_defined, a.default_value,
+                     e.is_visible, e.sort_order, e.validate_rules
+              FROM {{eav_attribute}} a
+              JOIN {{eav_entity_type}} t ON t.entity_type_id = a.entity_type_id AND t.entity_type_code = ?
+              LEFT JOIN {{customer_eav_attribute}} e ON e.attribute_id = a.attribute_id
+              WHERE a.attribute_code = ?'),
+        [$typeCode, $code]
+    );
+    if (!$row) {
+        $json(['exists' => false, 'entity' => $argument, 'code' => $code]);
+        exit(0);
+    }
+    $id = (int) $row['attribute_id'];
+    $options = [];
+    $defaults = array_filter(explode(',', (string) $row['default_value']), 'strlen');
+    foreach ($db->fetchAll($sql('SELECT o.option_id, o.sort_order, v.value FROM {{eav_attribute_option}} o
+            LEFT JOIN {{eav_attribute_option_value}} v ON v.option_id = o.option_id AND v.store_id = 0 WHERE o.attribute_id = ? ORDER BY o.sort_order, o.option_id'), [$id]) as $option) {
+        $labels = $db->fetchPairs($sql('SELECT store_id, value FROM {{eav_attribute_option_value}} WHERE option_id = ? ORDER BY store_id'), [$option['option_id']]);
+        $options[] = [
+            'label' => (string) $option['value'],
+            'sort_order' => (int) $option['sort_order'],
+            'is_default' => in_array((string) $option['option_id'], $defaults, true),
+            'store_labels' => array_filter($labels, static fn ($value, $store) => (int) $store !== 0, ARRAY_FILTER_USE_BOTH),
+        ];
+    }
+    $rules = (array) json_decode((string) $row['validate_rules'], true);
+    ksort($rules);
+    $json([
+        'exists' => true,
+        'id' => $id,
+        'entity' => $argument,
+        'code' => $code,
+        'label' => (string) $row['frontend_label'],
+        'store_labels' => $db->fetchPairs($sql('SELECT store_id, value FROM {{eav_attribute_label}} WHERE attribute_id = ? ORDER BY store_id'), [$id]),
+        'input' => (string) $row['frontend_input'],
+        'backend_type' => (string) $row['backend_type'],
+        'required' => (bool) $row['is_required'],
+        'user_defined' => (bool) $row['is_user_defined'],
+        'default_value' => $row['default_value'],
+        'is_visible' => (bool) $row['is_visible'],
+        'sort_order' => (int) $row['sort_order'],
+        'forms' => $db->fetchCol($sql('SELECT form_code FROM {{customer_form_attribute}} WHERE attribute_id = ? ORDER BY form_code'), [$id]),
+        'options' => $options,
+        'rules' => $rules,
+    ]);
+    exit(0);
+}
+
 if ($command === 'order') {
     $orderId = (int) $db->fetchOne($sql('SELECT entity_id FROM {{sales_order}} WHERE increment_id = ?'), [$argument]);
     if ($orderId === 0) {
@@ -187,7 +240,7 @@ if ($command === 'customer') {
         $addresses[(string) $address->getId()] = $row;
     }
     ksort($addresses);
-    $json(['email' => $argument, 'customer_attributes' => $values, 'addresses' => $addresses]);
+    $json(['email' => $argument, 'customer_id' => $customerId, 'customer_attributes' => $values, 'addresses' => $addresses]);
     exit(0);
 }
 

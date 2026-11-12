@@ -14,8 +14,13 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
+ *   php dev/e2e/fixtures.php create-attributes <customer|address> <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>"; remove them with delete-created
+ *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
+ *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
+ *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_; any entity), no error when absent
  *   php dev/e2e/fixtures.php set-attribute <code> <required=0|1> <forms=a,b,...>  change whether a fixture attribute is required and the forms it is in
  *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
+ *   php dev/e2e/fixtures.php set-address <email> <code=value>...   give a customer one saved address (default billing and shipping) with these custom address values (select: option label, several: a|b, date: YYYY-MM-DD); `--delete` instead of the pairs removes all saved addresses
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
  *   php dev/e2e/fixtures.php purge       delete the orders and quotes of test runs (e-mail like %e2e%@example.com)
  *
@@ -46,8 +51,8 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute'], true)) {
-    fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address'], true)) {
+    fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
 
@@ -174,7 +179,9 @@ if ($command === 'seed') {
         $customer = $objectManager->get(CustomerInterfaceFactory::class)->create();
         $customer->setEmail($definition['email'])->setFirstname($definition['firstname'])->setLastname($definition['lastname'])
             ->setGroupId($groupId)->setWebsiteId(1)->setStoreId(1);
-        $objectManager->get(AccountManagementInterface::class)->createAccount($customer, $password);
+        $created = $objectManager->get(AccountManagementInterface::class)->createAccount($customer, $password);
+        // the customer grid is updated on a schedule on the bench; the admin tests search the grid for this customer
+        $objectManager->get(\Magento\Framework\Indexer\IndexerRegistry::class)->get('customer_grid')->reindexRow((int) $created->getId());
         echo 'created  customer ' . $definition['email'] . "\n";
     }
     $ids = [];
@@ -246,6 +253,88 @@ if ($command === 'status') {
     foreach ($fixtures['customers'] as $definition) {
         echo str_pad('customer', 16) . $definition['email'] . ': ' . ($findCustomer($definition['email']) ? 'present' : 'missing') . "\n";
     }
+    exit(0);
+}
+
+if ($command === 'secret-key') {
+    [$route, $controller, $action] = array_pad(explode('/', (string) ($argv[2] ?? '')), 3, '');
+    echo $objectManager->get(\Magento\Framework\Encryption\EncryptorInterface::class)->getHash($route . $controller . $action . (string) ($argv[3] ?? '')) . "\n";
+    exit(0);
+}
+
+if ($command === 'set-admin' || $command === 'delete-admin') {
+    $username = (string) ($argv[2] ?? '');
+    if (!str_starts_with($username, 'e2e_acl')) {
+        fwrite(STDERR, "Only admins with a username starting with e2e_acl are handled.\n");
+        exit(2);
+    }
+    $objectManager->get(Registry::class)->register('isSecureArea', true);
+    $roleName = $username . '_role';
+    $user = $objectManager->create(\Magento\User\Model\User::class)->loadByUsername($username);
+    $roles = $objectManager->create(\Magento\Authorization\Model\ResourceModel\Role\Collection::class)->addFieldToFilter('role_name', $roleName)->addFieldToFilter('role_type', 'G');
+    if ($command === 'delete-admin') {
+        if ($user->getId()) {
+            $user->delete();
+        }
+        foreach ($roles as $role) {
+            $role->delete();
+        }
+        echo "deleted  admin $username\n";
+        exit(0);
+    }
+    $resources = array_merge(['Magento_Backend::admin', 'Magento_Backend::dashboard'], array_filter(explode(',', (string) ($argv[3] ?? ''))));
+    $role = $roles->getFirstItem();
+    if (!$role->getId()) {
+        $role = $objectManager->create(\Magento\Authorization\Model\Role::class);
+        $role->setRoleName($roleName)->setPid(0)->setRoleType('G')->setUserType((string) \Magento\Authorization\Model\UserContextInterface::USER_TYPE_ADMIN)->save();
+    }
+    $objectManager->create(\Magento\Authorization\Model\Rules::class)->setRoleId($role->getId())->setResources($resources)->saveRel();
+    if (!$user->getId()) {
+        $password = (string) getenv('E2E_CUSTOMER_PASSWORD');
+        if ($password === '') {
+            fwrite(STDERR, "Set E2E_CUSTOMER_PASSWORD (the password of the test admin).\n");
+            exit(1);
+        }
+        $user->setData(['username' => $username, 'firstname' => 'E2E', 'lastname' => 'Acl', 'email' => $username . '@example.com', 'password' => $password, 'is_active' => 1]);
+        $user->setRoleId($role->getId())->save();
+    }
+    echo "set      admin $username: " . implode(', ', array_slice($resources, 2)) . "\n";
+    exit(0);
+}
+
+if ($command === 'create-attributes') {
+    $entity = (string) ($argv[2] ?? '');
+    if (!isset($entityTypeCodes[$entity])) {
+        fwrite(STDERR, "The entity must be customer or address.\n");
+        exit(2);
+    }
+    foreach (array_slice($argv, 3) as $code) {
+        if (!str_starts_with($code, 'e2e_')) {
+            fwrite(STDERR, "Only codes starting with e2e_ are created: $code\n");
+            exit(2);
+        }
+        $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => 'ADM ' . $code, 'input' => 'text', 'forms' => $entity === 'customer' ? ['customer_account_edit'] : ['customer_address_edit']]);
+        echo "created  $code\n";
+    }
+    exit(0);
+}
+
+if ($command === 'delete-created') {
+    $code = (string) ($argv[2] ?? '');
+    if (!str_starts_with($code, 'e2e_')) {
+        fwrite(STDERR, "Only attributes with a code starting with e2e_ are deleted.\n");
+        exit(2);
+    }
+    $deleted = 0;
+    foreach (['customer', 'customer_address'] as $entity) {
+        $attribute = $findAttribute($entity === 'customer' ? 'customer' : 'address', $code);
+        if ($attribute !== null && $attribute->getId()) {
+            $attribute->delete();
+            $deleted++;
+        }
+    }
+    $eavConfig->clear();
+    echo $deleted > 0 ? "deleted  $code\n" : "absent   $code\n";
     exit(0);
 }
 
@@ -447,6 +536,60 @@ if ($command === 'set-customer') {
     exit(0);
 }
 
+if ($command === 'set-address') {
+    $email = (string) ($argv[2] ?? '');
+    $customer = $findCustomer($email);
+    if ($customer === null) {
+        fwrite(STDERR, "Customer $email not found (seed first).\n");
+        exit(1);
+    }
+    $objectManager->get(Registry::class)->register('isSecureArea', true);
+    $addressRepository = $objectManager->get(\Magento\Customer\Api\AddressRepositoryInterface::class);
+    foreach ($objectManager->get(\Magento\Customer\Model\ResourceModel\Address\CollectionFactory::class)->create()->setCustomerFilter($customer) as $old) {
+        $addressRepository->deleteById((int) $old->getId());
+    }
+    if (($argv[3] ?? '') === '--delete') {
+        echo "removed  the saved addresses of $email\n";
+        exit(0);
+    }
+    $definitions = [];
+    foreach ($fixtures['attributes'] as $candidate) {
+        if ($candidate['entity'] === 'address') {
+            $definitions[$candidate['code']] = $candidate;
+        }
+    }
+    $address = $objectManager->create(\Magento\Customer\Model\Address::class);
+    $address->setCustomerId((int) $customer->getId())->addData([
+        'firstname' => 'Ada', 'lastname' => 'Saved', 'street' => ['1 Saved Street'], 'city' => 'Austin', 'region_id' => 57,
+        'postcode' => '78701', 'country_id' => 'US', 'telephone' => '5125550100', 'is_default_billing' => 1, 'is_default_shipping' => 1,
+    ]);
+    foreach (array_slice($argv, 3) as $pair) {
+        [$code, $value] = array_pad(explode('=', $pair, 2), 2, '');
+        if (!isset($definitions[$code])) {
+            fwrite(STDERR, "$code is not a fixture address attribute.\n");
+            exit(2);
+        }
+        if ($value !== '' && in_array($definitions[$code]['input'], ['select', 'multiselect'], true)) {
+            $attribute = $findAttribute('address', $code);
+            $ids = [];
+            foreach (explode('|', $value) as $label) {
+                $id = $attribute->getSource()->getOptionId($label);
+                if ($id === null || $id === '') {
+                    fwrite(STDERR, "$code has no option \"$label\".\n");
+                    exit(2);
+                }
+                $ids[] = (string) $id;
+            }
+            $value = implode(',', $ids);
+        }
+        $address->setData($code, $value);
+    }
+    $address->save();
+    $eavConfig->clear();
+    echo 'set      saved address ' . $address->getId() . ' of ' . $email . "\n";
+    exit(0);
+}
+
 if ($command === 'purge') {
     // Orders and quotes of test runs are recognised by their e-mail: every test e-mail contains "e2e" and ends with @example.com.
     $objectManager->get(Registry::class)->register('isSecureArea', true);
@@ -461,6 +604,9 @@ if ($command === 'purge') {
     // The module's snapshot rows go with the orders and quotes (foreign keys); sales_order_grid is cleaned by the core.
     $quotes = $connection->delete($resource->getTableName('quote'), ['customer_email LIKE ?' => $pattern]);
     echo 'removed  ' . count($orderIds) . " orders, $quotes quotes\n";
+    foreach ($connection->fetchCol('SELECT username FROM ' . $resource->getTableName('admin_user') . " WHERE username LIKE 'e2e\\_acl%'") as $leftover) {
+        passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' delete-admin ' . escapeshellarg($leftover));
+    }
     exit(0);
 }
 
