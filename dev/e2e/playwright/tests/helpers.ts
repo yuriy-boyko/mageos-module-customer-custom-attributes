@@ -183,13 +183,15 @@ function switchVariant(variant: string): void {
 
 /** Adds the test product (or the product page given, e.g. the virtual fixture product) to the cart and opens the checkout. */
 export async function openCheckoutAsGuest(page: Page, productUrl?: string): Promise<void> {
+    // an absolute product URL (the Italy store) puts the checkout on the same host
+    const origin = productUrl && /^https?:/.test(productUrl) ? new URL(productUrl).origin : '';
     await page.goto(productUrl || process.env.E2E_PRODUCT_URL || '/strive-shoulder-pack.html');
     // wait for the add-to-cart request itself: leaving the page earlier would leave the cart empty
     await Promise.all([
         page.waitForResponse((response) => response.url().includes('/checkout/cart/add'), { timeout: 20_000 }),
         page.locator('#product-addtocart-button').click(),
     ]);
-    await page.goto('/checkout/');
+    await page.goto(`${origin}/checkout/`);
     // a guest sees the address form; a customer with a saved address sees the list of addresses, but both see the module's sections
     await expect(page.locator('[name="firstname"], [data-mageos-cca-customer]').first()).toBeAttached();
     await expect(page.locator('[data-mageos-cca-customer]').first()).toBeAttached();
@@ -224,7 +226,7 @@ type Magewire = { idle(): Promise<void> };
  * (`e2e_a_req`) and the required customer attribute (`e2e_c_req`). `overrides` replaces or adds fields by input name; the region is
  * Texas. Waits for Magewire after every field.
  */
-export async function fillCheckout(page: Page, magewire: Magewire, overrides: Record<string, string> = {}): Promise<void> {
+export async function fillCheckout(page: Page, magewire: Magewire, overrides: Record<string, string> = {}, region = 'Texas'): Promise<void> {
     const values: Record<string, string> = {
         email_address: uniqueEmail('guest'),
         firstname: 'Test',
@@ -237,9 +239,13 @@ export async function fillCheckout(page: Page, magewire: Magewire, overrides: Re
         e2e_c_req: 'required customer value',
         ...overrides,
     };
-    const region = page.locator('select[name="region"]').first();
-    if (await region.count()) {
-        await region.selectOption({ label: 'Texas' });
+    const regionName = region;
+    const regionSelect = page.locator('select[name="region"]').first();
+    if (await regionSelect.count()) {
+        // an exact label ("Texas") or the start of one ("Roma")
+        const labels = await regionSelect.locator('option').allInnerTexts();
+        const wanted = labels.find((label) => label.trim() === regionName) ?? labels.find((label) => label.trim().startsWith(regionName));
+        await regionSelect.selectOption({ label: wanted });
         await magewire.idle();
     }
     for (const [name, value] of Object.entries(values)) {
@@ -465,6 +471,7 @@ export type AttributeRow = {
     forms: string[];
     options: { label: string; sort_order: number; is_default: boolean; store_labels: Record<string, string> }[];
     rules: Record<string, unknown>;
+    websites: Record<string, { website_id: string; is_visible: string | null; is_required: string | null; default_value: string | null }>;
 };
 
 /** Reads an attribute from the database. */
@@ -474,8 +481,8 @@ export function attributeRow(entity: AdminEntity, code: string): AttributeRow {
 
 /** Deletes an attribute a test created through the admin (only codes starting with e2e_); nothing happens when it is gone. */
 /** Creates plain optional text attributes (codes starting with e2e_) without the browser; delete them with `deleteCreated`. */
-export function createAttributes(entity: AdminEntity, codes: string[], forms?: string[]): void {
-    benchCommand('E2E_FIXTURE_CMD', ['create-attributes', entity, ...(forms ? [`--forms=${forms.join(',')}`] : []), ...codes]);
+export function createAttributes(entity: AdminEntity, codes: string[], forms?: string[], checkoutPosition?: string): void {
+    benchCommand('E2E_FIXTURE_CMD', ['create-attributes', entity, ...(forms ? [`--forms=${forms.join(',')}`] : []), ...(checkoutPosition ? [`--position=${checkoutPosition}`] : []), ...codes]);
 }
 
 export function deleteCreated(code: string): void {
@@ -777,24 +784,45 @@ export async function fillOrderValues(page: Page, area: OrderArea, values: Recor
 
 /** Loads the shipping rates (the first click only ends the editing of the field before, so it retries) and picks the first method. */
 export async function chooseAdminShipping(page: Page): Promise<void> {
-    const method = page.locator('input[name="order[shipping_method]"]').first();
+    const getRates = page.locator('#order-shipping-method-summary').getByText('Get shipping methods and rates');
+    // chosen: the "Get shipping methods" link is gone, the block shows the chosen method with "Click to change shipping method" (after a
+    // reorder this is so from the start, until another part of the form reloads the block and brings the link back)
+    const done = async (): Promise<boolean> => (await getRates.count()) === 0;
+    if (await done()) {
+        return;
+    }
     await expect(async () => {
-        await page.locator('#order-shipping-method-summary a').first().click({ timeout: 3000 }).catch(() => undefined);
+        await adminOrderIdle(page);
+        if (await done()) {
+            return;
+        }
+        // the first click only ends the editing of the field before, so it may need a second one
+        await getRates.first().click({ timeout: 3000 }).catch(() => undefined);
+        const method = page.locator('input[name="order[shipping_method]"]').first();
         await expect(method).toBeVisible({ timeout: 6000 });
+        await method.click();
+        await adminOrderIdle(page);
+        expect(await done()).toBe(true);
     }).toPass({ timeout: 40_000 });
-    await method.check();
-    await adminOrderIdle(page);
 }
 
 /** Picks Check / Money order as the payment method of the admin order. */
 export async function chooseAdminPayment(page: Page): Promise<void> {
     const payment = page.locator('#p_method_checkmo');
+    if (await payment.isChecked().catch(() => false)) {
+        return;
+    }
+    // The payment block is reloaded when other parts of the form change (after a reorder, after the shipping method): load the methods when
+    // only the link is there, click the radio, wait for the form to settle and look again.
     await expect(async () => {
-        await page.locator('#order-billing_method_summary a').first().click({ timeout: 2000 }).catch(() => undefined);
-        await expect(payment).toBeVisible({ timeout: 4000 });
-    }).toPass({ timeout: 30_000 });
-    await payment.check();
-    await adminOrderIdle(page);
+        const link = page.locator('#order-billing_method_summary a').first();
+        if (await link.count()) {
+            await link.click({ timeout: 2000 }).catch(() => undefined);
+        }
+        await payment.click({ timeout: 4000 });
+        await adminOrderIdle(page);
+        await expect(page.locator('#p_method_checkmo')).toBeChecked({ timeout: 3000 });
+    }).toPass({ timeout: 40_000 });
 }
 
 /** Submits the admin order; returns the increment id (from the order view's title) and the entity id. */
@@ -840,4 +868,54 @@ export async function startAdminOrderNewCustomer(page: Page, storeView = 'Defaul
     await page.locator('#order-store-selector').getByLabel(storeView, { exact: true }).check();
     await expect(page.locator('#order-items')).toBeVisible({ timeout: 30_000 });
     await adminOrderIdle(page);
+}
+
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Websites: the Italy store (WEB specs)
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/** The Italy website's storefront (website id 2, EUR, Italian address forms); the main website is the project's base URL. */
+export const ITA = 'https://ita.magento249.test';
+export const ITA_PRODUCT = `${ITA}/strive-shoulder-pack.html`;
+
+/** Sets or clears (`'-'`) the per-website override of a fixture attribute: enabled, required, default value. */
+export function websiteOverride(code: string, websiteId: number, settings: { enabled?: '0' | '1' | '-'; required?: '0' | '1' | '-'; default?: string }): void {
+    const pairs = Object.entries(settings).map(([key, value]) => `${key}=${value}`);
+    benchCommand('E2E_FIXTURE_CMD', ['set-website', code, String(websiteId), ...pairs]);
+}
+
+/** Removes every override of the attributes on a website (what the WEB specs call after each test). */
+export function clearWebsiteOverrides(codes: string[], websiteIds = [1, 2]): void {
+    for (const code of codes) {
+        for (const websiteId of websiteIds) {
+            websiteOverride(code, websiteId, { enabled: '-', required: '-', default: '-' });
+        }
+    }
+}
+
+/** A customer on a website (the password is the fixture customer's). */
+export function createWebsiteCustomer(email: string, websiteId: number): void {
+    benchCommand('E2E_FIXTURE_CMD', ['create-customer', email, String(websiteId)]);
+}
+
+/** Signs a customer in on a storefront host (`origin` empty = the base URL). */
+export async function loginOn(page: Page, origin: string, email: string): Promise<void> {
+    const password = process.env.E2E_CUSTOMER_PASSWORD as string;
+    await page.goto(`${origin}/customer/account/login/`);
+    const form = page.locator('form[action*="loginPost"]');
+    await form.locator('[name="login[username]"]').fill(email);
+    await form.locator('[name="login[password]"]').fill(password);
+    await form.locator('button[type="submit"]').click();
+    await page.waitForURL(/customer\/account(?!\/login)/, { timeout: 20_000 });
+}
+
+/** Opens an order in the admin from the orders grid (search by order number). */
+export async function openAdminOrder(page: Page, incrementId: string): Promise<void> {
+    await adminOpen(page, 'sales/order/');
+    const search = page.locator('input[placeholder*="Search by keyword"]').first();
+    await search.fill(incrementId);
+    await search.press('Enter');
+    await page.locator('tr.data-row', { hasText: incrementId }).first().click();
+    await expect(page).toHaveURL(/sales\/order\/view/);
 }

@@ -7,17 +7,29 @@ declare(strict_types=1);
 
 namespace MageOS\CustomerCustomAttributes\Model\AddressText;
 
+use MageOS\CustomerCustomAttributes\Model\OptionLabels;
 use Magento\Eav\Model\Entity\Attribute\AbstractAttribute;
+use Magento\Framework\ObjectManager\ResetAfterRequestInterface;
 use Magento\Framework\Stdlib\DateTime\TimezoneInterface;
 
 /**
  * Turns a stored value into the text shown to a customer: option labels for dropdown, multiple select and yes/no, and the
  * store's date format (date only, no time) for dates.
  */
-class ValueFormatter
+class ValueFormatter implements ResetAfterRequestInterface
 {
-    public function __construct(private readonly TimezoneInterface $timezone)
+    /** @var array<int, array<string, string>> option labels by attribute id, read once per request (not once per address) */
+    private array $labels = [];
+
+    public function __construct(
+        private readonly TimezoneInterface $timezone,
+        private readonly OptionLabels $optionLabels
+    ) {
+    }
+
+    public function _resetState(): void
     {
+        $this->labels = [];
     }
 
     public function format(AbstractAttribute $attribute, string $raw): string
@@ -27,12 +39,18 @@ class ValueFormatter
             return $this->formatDate($raw);
         }
         if (in_array($input, ['select', 'multiselect', 'boolean'], true) && $attribute->usesSource()) {
-            $text = $attribute->getSource()->getOptionText($raw);
-            if (is_array($text)) {
-                return implode(', ', array_map('strval', $text));
+            // One read of the options per attribute and request: the source's getOptionText() asks the database on every call,
+            // which costs a statement per address and dropdown on pages that list addresses.
+            $map = $this->labels[(int) $attribute->getId()] ??= $this->optionLabels->forAttribute($attribute);
+            $texts = [];
+            foreach (explode(',', $raw) as $value) {
+                $value = trim($value);
+                if ($value !== '' && isset($map[$value])) {
+                    $texts[] = $map[$value];
+                }
             }
-            if ($text !== false && $text !== null && $text !== '') {
-                return (string) $text;
+            if ($texts !== []) {
+                return implode(', ', $texts);
             }
         }
         return $raw;

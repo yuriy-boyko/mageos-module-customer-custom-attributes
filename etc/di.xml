@@ -55,6 +55,11 @@
         <plugin name="mageos_cca_admin_order_address_form_values" type="MageOS\CustomerCustomAttributes\Plugin\AdminOrderAddressFormValues"/>
     </type>
 
+    <!-- Reorder in the admin: carry the custom address values of the order to the new quote -->
+    <type name="Magento\Sales\Model\AdminOrder\Create">
+        <plugin name="mageos_cca_admin_reorder_address_values" type="MageOS\CustomerCustomAttributes\Plugin\AdminOrderReorderAddressValues"/>
+    </type>
+
     <!-- Admin order create: prefill the billing and shipping address forms with the quote address values -->
     <type name="Magento\Sales\Block\Adminhtml\Order\Create\Billing\Address">
         <plugin name="mageos_cca_admin_create_billing_values" type="MageOS\CustomerCustomAttributes\Plugin\AdminOrderCreateAddressFormValues"/>

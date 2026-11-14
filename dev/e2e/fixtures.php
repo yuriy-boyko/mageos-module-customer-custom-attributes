@@ -14,7 +14,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
- *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
+ *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
  *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
  *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
  *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_; any entity), no error when absent
@@ -22,6 +22,9 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
  *   php dev/e2e/fixtures.php set-address <email> <code=value>...   give a customer one saved address (default billing and shipping) with these custom address values (select: option label, several: a|b, date: YYYY-MM-DD); `--delete` instead of the pairs removes all saved addresses
  *   php dev/e2e/fixtures.php quote-address-saves   save a throw-away quote address four times (new values, identical, changed, identical) and print how many rows the value table was asked to write each time (JSON)
+ *   php dev/e2e/fixtures.php set-website <code> <website_id> [enabled=0|1|-] [required=0|1|-] [default=text|-]   the per-website override of a fixture attribute (`-` = use the default of the attribute)
+ *   php dev/e2e/fixtures.php create-customer <email> <website_id>   a customer on that website (E2E_CUSTOMER_PASSWORD is the password); purge deletes it when the e-mail contains e2e
+ *   php dev/e2e/fixtures.php bulk-attributes <n>   create n address attributes e2e_bulk_01... (every third a dropdown with 3 options) in all storefront address forms (ROB3); bulk-addresses <email> <n> gives a customer n saved addresses with values for them; bulk-clean deletes them and the addresses
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
  *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
  *
@@ -52,7 +55,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -157,11 +160,15 @@ $findRelations = static function () use ($objectManager, $fixtures): array {
 
 $customerRepository = $objectManager->get(CustomerRepositoryInterface::class);
 $findCustomer = static function (string $email) use ($customerRepository) {
-    try {
-        return $customerRepository->get($email);
-    } catch (\Magento\Framework\Exception\NoSuchEntityException $e) {
-        return null;
+    // accounts are per website: look on every website (the default lookup only covers the first)
+    foreach ([null, 2, 3] as $websiteId) {
+        try {
+            return $customerRepository->get($email, $websiteId);
+        } catch (\Magento\Framework\Exception\NoSuchEntityException $e) {
+            continue;
+        }
     }
+    return null;
 };
 
 if ($command === 'seed') {
@@ -310,10 +317,13 @@ if ($command === 'create-attributes') {
         exit(2);
     }
     $forms = $entity === 'customer' ? ['customer_account_edit'] : ['customer_address_edit'];
+    $position = null;
     $codes = [];
     foreach (array_slice($argv, 3) as $argument) {
         if (str_starts_with($argument, '--forms=')) {
             $forms = array_values(array_filter(explode(',', substr($argument, 8))));
+        } elseif (str_starts_with($argument, '--position=')) {
+            $position = substr($argument, 11);
         } else {
             $codes[] = $argument;
         }
@@ -323,7 +333,8 @@ if ($command === 'create-attributes') {
             fwrite(STDERR, "Only codes starting with e2e_ are created: $code\n");
             exit(2);
         }
-        $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => 'ADM ' . $code, 'input' => 'text', 'forms' => $forms]);
+        $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => 'ADM ' . $code, 'input' => 'text', 'forms' => $forms]
+            + ($position !== null ? ['checkout' => ['position' => $position, 'sort' => 5, 'prefill' => false]] : []));
         echo "created  $code\n";
     }
     exit(0);
@@ -634,6 +645,152 @@ if ($command === 'quote-address-saves') {
         $quote->delete();
     }
     echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    exit(0);
+}
+
+if ($command === 'set-website') {
+    $code = (string) ($argv[2] ?? '');
+    $websiteId = (int) ($argv[3] ?? 0);
+    $definition = null;
+    foreach ($fixtures['attributes'] as $candidate) {
+        if ($candidate['code'] === $code) {
+            $definition = $candidate;
+        }
+    }
+    $attribute = $definition === null ? null : $findAttribute($definition['entity'], $code);
+    if ($attribute === null || $websiteId <= 0) {
+        fwrite(STDERR, "Usage: set-website <fixture attribute code (seeded)> <website id> [enabled=..] [required=..] [default=..]\n");
+        exit(2);
+    }
+    $storage = $objectManager->get(\MageOS\CustomerCustomAttributes\Model\ResourceModel\AttributeWebsiteStorage::class);
+    $row = $storage->load((int) $attribute->getId())[$websiteId] ?? ['is_visible' => null, 'is_required' => null, 'default_value' => null];
+    foreach (array_slice($argv, 4) as $pair) {
+        [$key, $value] = array_pad(explode('=', $pair, 2), 2, '');
+        $value = $value === '-' ? null : $value;
+        match ($key) {
+            'enabled' => $row['is_visible'] = $value === null ? null : (int) $value,
+            'required' => $row['is_required'] = $value === null ? null : (int) $value,
+            'default' => $row['default_value'] = $value,
+            default => throw new RuntimeException("Unknown setting $key"),
+        };
+    }
+    $storage->save((int) $attribute->getId(), [$websiteId => $row]);
+    $eavConfig->clear();
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('eav');
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('full_page');
+    echo "set      $code on website $websiteId: " . json_encode($row) . "\n";
+    exit(0);
+}
+
+if ($command === 'create-customer') {
+    $email = (string) ($argv[2] ?? '');
+    $websiteId = (int) ($argv[3] ?? 1);
+    $password = (string) getenv($fixtures['customers'][0]['password_env']);
+    if ($email === '' || $password === '') {
+        fwrite(STDERR, "Usage: create-customer <email> <website id> (and E2E_CUSTOMER_PASSWORD in the environment)\n");
+        exit(2);
+    }
+    if ($findCustomer($email) !== null) {
+        echo "exists   customer $email\n";
+        exit(0);
+    }
+    $storeId = (int) $objectManager->get(\Magento\Store\Model\StoreManagerInterface::class)->getWebsite($websiteId)->getDefaultStore()->getId();
+    $customer = $objectManager->get(CustomerInterfaceFactory::class)->create();
+    $customer->setEmail($email)->setFirstname('Web')->setLastname('Customer')->setGroupId(1)->setWebsiteId($websiteId)->setStoreId($storeId);
+    // the required fixture attributes need a value, like in the account form
+    foreach ($fixtures['attributes'] as $definition) {
+        if ($definition['entity'] === 'customer' && !empty($definition['required'])) {
+            if (in_array($definition['input'], ['select', 'multiselect'], true)) {
+                $options = $findAttribute('customer', $definition['code'])->getSource()->getAllOptions(false);
+                $customer->setCustomAttribute($definition['code'], (string) $options[0]['value']);
+            } else {
+                $customer->setCustomAttribute($definition['code'], 'account value');
+            }
+        }
+    }
+    $created = $objectManager->get(AccountManagementInterface::class)->createAccount($customer, $password);
+    $objectManager->get(\Magento\Framework\Indexer\IndexerRegistry::class)->get('customer_grid')->reindexRow((int) $created->getId());
+    echo "created  customer $email on website $websiteId\n";
+    exit(0);
+}
+
+if ($command === 'bulk-attributes') {
+    $count = max(1, (int) ($argv[2] ?? 50));
+    $forms = ['customer_address_edit', 'customer_register_address', 'mageos_hyva_checkout', 'mageos_address_text'];
+    for ($i = 1; $i <= $count; $i++) {
+        $definition = ['entity' => 'address', 'code' => sprintf('e2e_bulk_%02d', $i), 'label' => 'Bulk ' . $i, 'forms' => $forms, 'input' => 'text'];
+        if ($i % 3 === 0) {
+            $definition['input'] = 'select';
+            $definition['options'] = ['One', 'Two', 'Three'];
+        }
+        $seedAttribute($definition);
+    }
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('eav');
+    echo "created  $count bulk address attributes\n";
+    exit(0);
+}
+
+if ($command === 'bulk-addresses') {
+    $email = (string) ($argv[2] ?? '');
+    $count = max(1, (int) ($argv[3] ?? 5));
+    $customer = $findCustomer($email);
+    if ($customer === null) {
+        fwrite(STDERR, "Customer $email not found (seed first).\n");
+        exit(1);
+    }
+    $objectManager->get(Registry::class)->register('isSecureArea', true);
+    $addressRepository = $objectManager->get(\Magento\Customer\Api\AddressRepositoryInterface::class);
+    foreach ($objectManager->get(\Magento\Customer\Model\ResourceModel\Address\CollectionFactory::class)->create()->setCustomerFilter($customer) as $old) {
+        $addressRepository->deleteById((int) $old->getId());
+    }
+    $eavConfig->clear();
+    $bulk = [];
+    foreach ($objectManager->get(\Magento\Eav\Model\ResourceModel\Entity\Attribute\Collection::class)->setEntityTypeFilter($eavConfig->getEntityType('customer_address')->getId()) as $attribute) {
+        if (str_starts_with((string) $attribute->getAttributeCode(), 'e2e_bulk_')) {
+            $bulk[] = $findAttribute('address', (string) $attribute->getAttributeCode());
+        }
+    }
+    for ($n = 1; $n <= $count; $n++) {
+        $address = $objectManager->create(\Magento\Customer\Model\Address::class);
+        $address->setCustomerId((int) $customer->getId())->addData([
+            'firstname' => 'Bulk', 'lastname' => 'Address ' . $n, 'street' => [$n . ' Bulk Street'], 'city' => 'Austin', 'region_id' => 57,
+            'postcode' => '78701', 'country_id' => 'US', 'telephone' => '5125550100', 'e2e_a_req' => 'required',
+            'is_default_billing' => $n === 1 ? 1 : 0, 'is_default_shipping' => $n === 1 ? 1 : 0,
+        ]);
+        foreach ($bulk as $attribute) {
+            if ($attribute->getFrontendInput() === 'select') {
+                $address->setData($attribute->getAttributeCode(), (string) $attribute->getSource()->getOptionId('Two'));
+            } else {
+                $address->setData($attribute->getAttributeCode(), 'value ' . $n);
+            }
+        }
+        $address->save();
+    }
+    echo "set      $count addresses with " . count($bulk) . " bulk values each\n";
+    exit(0);
+}
+
+if ($command === 'bulk-clean') {
+    $objectManager->get(Registry::class)->register('isSecureArea', true);
+    $email = (string) ($argv[2] ?? $fixtures['customers'][0]['email']);
+    $customer = $findCustomer($email);
+    if ($customer !== null) {
+        $addressRepository = $objectManager->get(\Magento\Customer\Api\AddressRepositoryInterface::class);
+        foreach ($objectManager->get(\Magento\Customer\Model\ResourceModel\Address\CollectionFactory::class)->create()->setCustomerFilter($customer) as $old) {
+            $addressRepository->deleteById((int) $old->getId());
+        }
+    }
+    $eavConfig->clear();
+    $deleted = 0;
+    foreach ($objectManager->get(\Magento\Eav\Model\ResourceModel\Entity\Attribute\Collection::class)->setEntityTypeFilter($eavConfig->getEntityType('customer_address')->getId()) as $attribute) {
+        if (str_starts_with((string) $attribute->getAttributeCode(), 'e2e_bulk_')) {
+            $attribute->delete();
+            $deleted++;
+        }
+    }
+    $eavConfig->clear();
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('eav');
+    echo "removed  $deleted bulk attributes\n";
     exit(0);
 }
 

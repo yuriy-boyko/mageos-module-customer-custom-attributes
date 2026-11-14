@@ -13,6 +13,7 @@ declare(strict_types=1);
  *   php dev/e2e/assertions.php customer <email>            the stored values of all custom customer attributes as JSON
  *   php dev/e2e/assertions.php quote <email>               the module's values on the customer's latest quote as JSON
  *   php dev/e2e/assertions.php queries                     how many SQL statements loading order and order address collections of several sizes takes (JSON), to show the module adds none per row
+ *   php dev/e2e/assertions.php perf <email>                SQL statements the module needs to build the storefront address form fields and the address text lines of a customer's saved addresses (JSON, ROB3)
  *   php dev/e2e/assertions.php attribute <entity> <code>   how an attribute is stored (labels, options, forms, rules) as JSON; entity customer|address
  *
  * `customer` before and after a checkout, compared with `diff`, proves the account was not changed:
@@ -31,7 +32,7 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries'], true) || (!in_array($command, ['check', 'queries'], true) && $argument === '')) {
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf'], true) || (!in_array($command, ['check', 'queries', 'perf'], true) && $argument === '')) {
     fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
@@ -166,6 +167,36 @@ $json = static function (array $data): void {
     echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 };
 
+if ($command === 'perf') {
+    $objectManager->get(\Magento\Framework\App\State::class)->setAreaCode('frontend');
+    $statements = static fn (): int => (int) ($db->fetchRow('SHOW SESSION STATUS LIKE \'Questions\'')['Value'] ?? 0);
+    // the form fields: one cold build in this process (what a request pays)
+    $viewModel = $objectManager->get(\MageOS\CustomerCustomAttributes\ViewModel\FormAttributes::class);
+    $before = $statements();
+    $fields = $viewModel->getAddressFields('customer_address_edit');
+    $formCost = $statements() - $before - 1;
+    // the address text lines of 1 and of all saved addresses of the customer
+    $customerId = (int) $db->fetchOne($sql('SELECT entity_id FROM {{customer_entity}} WHERE email = ?'), [$argument]);
+    $collection = $objectManager->create(\Magento\Customer\Model\ResourceModel\Address\CollectionFactory::class)->create()->addAttributeToSelect('*')
+        ->addFieldToFilter('parent_id', $customerId);
+    $addresses = [];
+    foreach ($collection as $address) {
+        $addresses[] = $address->getData();
+    }
+    $provider = $objectManager->get(\MageOS\CustomerCustomAttributes\Model\AddressText\EntryProvider::class);
+    $textCost = static function (array $subset) use ($provider, $statements): array {
+        $lines = 0;
+        $before = $statements();
+        foreach ($subset as $data) {
+            $lines += count($provider->entriesFor($data));
+        }
+        return ['addresses' => count($subset), 'lines' => $lines, 'statements' => $statements() - $before - 1];
+    };
+    $textCost(array_slice($addresses, 0, 1)); // warm up
+    $json(['form_fields' => count($fields), 'form_statements' => $formCost, 'text_one' => $textCost(array_slice($addresses, 0, 1)), 'text_all' => $textCost($addresses)]);
+    exit(0);
+}
+
 if ($command === 'attribute') {
     $code = (string) ($argv[3] ?? '');
     $typeCode = $argument === 'address' ? 'customer_address' : 'customer';
@@ -214,6 +245,7 @@ if ($command === 'attribute') {
         'forms' => $db->fetchCol($sql('SELECT form_code FROM {{customer_form_attribute}} WHERE attribute_id = ? ORDER BY form_code'), [$id]),
         'options' => $options,
         'rules' => $rules,
+        'websites' => $db->fetchAssoc($sql('SELECT website_id, is_visible, is_required, default_value FROM {{customer_eav_attribute_website}} WHERE attribute_id = ?'), [$id]),
     ]);
     exit(0);
 }
@@ -235,7 +267,7 @@ if ($command === 'order') {
             [$address['entity_id']]
         );
     }
-    $json(['order' => $argument, 'customer_attributes' => $customer, 'addresses' => $addresses]);
+    $json(['order' => $argument, 'order_id' => $orderId, 'customer_attributes' => $customer, 'addresses' => $addresses]);
     exit(0);
 }
 

@@ -85,8 +85,12 @@ test('AOC8: reorder from the admin copies the values', { tag: ['@AOC8'] }, async
     expect(await chosenLabels(orderField(page, 'billing_address', 'e2e_a_multi'))).toEqual(['Red', 'Blue']);
     await expect(orderField(page, 'billing_address', 'e2e_a_date')).toHaveValue('5/6/26');
     await expect(orderField(page, 'account', 'e2e_c_text')).toHaveValue('seed text');
-    await chooseAdminShipping(page);
+    // the shipping and payment method of the old order are chosen already; the required dependent value was hidden by its rule on the
+    // old order, so the form asks for it again
+    await fillOrderValues(page, 'billing_address', { e2e_a_rdep: 'required dep' });
+    // the payment block reloads the shipping block of a reorder, so payment first
     await chooseAdminPayment(page);
+    await chooseAdminShipping(page);
     const second = await submitAdminOrder(page);
     expect(second.incrementId).not.toBe(first.incrementId);
     const a = snapshotOf(first.incrementId);

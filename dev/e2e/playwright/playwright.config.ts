@@ -24,7 +24,8 @@ export default defineConfig({
     workers: 1,
     fullyParallel: false,
     retries: 0,
-    timeout: 90_000,
+    // the longest checkout tests (many Magewire round trips, two websites) take 60-100 s on the Warden bench
+    timeout: 150_000,
     expect: { timeout: 10_000 },
     outputDir: path.join(home, 'test-results'),
     reporter: process.env.E2E_TERSE === '1'
