@@ -227,3 +227,5 @@ Add an entry to `fixtures.json` (keep the `e2e_` prefix) and describe it here. K
 (`position`, `sort`, `prefill`), `groups` (customer group ids), `websites` (rows by website id).
 
 Admin order helpers (`helpers.ts`): `startAdminOrder`, `addAdminOrderProduct`, `fillOrderAddress`, `fillOrderValues`, `chooseAdminShipping`, `chooseAdminPayment`, `submitAdminOrder`, `completeAdminOrder(page, billingValues)`, `orderField(page, area, code)`, `openOrderAddressEdit`, `orderViewAddresses`, `snapshotOf(incrementId)`, `setSavedAddress`, `deleteSavedAddresses`, `chosenLabels`, `adminOrderIdle`.
+
+More bench commands: `fixtures.php quote-address-saves` (SNAP8: four saves of a throw-away quote address, reports the writes of the value table), `fixtures.php create-attributes <entity> --forms=a,b <code>...` (created attributes in chosen forms; the address text form `mageos_address_text` decides what the order view shows), `assertions.php queries` (ORD7: SQL statements of loading order and order address collections of 2, 20 and 100 rows).

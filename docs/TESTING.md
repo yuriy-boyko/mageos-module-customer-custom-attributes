@@ -163,15 +163,15 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | ORD4 | Card payment, 3D Secure COMPLETE and FAIL | FAIL: no order, no rows, quote values intact; COMPLETE: as ORD1 | **manual** |
 | ORD5 | Declined payment or place-order exception | no orphan rows, quote values remain | ✅ validation failures (declined card payments are manual) |
 | ORD6 | Order with no custom values | no rows, no errors | ✅ |
-| ORD7 | Order grid and order list pages | no extra query per row | ☐ |
+| ORD7 | Order grid and order list pages | no extra query per row | ✅ automated: playwright/tests/snap-ord-guards.spec.ts |
 
 ### BOOK. Address book
 | ID | Test | Expected | Status |
 |---|---|---|---|
-| BOOK1 | New address, "save in address book" ticked | customer address holds all values | ✅ |
-| BOOK2 | Same, not ticked | no customer address; order rows exist | ☐ |
+| BOOK1 | New address, "save in address book" ticked | customer address holds all values | ✅ · automated: playwright/tests/book-address-book.spec.ts |
+| BOOK2 | Same, not ticked | no customer address; order rows exist | ✅ automated: playwright/tests/book-address-book.spec.ts |
 | BOOK3 | Later order with the saved address | values on the quote and the order | ✅ |
-| BOOK4 | Admin customer edit of an address value | saved by core EAV | ☐ |
+| BOOK4 | Admin customer edit of an address value | saved by core EAV | ✅ automated: playwright/tests/cus-admin-customer.spec.ts |
 | BOOK5 | Account Add/Edit Address form | shows and saves the attributes | ✅ |
 
 ### SNAP. Snapshot stability
@@ -184,7 +184,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | SNAP5 | Change the input type | old rows keep the old type | ✅ (same) |
 | SNAP6 | Delete the order | order rows cascade away | ✅ · automated: assertions.php |
 | SNAP7 | Delete the quote | quote rows cascade away | ✅ |
-| SNAP8 | Save a quote address twice with identical values | second save writes nothing | ☐ |
+| SNAP8 | Save a quote address twice with identical values | second save writes nothing | ✅ automated: playwright/tests/snap-ord-guards.spec.ts |
 
 ### ADM. Admin attribute screens
 | ID | Test | Expected | Status |
@@ -244,12 +244,12 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | CUS4 | Logged-in order | `mageos_cca_order_value` rows | ✅ |
 | CUS5 | Admin order view, Account Information | one line per value | ✅ |
 | CUS6 | Order API `customer_attribute_values` | rows present | ✅ |
-| CUS7 | Rename or delete the attribute after the order | order rows unchanged | ☐ |
+| CUS7 | Rename or delete the attribute after the order | order rows unchanged | ✅ automated: playwright/tests/cus7-order-survives-attribute-changes.spec.ts |
 | CUS8 | Required customer attribute empty | inline message, nothing saved | ✅ (found and fixed: the account information form could not be saved while a required customer attribute was hidden by a dependency rule; `EavDataRequiredForHiddenAttribute` now covers customer attributes too) · automated: playwright/tests/cus8-account-forms.spec.ts |
 | CUS9 | Order placed in the Hyvä Checkout by a logged-in customer | same rows | **manual** |
 | CUS10 | Guest checkout | no customer rows, no errors | ✅ automated: playwright/tests/val7-virtual-cart.spec.ts |
-| CUS11 | Value editable in the admin customer form | saved | ☐ |
-| CUS12 | Groups (radio/checkbox) and dependency rules in registration and account edit forms | render, save, hide | ☐ |
+| CUS11 | Value editable in the admin customer form | saved | ✅ automated: playwright/tests/cus-admin-customer.spec.ts |
+| CUS12 | Groups (radio/checkbox) and dependency rules in registration and account edit forms | render, save, hide | ✅ automated: playwright/tests/cus12-registration-form.spec.ts, playwright/tests/cus8-account-forms.spec.ts (registration: a required customer attribute that is only in the checkout forms blocks every registration in core, so the test makes it optional) |
 
 ### AOC. Admin order create and order address edit
 | ID | Test | Expected | Status |
@@ -259,12 +259,12 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | AOC3 | Order create: Account Information shows customer attributes with the customer's values | yes | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
 | AOC4 | Pick a saved address | custom fields filled | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
 | AOC5 | Edit values, same as billing, place the order | both addresses carry the typed values | ✅ automated: playwright/tests/aoc-admin-order.spec.ts |
-| AOC6 | "Add to address book" ticked | customer address gets the values | ☐ |
-| AOC7 | New customer | no errors, form values on the order | ☐ |
-| AOC8 | Reorder from the admin | values copied | ☐ |
+| AOC6 | "Add to address book" ticked | customer address gets the values | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
+| AOC7 | New customer | no errors, form values on the order | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts (needs the required account-only attribute made optional: core refuses to create the customer otherwise) |
+| AOC8 | Reorder from the admin | values copied | ❌ automated failing: playwright/tests/aoc-admin-order-more.spec.ts · was: ☐ (Reorder copies the items and the standard address fields but not the custom address values) |
 | AOC9 | Other store view locale, date parsing | correct | **manual** |
-| AOC10 | Required address attribute empty | admin validation message | ☐ |
-| AOC11 | Admin forms with attributes shown as radio/checkbox or hidden by rules | keep the dropdown/list, show every attribute | ☐ |
+| AOC10 | Required address attribute empty | admin validation message | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
+| AOC11 | Admin forms with attributes shown as radio/checkbox or hidden by rules | keep the dropdown/list, show every attribute | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
 
 ### VAL. Server-side validation
 | ID | Test | Expected | Status |
@@ -380,8 +380,8 @@ multi-step (default) and the mobile checkout were tested; the sections use the c
 |---|---|---|---|
 | REL1 | Dependent shown in a form where the parent is not (checkout) | warning on the edit page and after saving | ✅ |
 | REL2 | Both attributes in the same forms | no warning | ✅ (unit) |
-| REL3 | Several forms and several rules; address relations | one warning per rule and form | ✅ (unit), ☐ browser |
-| REL4 | Form assignment changed later | warning appears when the relation is opened again | ☐ |
+| REL3 | Several forms and several rules; address relations | one warning per rule and form | ✅ (unit) · automated: playwright/tests/rel-warnings.spec.ts (after Save and Continue the page lists each warning twice: once from the save, once from the edit page) |
+| REL4 | Form assignment changed later | warning appears when the relation is opened again | ✅ automated: playwright/tests/rel-warnings.spec.ts |
 
 ### ROB. Robustness
 | ID | Test | Expected | Status |

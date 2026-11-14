@@ -14,15 +14,16 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
- *   php dev/e2e/fixtures.php create-attributes <customer|address> <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>"; remove them with delete-created
+ *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
  *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
  *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
  *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_; any entity), no error when absent
  *   php dev/e2e/fixtures.php set-attribute <code> <required=0|1> <forms=a,b,...>  change whether a fixture attribute is required and the forms it is in
  *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
  *   php dev/e2e/fixtures.php set-address <email> <code=value>...   give a customer one saved address (default billing and shipping) with these custom address values (select: option label, several: a|b, date: YYYY-MM-DD); `--delete` instead of the pairs removes all saved addresses
+ *   php dev/e2e/fixtures.php quote-address-saves   save a throw-away quote address four times (new values, identical, changed, identical) and print how many rows the value table was asked to write each time (JSON)
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
- *   php dev/e2e/fixtures.php purge       delete the orders and quotes of test runs (e-mail like %e2e%@example.com)
+ *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
  *
  * Run it from the Magento root (or set MAGENTO_ROOT). The test customer's password is read from the environment variable
  * named in fixtures.json (E2E_CUSTOMER_PASSWORD); the script never stores or prints it.
@@ -51,7 +52,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -308,12 +309,21 @@ if ($command === 'create-attributes') {
         fwrite(STDERR, "The entity must be customer or address.\n");
         exit(2);
     }
-    foreach (array_slice($argv, 3) as $code) {
+    $forms = $entity === 'customer' ? ['customer_account_edit'] : ['customer_address_edit'];
+    $codes = [];
+    foreach (array_slice($argv, 3) as $argument) {
+        if (str_starts_with($argument, '--forms=')) {
+            $forms = array_values(array_filter(explode(',', substr($argument, 8))));
+        } else {
+            $codes[] = $argument;
+        }
+    }
+    foreach ($codes as $code) {
         if (!str_starts_with($code, 'e2e_')) {
             fwrite(STDERR, "Only codes starting with e2e_ are created: $code\n");
             exit(2);
         }
-        $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => 'ADM ' . $code, 'input' => 'text', 'forms' => $entity === 'customer' ? ['customer_account_edit'] : ['customer_address_edit']]);
+        $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => 'ADM ' . $code, 'input' => 'text', 'forms' => $forms]);
         echo "created  $code\n";
     }
     exit(0);
@@ -590,6 +600,43 @@ if ($command === 'set-address') {
     exit(0);
 }
 
+if ($command === 'quote-address-saves') {
+    $resource = $objectManager->get(ResourceConnection::class);
+    $connection = $resource->getConnection('checkout');
+    $table = $resource->getTableName('mageos_cca_quote_address_value', 'checkout');
+    $connection->query('SET SESSION information_schema_stats_expiry = 0');
+    // inserts (also "insert on duplicate") use up auto increment numbers: the counter moves only when the table was asked to write
+    $counter = static fn (): int => (int) $connection->fetchOne(
+        'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+        [$table]
+    );
+    $quote = $objectManager->create(\Magento\Quote\Model\Quote::class);
+    $quote->setStoreId(1)->setIsActive(0)->setCustomerEmail('snap8-e2e-' . time() . '@example.com');
+    $quote->save();
+    $out = [];
+    try {
+        $address = $quote->getBillingAddress();
+        $address->addData(['firstname' => 'Snap', 'lastname' => 'Eight', 'street' => '1 Test Street', 'city' => 'Austin', 'region_id' => 57,
+            'postcode' => '78701', 'country_id' => 'US', 'telephone' => '5125550100']);
+        $save = static function (string $value) use ($address, $counter): int {
+            $before = $counter();
+            $address->setCustomAttribute('e2e_a_text', $value);
+            $address->save();
+            return $counter() - $before;
+        };
+        $out['first_save'] = $save('one');
+        $out['identical_save'] = $save('one');
+        $out['changed_save'] = $save('two');
+        $out['identical_again'] = $save('two');
+        $out['rows'] = $connection->fetchPairs('SELECT a.attribute_code, v.value FROM ' . $table . ' v JOIN ' . $resource->getTableName('eav_attribute')
+            . ' a ON a.attribute_id = v.attribute_id WHERE v.quote_address_id = ' . (int) $address->getId());
+    } finally {
+        $quote->delete();
+    }
+    echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    exit(0);
+}
+
 if ($command === 'purge') {
     // Orders and quotes of test runs are recognised by their e-mail: every test e-mail contains "e2e" and ends with @example.com.
     $objectManager->get(Registry::class)->register('isSecureArea', true);
@@ -604,6 +651,14 @@ if ($command === 'purge') {
     // The module's snapshot rows go with the orders and quotes (foreign keys); sales_order_grid is cleaned by the core.
     $quotes = $connection->delete($resource->getTableName('quote'), ['customer_email LIKE ?' => $pattern]);
     echo 'removed  ' . count($orderIds) . " orders, $quotes quotes\n";
+    // customers a test created (admin order for a new customer, registration): the fixture customer is recreated by seed
+    foreach ($connection->fetchCol('SELECT email FROM ' . $resource->getTableName('customer_entity') . ' WHERE email LIKE ?', [$pattern]) as $leftoverEmail) {
+        $leftoverCustomer = $findCustomer($leftoverEmail);
+        if ($leftoverCustomer !== null) {
+            $customerRepository->delete($leftoverCustomer);
+            echo 'removed  customer ' . $leftoverEmail . "\n";
+        }
+    }
     foreach ($connection->fetchCol('SELECT username FROM ' . $resource->getTableName('admin_user') . " WHERE username LIKE 'e2e\\_acl%'") as $leftover) {
         passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' delete-admin ' . escapeshellarg($leftover));
     }

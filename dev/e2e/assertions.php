@@ -12,6 +12,7 @@ declare(strict_types=1);
  *   php dev/e2e/assertions.php order <increment_id>        the module's snapshot rows of one order as JSON
  *   php dev/e2e/assertions.php customer <email>            the stored values of all custom customer attributes as JSON
  *   php dev/e2e/assertions.php quote <email>               the module's values on the customer's latest quote as JSON
+ *   php dev/e2e/assertions.php queries                     how many SQL statements loading order and order address collections of several sizes takes (JSON), to show the module adds none per row
  *   php dev/e2e/assertions.php attribute <entity> <code>   how an attribute is stored (labels, options, forms, rules) as JSON; entity customer|address
  *
  * `customer` before and after a checkout, compared with `diff`, proves the account was not changed:
@@ -30,7 +31,7 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute'], true) || ($command !== 'check' && $argument === '')) {
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries'], true) || (!in_array($command, ['check', 'queries'], true) && $argument === '')) {
     fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
@@ -131,6 +132,34 @@ if ($command === 'check') {
     }
     echo $failed === 0 ? "All checks passed.\n" : "$failed check(s) failed.\n";
     exit($failed === 0 ? 0 : 1);
+}
+
+if ($command === 'queries') {
+    $statements = static fn (): int => (int) ($db->fetchRow('SHOW SESSION STATUS LIKE \'Questions\'')['Value'] ?? 0);
+    $measure = static function (string $factoryClass, int $size, callable $afterLoad) use ($objectManager, $statements): array {
+        $collection = $objectManager->create($factoryClass)->create()->setPageSize($size)->setOrder('entity_id', 'DESC');
+        $before = $statements();
+        $collection->load();
+        $items = $collection->getItems();
+        $afterLoad($items);
+        return ['items' => count($items), 'statements' => $statements() - $before - 1]; // the second reading counts itself
+    };
+    $orderFactory = \Magento\Sales\Model\ResourceModel\Order\CollectionFactory::class;
+    $addressFactory = \Magento\Sales\Model\ResourceModel\Order\Address\CollectionFactory::class;
+    $touch = static function (array $items): void {
+        foreach ($items as $item) {
+            $item->getData(); // reading what the observers set costs no query
+        }
+    };
+    $measure($orderFactory, 2, $touch); // warm up: configuration and EAV are read once per process
+    $measure($addressFactory, 2, $touch);
+    $result = ['orders' => [], 'addresses' => []];
+    foreach ([2, 20, 100] as $size) {
+        $result['orders'][(string) $size] = $measure($orderFactory, $size, $touch);
+        $result['addresses'][(string) $size] = $measure($addressFactory, $size, $touch);
+    }
+    echo json_encode($result, JSON_PRETTY_PRINT) . "\n";
+    exit(0);
 }
 
 $json = static function (array $data): void {

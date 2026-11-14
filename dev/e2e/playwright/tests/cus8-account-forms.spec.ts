@@ -4,8 +4,8 @@ import { accountOptionOf, accountValues, customerEmail, expect, setAccountValues
  * The account information form (Hyvä account area) with customer attributes.
  * CUS8: a required customer attribute left empty shows a message and nothing is saved.
  * RAD7: attributes shown as radio buttons and checkboxes render with their saved values and save.
- * CUS12: dependency rules in the account edit form (a dependent field shows for its option, a hidden required one does not block).
- *   The registration form is not covered.
+ * CUS12: dependency rules in the account edit form (a dependent field shows for its option, a hidden required one does not block);
+ *   the registration form is in cus12-registration-form.spec.ts.
  *
  * Fixtures: e2e_c_areq is required and only on the account forms; e2e_c_sel (radio) shows e2e_c_dep for Gold and the required
  * e2e_c_rdep for Silver; e2e_c_multi is a checkbox group.
@@ -49,7 +49,7 @@ test('a required customer attribute left empty is not saved', { tag: ['@CUS8'] }
     expect(after.e2e_c_text).toBe('must not be saved');
 });
 
-test('radio buttons and checkboxes render with their saved values and save; rules show and hide fields', { tag: ['@RAD7', '@CUS12~'] }, async ({ customerPage: page }) => {
+test('radio buttons and checkboxes render with their saved values and save; rules show and hide fields', { tag: ['@RAD7', '@CUS12'] }, async ({ customerPage: page }) => {
     await page.goto('/customer/account/edit/');
 
     // rendered with the saved values (Gold, Opt 2)

@@ -474,8 +474,8 @@ export function attributeRow(entity: AdminEntity, code: string): AttributeRow {
 
 /** Deletes an attribute a test created through the admin (only codes starting with e2e_); nothing happens when it is gone. */
 /** Creates plain optional text attributes (codes starting with e2e_) without the browser; delete them with `deleteCreated`. */
-export function createAttributes(entity: AdminEntity, codes: string[]): void {
-    benchCommand('E2E_FIXTURE_CMD', ['create-attributes', entity, ...codes]);
+export function createAttributes(entity: AdminEntity, codes: string[], forms?: string[]): void {
+    benchCommand('E2E_FIXTURE_CMD', ['create-attributes', entity, ...(forms ? [`--forms=${forms.join(',')}`] : []), ...codes]);
 }
 
 export function deleteCreated(code: string): void {
@@ -601,10 +601,13 @@ export async function openCustomerEdit(page: Page, email: string): Promise<void>
     const search = page.locator('input[placeholder*="Search by keyword"]').first();
     await search.fill(email);
     await search.press('Enter');
-    // the Edit link sits in the row's action menu; its address has the secret key
-    const link = page.locator('tr.data-row', { hasText: email }).first().locator('a[href*="customer/index/edit"]').first();
+    // The grid (schedule-mode indexer) can still list customers that earlier runs deleted, and its Edit links carry the secret key of the
+    // action, which does not depend on the id: take any link and put the id of the customer that exists now into it.
+    const id = String(accountValues(email).customer_id);
+    const link = page.locator('tr.data-row a[href*="customer/index/edit"]').first();
     await link.waitFor({ state: 'attached' });
-    await page.goto((await link.getAttribute('href')) as string);
+    const href = (await link.getAttribute('href')) as string;
+    await page.goto(href.replace(/\/id\/\d+\//, `/id/${id}/`));
     await expect(page).toHaveURL(/customer\/index\/edit/);
 }
 
@@ -827,4 +830,14 @@ export async function orderViewAddresses(page: Page): Promise<{ billing: string;
         billing: await page.locator('.order-billing-address').first().innerText(),
         shipping: await page.locator('.order-shipping-address').first().innerText(),
     };
+}
+
+/** Starts an admin order for a customer who does not exist yet: Orders > Create New Order > Create New Customer, then the store view. */
+export async function startAdminOrderNewCustomer(page: Page, storeView = 'Default Store View'): Promise<void> {
+    await adminOpen(page, 'sales/order/');
+    await page.locator('#add').click();
+    await page.locator('button:has-text("Create New Customer")').first().click();
+    await page.locator('#order-store-selector').getByLabel(storeView, { exact: true }).check();
+    await expect(page.locator('#order-items')).toBeVisible({ timeout: 30_000 });
+    await adminOrderIdle(page);
 }
