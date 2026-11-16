@@ -17,6 +17,7 @@ const ACCOUNT = {
     e2e_c_area: 'account area',
     e2e_c_bool: '1',
     e2e_c_account: 'account only value',
+    e2e_c_areq: 'account value',
 };
 
 test.beforeEach(() => {
@@ -24,7 +25,7 @@ test.beforeEach(() => {
     setAccountValues(customerEmail(), { ...ACCOUNT, e2e_c_text: '', e2e_c_order: '' });
 });
 
-test('CUS9: a logged-in order has one row per value, with labels, and the admin order view lists them', { tag: ['@CUS9'] }, async ({ customerPage: page, customerMagewire: magewire, adminPage }) => {
+test('CUS9: a logged-in order has one row per value, with labels, and the admin order view lists them', { tag: ['@CUS9', '@CUS4', '@CUS5', '@ORD3'] }, async ({ customerPage: page, customerMagewire: magewire, adminPage }) => {
     const before = accountValues(customerEmail()).customer_attributes;
     await openCheckoutAsGuest(page);
     await requireFixtures(page, ['e2e_c_sel']);

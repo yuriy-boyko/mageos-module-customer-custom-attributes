@@ -33,7 +33,7 @@ async function openRegistration(page: import('@playwright/test').Page): Promise<
 
 const submit = (page: import('@playwright/test').Page) => page.locator('form[action*="createpost"] button[type="submit"]').click();
 
-test('registration: radio and checkbox groups render and save with the rule for Gold', { tag: ['@CUS12'] }, async ({ page }) => {
+test('registration: radio and checkbox groups render and save with the rule for Gold', { tag: ['@CUS12', '@CUS3'] }, async ({ page }) => {
     test.skip(!process.env.E2E_CUSTOMER_PASSWORD, 'E2E_CUSTOMER_PASSWORD is not set');
     const email = await openRegistration(page);
 

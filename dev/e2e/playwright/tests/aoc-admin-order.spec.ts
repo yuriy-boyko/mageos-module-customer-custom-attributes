@@ -17,8 +17,6 @@ const SAVED = { e2e_a_text: 'Saved text', e2e_a_sel: 'North', e2e_a_multi: 'Gree
 
 test.afterEach(() => {
     deleteSavedAddresses(email);
-    // the values of AOC3 and the others must not stay on the customer: a Silver customer has two more required fields in the checkout
-    setAccountValues(email, { e2e_c_sel: '', e2e_c_multi: '', e2e_c_date: '', e2e_c_area: '', e2e_c_bool: '' });
 });
 
 /** Checks the value of one custom field (any type) in an admin form whose field locators are given by `field(code)`. */

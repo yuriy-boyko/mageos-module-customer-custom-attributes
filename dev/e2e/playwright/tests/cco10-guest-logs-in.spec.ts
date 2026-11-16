@@ -13,7 +13,7 @@ test.beforeEach(() => {
     setAccountValues(customerEmail(), account);
 });
 
-test('a customer without an active cart keeps what the guest typed; empty fields are prefilled', { tag: ['@CCO10'] }, async ({ page, magewire }) => {
+test('a customer without an active cart keeps what the guest typed; empty fields are prefilled', { tag: ['@CCO10', '@CHK19'] }, async ({ page, magewire }) => {
     await openCheckoutAsGuest(page);
     await field(page, 'e2e_c_text').fill('guest typed');
     await field(page, 'e2e_c_text').press('Tab');
@@ -34,7 +34,7 @@ test('a customer without an active cart keeps what the guest typed; empty fields
     await expect(optionOf(page, 'e2e_c_sel', 'radio', 'Gold')).toBeChecked();
 });
 
-test('a customer with an active cart keeps that cart and its values', { tag: ['@CCO10'] }, async ({ page, magewire, customerPage, customerMagewire }) => {
+test('a customer with an active cart keeps that cart and its values', { tag: ['@CCO10', '@CHK19'] }, async ({ page, magewire, customerPage, customerMagewire }) => {
     // the customer's own cart, with its own values
     await openCheckoutAsGuest(customerPage);
     await field(customerPage, 'e2e_c_text').fill('customer cart text');

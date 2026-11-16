@@ -108,6 +108,13 @@ e2e_magento cache:flush >/dev/null 2>&1
 [ -n "$original_variant" ] && echo "$original_variant" > "$CCA_E2E_HOME/.variant" || rm -f "$CCA_E2E_HOME/.variant"
 step "fixtures seeded"
 
+# the size of the Magento logs now: ROB1 looks at what the suites add
+log_dir="$E2E_MAGENTO_ROOT/var/log"
+declare -A log_before=()
+for log_name in exception system debug; do
+    log_before[$log_name]=$(stat -c %s "$log_dir/$log_name.log" 2>/dev/null || echo 0)
+done
+
 # 3. suites
 if wants api; then
     api_url="${E2E_API_BASE_URL:-$E2E_BASE_URL}"
@@ -132,6 +139,25 @@ fi
 if wants assert; then
     e2e_php assertions.php check >"$run/assert.txt" 2>&1
     step "database checks done"
+fi
+
+# ROB1: the log entries the suites added to var/log/exception.log, system.log and debug.log: none may be an error or exception raised in the
+# module's code (an entry whose first line holds "MageOS" at level ERROR or worse). A refusal of a value (an order rejected for a missing or
+# invalid value) is logged by core and by Hyvä Checkout and is expected: those messages are left out.
+log_problems=0
+log_detail=""
+for log_name in exception system debug; do
+    file="$log_dir/$log_name.log"
+    [ -f "$file" ] || continue
+    from=$(( ${log_before[$log_name]} + 1 ))
+    [ "$(stat -c %s "$file")" -lt "${log_before[$log_name]}" ] && from=1   # the log was rotated: read all of it
+    found=$(tail -c +"$from" "$file" | grep -E '^\[[0-9-]+T[0-9:.+-]+\] [a-z]+\.(ERROR|CRITICAL|ALERT|EMERGENCY)' | grep -i 'mageos' | grep -viE 'is a required value|has an invalid value|contains invalid data|is not a valid|is not an option|cannot be longer|cannot be shorter|needs the field' | head -3 | cut -c1-240 || true)
+    if [ -n "$found" ]; then log_problems=$((log_problems + 1)); log_detail="$log_detail\n      $log_name.log: $found"; fi
+done
+if [ "$log_problems" -eq 0 ]; then
+    echo "ok    [ROB1] the suites added no error or exception from the module to var/log (exception.log, system.log, debug.log)" >>"$run/assert.txt"
+else
+    printf 'FAIL  [ROB1] the suites added errors from the module to var/log%b\n' "$log_detail" >>"$run/assert.txt"
 fi
 
 # 4. summary

@@ -814,6 +814,14 @@ if ($command === 'purge') {
     // The module's snapshot rows go with the orders and quotes (foreign keys); sales_order_grid is cleaned by the core.
     $quotes = $connection->delete($resource->getTableName('quote'), ['customer_email LIKE ?' => $pattern]);
     echo 'removed  ' . count($orderIds) . " orders, $quotes quotes\n";
+    // Deleting an order leaves its stock reservations behind: every test order would take its quantity from the salable stock for good and
+    // the product would sell out after a few hundred orders. The reservations of orders that no longer exist go too.
+    $reservations = $connection->query(
+        'DELETE r FROM ' . $resource->getTableName('inventory_reservation') . ' r
+         LEFT JOIN ' . $resource->getTableName('sales_order') . ' o ON o.increment_id = JSON_UNQUOTE(JSON_EXTRACT(r.metadata, \'$.object_increment_id\'))
+         WHERE JSON_UNQUOTE(JSON_EXTRACT(r.metadata, \'$.object_type\')) = \'order\' AND o.entity_id IS NULL'
+    )->rowCount();
+    echo "removed  $reservations stock reservations of deleted orders\n";
     // customers a test created (admin order for a new customer, registration): the fixture customer is recreated by seed
     foreach ($connection->fetchCol('SELECT email FROM ' . $resource->getTableName('customer_entity') . ' WHERE email LIKE ?', [$pattern]) as $leftoverEmail) {
         $leftoverCustomer = $findCustomer($leftoverEmail);

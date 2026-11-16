@@ -97,6 +97,21 @@ test('DEP3: a rule that cannot work is refused with the rule number', { tag: ['@
     expect(await saveRefused(page)).toContain('Rule 2 is a duplicate of an earlier rule.');
 });
 
+test('DEP2: rules that form a circle are refused', { tag: ['@DEP2'] }, async ({ adminPage: page }) => {
+    // e2e_a_sel (North) shows e2e_a_rsel and e2e_a_rsel (Show) shows e2e_a_sel: each would depend on the other
+    await newRelation(page, 'E2E refused');
+    const row = (index: number) => page.locator('#mageos-cca-relation-rules tbody tr').nth(index).locator('select');
+    await row(0).nth(0).selectOption('e2e_a_sel');
+    await row(0).nth(1).selectOption({ label: 'North' });
+    await row(0).nth(2).selectOption('e2e_a_rsel');
+    await page.locator('#mageos-cca-relation-add').click();
+    await row(1).nth(0).selectOption('e2e_a_rsel');
+    await row(1).nth(1).selectOption({ label: 'Show' });
+    await row(1).nth(2).selectOption('e2e_a_sel');
+    const message = await saveRefused(page);
+    expect(message).toMatch(/The rules form a circle: an attribute would depend on itself through other attributes \(.*e2e_a_.*\)/);
+});
+
 test('DEP3: a valid relation is saved, listed and deleted again', { tag: ['@DEP3', '@DEP1~'] }, async ({ adminPage: page }) => {
     await newRelation(page, 'E2E browser relation');
     await page.locator('#mageos-cca-relation-rules tbody tr').first().locator('select').nth(0).selectOption('e2e_a_yn');

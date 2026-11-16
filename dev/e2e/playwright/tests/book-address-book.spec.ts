@@ -12,7 +12,8 @@ const TYPED = { e2e_a_text: 'Book text', e2e_a_area: 'Book area' };
 test.beforeEach(() => {
     dropQuotes(customerEmail());
     deleteSavedAddresses(customerEmail());
-    setAccountValues(customerEmail(), { e2e_c_text: 'account text' });
+    // an earlier spec may have left the customer on Silver, which makes two more customer attributes required in the checkout
+    setAccountValues(customerEmail(), { e2e_c_text: 'account text', e2e_c_sel: '' });
 });
 
 test.afterEach(() => {

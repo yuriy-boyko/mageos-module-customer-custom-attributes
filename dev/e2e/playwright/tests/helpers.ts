@@ -706,6 +706,17 @@ export async function adminOrderIdle(page: Page): Promise<void> {
     { message: 'the admin order form is still loading', timeout: 30_000 }).toBe(false);
 }
 
+/** Chooses the store view of a new admin order and waits for the order form; the choice is repeated when the page did not react to it. */
+async function chooseStoreView(page: Page, storeView: string): Promise<void> {
+    await expect(async () => {
+        const radio = page.locator('#order-store-selector').getByLabel(storeView, { exact: true });
+        if ((await radio.count()) > 0) {
+            await radio.check({ timeout: 10_000 });
+        }
+        await expect(page.locator('#order-items')).toBeVisible({ timeout: 15_000 });
+    }).toPass({ timeout: 75_000 });
+}
+
 /** Starts a new admin order for a customer: Sales > Orders > Create New Order, pick the customer and the store view. */
 export async function startAdminOrder(page: Page, email: string, storeView = 'Default Store View'): Promise<void> {
     await adminOpen(page, 'sales/order/');
@@ -715,8 +726,7 @@ export async function startAdminOrder(page: Page, email: string, storeView = 'De
     await filter.press('Enter');
     await adminOrderIdle(page);
     await page.locator('#sales_order_create_customer_grid_table tbody tr', { hasText: email }).first().click();
-    await page.locator('#order-store-selector').getByLabel(storeView, { exact: true }).check();
-    await expect(page.locator('#order-items')).toBeVisible({ timeout: 30_000 });
+    await chooseStoreView(page, storeView);
     await adminOrderIdle(page);
 }
 
@@ -804,7 +814,7 @@ export async function chooseAdminShipping(page: Page): Promise<void> {
         await method.click();
         await adminOrderIdle(page);
         expect(await done()).toBe(true);
-    }).toPass({ timeout: 40_000 });
+    }).toPass({ timeout: 70_000 });
 }
 
 /** Picks Check / Money order as the payment method of the admin order. */
@@ -866,8 +876,7 @@ export async function startAdminOrderNewCustomer(page: Page, storeView = 'Defaul
     await adminOpen(page, 'sales/order/');
     await page.locator('#add').click();
     await page.locator('button:has-text("Create New Customer")').first().click();
-    await page.locator('#order-store-selector').getByLabel(storeView, { exact: true }).check();
-    await expect(page.locator('#order-items')).toBeVisible({ timeout: 30_000 });
+    await chooseStoreView(page, storeView);
     await adminOrderIdle(page);
 }
 

@@ -48,6 +48,11 @@ $bench = static function (string ...$args): string {
     return (string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/fixtures.php') . ' ' . implode(' ', array_map('escapeshellarg', $args)) . ' 2>&1');
 };
 
+/** Runs an assertions.php command in this container and returns its decoded JSON. */
+$assert = static function (string ...$args): mixed {
+    return json_decode((string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/assertions.php') . ' ' . implode(' ', array_map('escapeshellarg', $args)) . ' 2>/dev/null'), true);
+};
+
 /** @return array{0: int, 1: mixed} status and decoded body */
 $api = static function (string $method, string $path, ?array $body = null, ?string $token = null, ?string $host = null, string $store = '') use ($base, $insecure, $hostHeader): array {
     $handle = curl_init($base . '/rest/' . ($store !== '' ? $store . '/' : '') . 'V1' . $path);
@@ -193,11 +198,19 @@ $required = ['e2e_a_req' => 'required value'];
 $result = $guestOrder([]);
 $check('[REST2][VAL2] a missing required address attribute is refused', $result['status'] !== 200 && stripos($result['message'], 'E2E Address Required') !== false, $result['message']);
 $result = $guestOrder($required + ['e2e_a_len' => 'ab']);
-$check('[REST2][VAL1~] a value shorter than the minimum length is refused', $result['status'] !== 200 && stripos($result['message'], 'E2E Address Length') !== false, $result['message']);
+$check('[REST2][VAL1] a value shorter than the minimum length is refused', $result['status'] !== 200 && stripos($result['message'], 'E2E Address Length') !== false, $result['message']);
 $result = $guestOrder($required + ['e2e_a_sel' => '99999']);
-$check('[REST2][VAL1~] an unknown option id is refused', $result['status'] !== 200 && stripos($result['message'], 'e2e_a_sel') !== false, $result['message']);
+$check('[REST2][VAL1] an unknown option id is refused', $result['status'] !== 200 && stripos($result['message'], 'e2e_a_sel') !== false, $result['message']);
 $result = $guestOrder($required + ['e2e_a_date' => '2030-01-01']);
-$check('[VAL1~] a date after the maximum is refused', $result['status'] !== 200 && stripos($result['message'], 'valid date') !== false, $result['message']);
+$check('[VAL1] a date after the maximum is refused', $result['status'] !== 200 && stripos($result['message'], 'valid date') !== false, $result['message']);
+$result = $guestOrder($required + ['e2e_a_len' => 'much too long']);
+$check('[VAL1] a value longer than the maximum length is refused', $result['status'] !== 200 && stripos($result['message'], 'E2E Address Length') !== false, $result['message']);
+$result = $guestOrder($required + ['e2e_a_email' => 'not-an-email']);
+$check('[VAL1] an invalid e-mail address is refused', $result['status'] !== 200 && stripos($result['message'], 'E2E Address Email') !== false, $result['message']);
+$result = $guestOrder($required + ['e2e_a_num' => 'abc']);
+$check('[VAL1] a non-numeric value in a numeric attribute is refused', $result['status'] !== 200 && stripos($result['message'], 'E2E Address Number') !== false, $result['message']);
+$result = $guestOrder($required + ['e2e_a_bool' => '7']);
+$check('[VAL1] a yes/no value of 7 is refused', $result['status'] !== 200 && stripos($result['message'], 'e2e_a_bool') !== false, $result['message']);
 
 $result = $guestOrder($required + ['e2e_a_multi' => $multi['Red'] . ',99999']);
 $check('[VAL8] a multiple select with an unknown option id is refused', $result['status'] !== 200 && stripos($result['message'], 'e2e_a_multi') !== false, $result['message']);
@@ -221,9 +234,16 @@ if ($orderId > 0) {
         $check("[REST1] $type: the multiple select shows its labels", ($row['e2e_a_multi']['value_label'] ?? '') === 'Red, Blue', json_encode($row['e2e_a_multi'] ?? null));
         $check("[REST1] $type: the date label has no time", ($row['e2e_a_date']['value_label'] ?? '') === '2026-05-05', json_encode($row['e2e_a_date'] ?? null));
         $check("[REST1] $type: the yes/no label", ($row['e2e_a_bool']['value_label'] ?? '') === 'Yes', json_encode($row['e2e_a_bool'] ?? null));
-        $check("[REST3~] $type: the dependent value is kept when its parent option matches", ($row['e2e_a_dep']['value'] ?? '') === 'shown because North');
+        $check("[REST3] $type: the dependent value is kept when its parent option matches", ($row['e2e_a_dep']['value'] ?? '') === 'shown because North');
     }
     $check('[CUS10~] a guest order has no customer attribute values for checkout-only attributes', !isset($order['customer']['e2e_c_text']) && !isset($order['customer']['e2e_c_order']));
+
+    // the PHP service contracts (order get, order list, order address repository): the same values as the REST output
+    $contracts = $assert('address-api', (string) $orderId);
+    $expectBoth = static fn (?array $codes): bool => is_array($codes) && ($codes['e2e_a_text'] ?? '') === 'api note' && ($codes['e2e_a_dep'] ?? '') === 'shown because North' && isset($codes['e2e_a_sel'], $codes['e2e_a_multi']);
+    $check('[API1] order get: billing and the shipping assignment carry the module values', is_array($contracts) && $expectBoth($contracts['order_get']['billing'] ?? null) && $expectBoth($contracts['order_get']['shipping_assignment'] ?? null), json_encode($contracts['order_get'] ?? null));
+    $check('[API1] order list: the same values', is_array($contracts) && $expectBoth($contracts['order_list']['billing'] ?? null) && $expectBoth($contracts['order_list']['shipping_assignment'] ?? null), json_encode($contracts['order_list'] ?? null));
+    $check('[API1] order address repository: billing and shipping address carry the values', is_array($contracts) && $expectBoth($contracts['address_repository']['billing'] ?? null) && $expectBoth($contracts['address_repository']['shipping'] ?? null), json_encode($contracts['address_repository'] ?? null));
 
     [$status, $list] = $api('GET', '/orders?searchCriteria[filterGroups][0][filters][0][field]=entity_id&searchCriteria[filterGroups][0][filters][0][value]=' . $orderId, null, $admin);
     $listed = $byCode($list['items'][0]['billing_address']['extension_attributes']['custom_attribute_values'] ?? []);
@@ -239,12 +259,75 @@ if ($result['order_id'] > 0) {
 
 echo "== Rules\n";
 $result = $guestOrder($required + ['e2e_a_sel' => $sel['South'], 'e2e_a_dep' => 'must be dropped']);
-$check('[REST3~] the order with a hidden dependent value is placed', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
+$check('[REST3] the order with a hidden dependent value is placed', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
 if ($result['order_id'] > 0) {
     $order = $readOrder($result['order_id']);
-    $check('[REST3~] billing: a dependent value whose parent option does not match is dropped', !isset($order['billing']['e2e_a_dep']));
-    $check('[REST3~] shipping: a dependent value whose parent option does not match is dropped', !isset($order['shipping']['e2e_a_dep']));
+    $check('[REST3] billing: a dependent value whose parent option does not match is dropped', !isset($order['billing']['e2e_a_dep']));
+    $check('[REST3] shipping: a dependent value whose parent option does not match is dropped', !isset($order['shipping']['e2e_a_dep']));
 }
+
+$wholesale = 'e2e_a_ws';
+$rsel = $options('e2e_a_rsel');
+echo "== Valid values, hidden and required dependents, group restriction\n";
+$result = $guestOrder($required + ['e2e_a_len' => 'okay', 'e2e_a_email' => 'name@example.com', 'e2e_a_num' => '12345', 'e2e_a_bool' => '0', 'e2e_a_date' => '2027-12-31']);
+$check('[VAL3] valid values of every kind are accepted and the order is placed', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
+if ($result['order_id'] > 0) {
+    $row = $readOrder($result['order_id'])['billing'];
+    $check('[VAL3] the valid values are on the order', ($row['e2e_a_len']['value'] ?? '') === 'okay' && ($row['e2e_a_email']['value'] ?? '') === 'name@example.com'
+        && ($row['e2e_a_num']['value'] ?? '') === '12345' && ($row['e2e_a_bool']['value_label'] ?? '') === 'No' && ($row['e2e_a_date']['value_label'] ?? '') === '2027-12-31', json_encode($row));
+}
+
+// e2e_a_rdep is required and shown when e2e_a_rsel is "Show"
+$result = $guestOrder($required);
+$check('[DEP4] a required attribute hidden by its rule does not block the order', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
+if ($result['order_id'] > 0) {
+    $row = $readOrder($result['order_id'])['billing'];
+    $check('[DEP4] the order has no row for the hidden required attribute', !isset($row['e2e_a_rdep']), json_encode($row['e2e_a_rdep'] ?? null));
+}
+if (isset($rsel['Show'])) {
+    $result = $guestOrder($required + ['e2e_a_rsel' => $rsel['Show']]);
+    $check('[DEP5][REST3] the parent option chosen, the required dependent empty: the order is refused and the attribute named', $result['status'] !== 200 && stripos($result['message'], 'E2E Address Required Dependent') !== false, $result['message']);
+    $result = $guestOrder($required + ['e2e_a_rsel' => $rsel['Show'], 'e2e_a_rdep' => 'given']);
+    $check('[DEP5][REST3] the parent option chosen and the dependent given: the order is placed', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
+    if ($result['order_id'] > 0) {
+        $row = $readOrder($result['order_id'])['billing'];
+        $check('[DEP5] the dependent value is on the order', ($row['e2e_a_rdep']['value'] ?? '') === 'given');
+    }
+} else {
+    $check('[DEP5] option "Show" of e2e_a_rsel is readable', false, json_encode($rsel));
+}
+
+// e2e_a_ws is limited to the group Wholesale: a guest is not in it
+$result = $guestOrder($required + [$wholesale => 'sent by a guest']);
+$check('[DEP6] a value for an attribute limited to another customer group does not block the order', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
+if ($result['order_id'] > 0) {
+    $order = $readOrder($result['order_id']);
+    $check('[DEP6] the value of the group-restricted attribute is not kept (billing and shipping)', !isset($order['billing'][$wholesale]) && !isset($order['shipping'][$wholesale]), json_encode([$order['billing'][$wholesale] ?? null, $order['shipping'][$wholesale] ?? null]));
+}
+
+echo "== Metadata of display groups (RAD5)\n";
+[, $meta] = $api('GET', '/attributeMetadata/customerAddress/attribute/e2e_a_sel', null, $admin);
+$rules = [];
+foreach ((array) ($meta['validation_rules'] ?? []) as $rule) {
+    $rules[(string) ($rule['name'] ?? '')] = (string) ($rule['value'] ?? '');
+}
+$check('[RAD5] a dropdown shown as radio buttons keeps its standard input type', ($meta['frontend_input'] ?? '') === 'select', (string) ($meta['frontend_input'] ?? ''));
+$check('[RAD5] and has the rule mageos_display = radio', ($rules['mageos_display'] ?? '') === 'radio', json_encode($meta['validation_rules'] ?? null));
+[, $meta] = $api('GET', '/attributeMetadata/customerAddress/attribute/e2e_a_chk', null, $admin);
+$rules = [];
+foreach ((array) ($meta['validation_rules'] ?? []) as $rule) {
+    $rules[(string) ($rule['name'] ?? '')] = (string) ($rule['value'] ?? '');
+}
+$check('[RAD5] a multiple select shown as checkboxes keeps its standard input type and has mageos_display = checkbox', ($meta['frontend_input'] ?? '') === 'multiselect' && ($rules['mageos_display'] ?? '') === 'checkbox', json_encode($meta));
+[, $meta] = $api('GET', '/attributeMetadata/customerAddress/attribute/e2e_a_multi', null, $admin);
+$names = array_map(static fn ($rule) => (string) ($rule['name'] ?? ''), (array) ($meta['validation_rules'] ?? []));
+$check('[RAD5] a multiple select shown as a list has no display rule', ($meta['frontend_input'] ?? '') === 'multiselect' && !in_array('mageos_display', $names, true), json_encode($meta['validation_rules'] ?? null));
+[, $meta] = $api('GET', '/attributeMetadata/customer/attribute/e2e_c_bool', null, $admin);
+$names = [];
+foreach ((array) ($meta['validation_rules'] ?? []) as $rule) {
+    $names[(string) ($rule['name'] ?? '')] = (string) ($rule['value'] ?? '');
+}
+$check('[RAD5] a customer yes/no shown as radio buttons: standard type and mageos_display = radio', ($meta['frontend_input'] ?? '') === 'boolean' && ($names['mageos_display'] ?? '') === 'radio', json_encode($meta));
 
 echo "== Logged-in customer\n";
 if ($customerPassword === '') {
@@ -278,13 +361,24 @@ if ($customerPassword === '') {
             $check('[CUS4~][REST5] the logged-in order with a new address is placed', $status === 200, $message($body));
             if ($status === 200) {
                 $order = $readOrder((int) $body);
-                $check('[CUS4~] the account-only customer attribute is on the order', ($order['customer']['e2e_c_account']['value'] ?? '') === 'account value', json_encode($order['customer']));
+                $check('[CUS4~][CUS6] the account-only customer attribute is in the order API output (customer_attribute_values)', ($order['customer']['e2e_c_account']['value'] ?? '') === 'account value', json_encode($order['customer']));
                 $check('[CCO16~] checkout-only customer attributes are not copied from the account', !isset($order['customer']['e2e_c_order']) && !isset($order['customer']['e2e_c_text']) && !isset($order['customer']['e2e_c_req']), json_encode(array_keys($order['customer'])));
                 $check('[CUS4~][REST5] new address: the address values are on the order', ($order['shipping']['e2e_a_text']['value'] ?? '') === 'customer order' && ($order['billing']['e2e_a_text']['value'] ?? '') === 'customer order');
             }
 
             // a saved address: the customer saves one with values (customers/me), the cart refers to it by id
-            [, $me] = $api('GET', '/customers/me', null, $customerToken);
+            [$status, $me] = $api('GET', '/customers/me', null, $customerToken);
+            $mine = [];
+            foreach ((array) ($me['custom_attributes'] ?? []) as $attribute) {
+                $mine[(string) $attribute['attribute_code']] = $attribute['value'];
+            }
+            $check('[REST4] GET customers/me returns the customer\'s custom attributes', $status === 200 && ($mine['e2e_c_account'] ?? '') === 'account value', json_encode($mine));
+            $bad = $address($required + ['e2e_a_len' => 'ab'], $customerEmail);
+            unset($bad['email']);
+            $badCustomer = $me;
+            $badCustomer['addresses'] = [$bad + ['default_billing' => true, 'default_shipping' => true]];
+            [$status, $refused] = $api('PUT', '/customers/me', ['customer' => $badCustomer], $customerToken);
+            $check('[REST4] PUT customers/me with an address that breaks a rule is refused and names the attribute', $status !== 200 && stripos($message($refused), 'E2E Address Length') !== false, "status $status " . $message($refused));
             $saved = $address($required + ['e2e_a_text' => 'saved address text', 'e2e_a_sel' => $sel['South'], 'e2e_a_multi' => $multi['Red'] . ',' . $multi['Blue'], 'e2e_a_date' => '2026-06-07'], $customerEmail);
             unset($saved['email']);
             $me['addresses'] = [$saved + ['default_billing' => true, 'default_shipping' => true]];

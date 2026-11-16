@@ -12,6 +12,7 @@ declare(strict_types=1);
  *   php dev/e2e/assertions.php order <increment_id>        the module's snapshot rows of one order as JSON
  *   php dev/e2e/assertions.php customer <email>            the stored values of all custom customer attributes as JSON
  *   php dev/e2e/assertions.php quote <email>               the module's values on the customer's latest quote as JSON
+ *   php dev/e2e/assertions.php address-api <order_id>      the module's extension attribute values of an order and its addresses as the PHP service contracts return them (order get, order list, order address repository) as JSON
  *   php dev/e2e/assertions.php providers                   the attribute codes the module picks up for customers and addresses, and the user defined ones in the EAV tables (JSON), to show system attributes are not among them
  *   php dev/e2e/assertions.php queries                     how many SQL statements loading order and order address collections of several sizes takes (JSON), to show the module adds none per row
  *   php dev/e2e/assertions.php perf <email>                SQL statements the module needs to build the storefront address form fields and the address text lines of a customer's saved addresses (JSON, ROB3)
@@ -33,7 +34,7 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers', 'address-api'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
     fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
@@ -132,8 +133,88 @@ if ($command === 'check') {
         echo ($count === 0 ? 'ok    ' : 'FAIL  ') . $name . ($count === 0 ? '' : ' (' . $count . ' rows, first ids: ' . implode(', ', array_slice($rows, 0, 5)) . ')') . "\n";
         $failed += $count === 0 ? 0 : 1;
     }
+
+    // INS2 / INS3: the tables and foreign keys the module declares in etc/db_schema.xml are in the database, as declared, and nothing more
+    $schemaFile = dirname(__DIR__, 2) . '/etc/db_schema.xml';
+    $declared = simplexml_load_file($schemaFile);
+    $expectedTables = [];
+    $expectedKeys = [];
+    foreach ($declared->table as $table) {
+        $name = (string) $table['name'];
+        $expectedTables[] = $name;
+        foreach ($table->constraint as $constraint) {
+            $type = (string) $constraint->attributes('xsi', true)['type'];
+            if ($type === 'foreign') {
+                $expectedKeys[] = implode('|', [$name, (string) $constraint['column'], (string) $constraint['referenceTable'], (string) $constraint['referenceColumn'], strtoupper((string) $constraint['onDelete'])]);
+            }
+        }
+    }
+    sort($expectedTables);
+    sort($expectedKeys);
+    $schema = (string) $db->fetchOne('SELECT DATABASE()');
+    $existing = $db->fetchCol('SELECT table_name AS table_name FROM information_schema.tables WHERE table_schema = ? AND table_name LIKE ? ORDER BY table_name', [$schema, 'mageos\\_cca\\_%']);
+    $missing = array_values(array_diff($expectedTables, $existing));
+    $extra = array_values(array_diff($existing, $expectedTables));
+    $report = static function (string $name, array $problems) use (&$failed): void {
+        echo ($problems === [] ? 'ok    ' : 'FAIL  ') . $name . ($problems === [] ? '' : ' (' . implode('; ', array_slice($problems, 0, 5)) . ')') . "\n";
+        $failed += $problems === [] ? 0 : 1;
+    };
+    $report('[INS2] the seven tables of the module exist and no other mageos_cca table does', array_merge(array_map(static fn ($t) => "missing $t", $missing), array_map(static fn ($t) => "unexpected $t", $extra)));
+    $found = [];
+    foreach ($db->fetchAll(
+        'SELECT k.table_name AS table_name, k.column_name AS column_name, k.referenced_table_name AS referenced_table_name, k.referenced_column_name AS referenced_column_name, r.delete_rule AS delete_rule
+         FROM information_schema.key_column_usage k
+         JOIN information_schema.referential_constraints r ON r.constraint_schema = k.table_schema AND r.constraint_name = k.constraint_name AND r.table_name = k.table_name
+         WHERE k.table_schema = ? AND k.table_name LIKE ? AND k.referenced_table_name IS NOT NULL',
+        [$schema, 'mageos\\_cca\\_%']
+    ) as $row) {
+        $found[] = implode('|', [$row['table_name'], $row['column_name'], $row['referenced_table_name'], $row['referenced_column_name'], strtoupper($row['delete_rule'])]);
+    }
+    sort($found);
+    $report('[INS3] the foreign keys are the declared ones, with the declared delete rule', array_merge(array_map(static fn ($k) => "missing $k", array_diff($expectedKeys, $found)), array_map(static fn ($k) => "unexpected $k", array_diff($found, $expectedKeys))));
+    $toAttribute = array_filter($found, static fn ($k) => str_ends_with(explode('|', $k)[2], 'eav_attribute'));
+    $orderToAttribute = array_filter($toAttribute, static fn ($k) => str_contains(explode('|', $k)[0], '_order_'));
+    $report('[INS3] the order tables have no foreign key to eav_attribute (an order renders from its own rows)', array_values($orderToAttribute));
+    $quoteCascade = array_filter($found, static fn ($k) => str_contains(explode('|', $k)[0], '_quote_') && !str_ends_with($k, '|CASCADE'));
+    $report('[INS3] the quote tables cascade on delete', array_values($quoteCascade));
     echo $failed === 0 ? "All checks passed.\n" : "$failed check(s) failed.\n";
     exit($failed === 0 ? 0 : 1);
+}
+
+if ($command === 'address-api') {
+    $objectManager->get(\Magento\Framework\App\State::class)->setAreaCode('webapi_rest');
+    $orders = $objectManager->get(\Magento\Sales\Api\OrderRepositoryInterface::class);
+    $addresses = $objectManager->get(\Magento\Sales\Api\OrderAddressRepositoryInterface::class);
+    $codes = static function (?array $values): array {
+        $result = [];
+        foreach ((array) $values as $value) {
+            $result[$value->getAttributeCode()] = $value->getValue();
+        }
+        ksort($result);
+        return $result;
+    };
+    $summary = static function (\Magento\Sales\Api\Data\OrderInterface $order) use ($codes): array {
+        $extension = $order->getExtensionAttributes();
+        $shipping = [];
+        foreach ((array) ($extension ? $extension->getShippingAssignments() : []) as $assignment) {
+            $address = $assignment->getShipping()?->getAddress();
+            $shipping = $codes($address?->getExtensionAttributes()?->getCustomAttributeValues());
+        }
+        return [
+            'customer' => $codes($extension?->getCustomerAttributeValues()),
+            'billing' => $codes($order->getBillingAddress()?->getExtensionAttributes()?->getCustomAttributeValues()),
+            'shipping_assignment' => $shipping,
+        ];
+    };
+    $order = $orders->get((int) $argument);
+    $criteria = $objectManager->create(\Magento\Framework\Api\SearchCriteriaBuilder::class)->addFilter('entity_id', (int) $argument)->create();
+    $listed = array_values($orders->getList($criteria)->getItems())[0] ?? null;
+    $fromRepository = [];
+    foreach (['billing' => $order->getBillingAddress(), 'shipping' => $order->getShippingAddress()] as $type => $address) {
+        $fromRepository[$type] = $address === null ? null : $codes($addresses->get((int) $address->getEntityId())->getExtensionAttributes()?->getCustomAttributeValues());
+    }
+    echo json_encode(['order_get' => $summary($order), 'order_list' => $listed === null ? null : $summary($listed), 'address_repository' => $fromRepository], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    exit(0);
 }
 
 if ($command === 'providers') {

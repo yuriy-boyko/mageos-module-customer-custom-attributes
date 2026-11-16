@@ -37,6 +37,9 @@ modules=(MageOS_CustomerCustomAttributesHyvaCheckout MageOS_CustomerCustomAttrib
 
 restore() {
     cp -p "$work/config.php.backup" "$config"
+    # While the module is disabled the first request regenerates the extension attribute classes of the order and its address without the
+    # module's getters, and the REST output of an order then lacks the module's values. Developer mode generates them again on demand.
+    rm -f "$E2E_MAGENTO_ROOT"/generated/code/Magento/Sales/Api/Data/Order{,Address}Extension{,Interface,Factory}.php
     e2e_magento cache:flush >/dev/null 2>&1 || true
 }
 trap restore EXIT

@@ -6,7 +6,7 @@ import { chooseShippingAndPayment, expect, fillCheckout, openCheckoutAsGuest, pl
  * CCO22: the required customer attribute e2e_c_req sits at a shipping position, which a virtual cart does not show: it does not block.
  * CUS10: a guest order with no customer attribute values has no customer rows and no errors.
  */
-test('an order with a virtual product is placed with billing values only', { tag: ['@VAL7', '@CCO22', '@CUS10'] }, async ({ page, magewire }) => {
+test('an order with a virtual product is placed with billing values only', { tag: ['@VAL7', '@CCO22', '@CUS10', '@CHK15'] }, async ({ page, magewire }) => {
     await openCheckoutAsGuest(page, '/e2e-virtual-product.html');
     await requireFixtures(page, ['e2e_a_req', 'e2e_c_sel']);
 

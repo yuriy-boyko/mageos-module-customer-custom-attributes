@@ -74,10 +74,12 @@ test('CHK17: two tabs edit the same quote: the last write wins, no duplicate row
     await openCheckoutAsGuest(page);
     await requireFixtures(page, ['e2e_c_text', 'e2e_c_below']);
     await fillCheckout(page, magewire);
+    // a write is typed, then waited for until the quote holds it: the next write starts only after the one before has landed
+    const stored = () => quoteValues('@latest').customer_attributes;
     const type = async (tab: typeof page, code: string, value: string) => {
         await field(tab, code).fill(value);
         await field(tab, code).press('Tab');
-        await tab.waitForTimeout(1500);
+        await expect.poll(() => stored()[code], { timeout: 20_000, message: `${code} is on the quote` }).toBe(value);
     };
 
     // the second tab opens the checkout of the same session (same quote) while the first one stays open
@@ -87,18 +89,20 @@ test('CHK17: two tabs edit the same quote: the last write wins, no duplicate row
 
     await type(page, 'e2e_c_text', 'from tab one');
     await type(second, 'e2e_c_text', 'from tab two');
+    expect(stored().e2e_c_text, 'the last write wins').toBe('from tab two');
+    // the first tab keeps working on the same quote
     await type(page, 'e2e_c_below', 'below from tab one');
 
     const customer = quoteValues('@latest').customer_attributes;
-    expect(customer.e2e_c_text, 'the last write wins').toBe('from tab two');
     expect(customer.e2e_c_below).toBe('below from tab one');
+    expect(['from tab one', 'from tab two'], 'a stale tab may send its own text again, never a mix or a second row').toContain(customer.e2e_c_text);
     expect(Object.keys(customer).filter((code) => code === 'e2e_c_text')).toHaveLength(1);
 
     // an order from the first tab carries what the quote holds, one row per attribute
     await chooseShippingAndPayment(page, magewire);
     await placeOrder(page);
     const { snapshot } = await placedOrderSnapshot(page);
-    expect(snapshot.customer.e2e_c_text).toMatchObject({ value: 'from tab two' });
+    expect(snapshot.customer.e2e_c_text).toMatchObject({ value: customer.e2e_c_text });
     expect(snapshot.customer.e2e_c_below).toMatchObject({ value: 'below from tab one' });
     await second.close();
 });

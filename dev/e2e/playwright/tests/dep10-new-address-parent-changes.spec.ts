@@ -39,7 +39,7 @@ async function prepare(page: Page, magewire: { idle(): Promise<void> }): Promise
     await fillCheckout(page, magewire, { e2e_a_text: 'typed by hand' });
 }
 
-test('DEP10: the parent changed several times, the order has the parent and the visible dependent', { tag: ['@DEP10'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+test('DEP10: the parent changed several times, the order has the parent and the visible dependent', { tag: ['@DEP10', '@DEP9'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
     await prepare(page, magewire);
     await expect(field(page, 'e2e_a_dep'), 'hidden until the parent is chosen').toBeHidden();
 
@@ -66,7 +66,7 @@ test('DEP10: the parent changed several times, the order has the parent and the 
     expect(snapshot.billing.e2e_a_dep).toMatchObject({ value: 'final value' });
 });
 
-test('DEP10: the order ends with the parent on another option: the dependent typed before is not on the order', { tag: ['@DEP10'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+test('DEP10: the order ends with the parent on another option: the dependent typed before is not on the order', { tag: ['@DEP10', '@DEP9'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
     await prepare(page, magewire);
     await chooseParent(page, magewire, 'North');
     await typeDependent(page, magewire, 'will be dropped');
