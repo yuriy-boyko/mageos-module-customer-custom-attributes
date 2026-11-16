@@ -73,4 +73,16 @@ class Main extends AbstractMain
 
         return $this;
     }
+
+    /**
+     * Core adds a script after this tab that unlocks the input type of a saved attribute and offers the compatible types. The module keeps
+     * the type of an attribute fixed once it is saved (the stored values and the rules depend on it, and the save ignores a posted type),
+     * so the script is left out and the field stays locked.
+     *
+     * @param string $html
+     */
+    protected function _afterToHtml($html)
+    {
+        return $html;
+    }
 }

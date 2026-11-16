@@ -28,9 +28,15 @@ foreach ($attributes as $attribute => $attributeValue) {
     if (in_array($attribute, $skip, true)) {
         continue;
     }
+    // The escaper would turn the colon of "wire:model.defer" into an entity and the browser would not see the directive: keep the
+    // characters an attribute name may have (Magewire and Alpine names such as wire:model.defer, x-on:change, @click) and drop the rest.
+    $attributeName = (string) preg_replace('/[^A-Za-z0-9_:.@-]/', '', (string) $attribute);
+    if ($attributeName === '') {
+        continue;
+    }
     $extra .= $attributeValue === null
-        ? ' ' . $escaper->escapeHtmlAttr($attribute)
-        : ' ' . $escaper->escapeHtmlAttr($attribute) . '="' . $escaper->escapeHtmlAttr((string) $attributeValue) . '"';
+        ? ' ' . $attributeName
+        : ' ' . $attributeName . '="' . $escaper->escapeHtmlAttr((string) $attributeValue) . '"';
 }
 
 $choices = [];

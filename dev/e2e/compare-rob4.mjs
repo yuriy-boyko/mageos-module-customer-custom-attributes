@@ -6,7 +6,7 @@ const [onFile, offFile, pct, ms, more] = process.argv.slice(2);
 const on = JSON.parse(fs.readFileSync(onFile, 'utf8'));
 const off = JSON.parse(fs.readFileSync(offFile, 'utf8'));
 let failed = 0;
-console.log('page'.padEnd(28) + 'off ms'.padStart(8) + 'on ms'.padStart(8) + 'diff'.padStart(8) + '   requests off/on');
+console.log('page'.padEnd(28) + 'off ms'.padStart(8) + 'on ms'.padStart(8) + 'diff'.padStart(8) + '   requests off/on   first byte off/on');
 for (const name of Object.keys(on)) {
     const a = off[name];
     const b = on[name];
@@ -15,7 +15,7 @@ for (const name of Object.keys(on)) {
     const slower = diff > Number(ms) && (diff / a.ms) * 100 > Number(pct);
     const moreRequests = b.requests - a.requests > Number(more);
     if (slower || moreRequests) failed++;
-    console.log(name.padEnd(28) + String(a.ms).padStart(8) + String(b.ms).padStart(8) + String(diff).padStart(8) + `   ${a.requests}/${b.requests}` + (slower || moreRequests ? '   OVER THE LIMIT' : ''));
+    console.log(name.padEnd(28) + String(a.ms).padStart(8) + String(b.ms).padStart(8) + String(diff).padStart(8) + `   ${a.requests}/${b.requests}`.padEnd(19) + (a.ttfb !== undefined ? `${a.ttfb}/${b.ttfb} ms` : '') + (slower || moreRequests ? '   OVER THE LIMIT' : ''));
 }
 console.log(failed === 0 ? `Within the limits (slower than ${pct}% and ${ms} ms together, or more than ${more} extra requests, fail).` : `${failed} page(s) over the limits.`);
 process.exit(failed === 0 ? 0 : 1);

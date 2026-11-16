@@ -24,7 +24,7 @@ listed one by one in [TESTING.md](TESTING.md); the code map is in [ARCHITECTURE.
 - **Saved address missing a required attribute:** checkout notice with an edit link, clear place-order message.
 - **API:** `custom_attributes` on cart addresses and `customers/me`; extension attributes `custom_attribute_values` (order addresses)
   and `customer_attribute_values` (orders).
-- **Release tooling:** `dev/check.sh` (157 unit tests), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
+- **Release tooling:** `dev/check.sh` (158 unit tests), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
   `.github/workflows/ci.yml`, `Setup/Uninstall` (drops the tables and form assignments; attributes stay).
 
 ## Verified
@@ -38,7 +38,7 @@ TESTING.md, among them the dependency rows DEP12 to DEP16. They found one bug, n
 when a required attribute was hidden by a dependency rule (DEP14), and the same for the account information form with a required customer attribute (CUS8). A required address attribute that is only in the address book form blocks the checkout (core's behaviour, kept); the admin warns about it (VAL6).
 
 ## Open
-- Performance with the module on and off: measured once (TESTING.md, ROB4: other pages within about 100 ms, guest checkout 0.4 to 0.9 s slower to DOM ready on a developer-mode test store, same number of requests of the shop itself); to be tested further.
+- Performance with the module on and off: measured twice (TESTING.md, ROB4: all pages within the noise of a developer-mode test store, including the logged-in checkout and the admin order create page, same number of requests of the shop itself, time to first byte at most 100 ms more); production mode and a cold cache are not measured.
 - The ☐ rows in [TESTING.md](TESTING.md), including `setup:di:compile` on a store without Hyvä Checkout.
 - Customer attributes in the checkout: the open rows CCO in TESTING.md (one-page, multi-step and mobile were tested with guests and logged-in customers).
 - Manual checks: other Hyvä Checkout variants (multi-step, mobile), a second store view with another locale, card payments with

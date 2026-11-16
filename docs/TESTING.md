@@ -125,7 +125,7 @@ browser, a second store or a card flow, ❌ fails. After each checkout case run 
 | REG1 | No custom attribute is enabled: checkout and orders behave like core | no custom fields, order placed, no module rows, no errors | ✅ (all custom attributes switched off; not deleted) |
 | REG2 | Create the test attributes | providers list all of them; the quote address attribute list contains them | ✅ |
 | REG3 | Delete an attribute | gone from the lists; quote rows cascade away | ✅ |
-| REG4 | System attributes (firstname, street, …) | never picked up | ☐ |
+| REG4 | System attributes (firstname, street, …) | never picked up | ✅ automated: playwright/tests/reg4-system-attributes.spec.ts (the codes the module works with are exactly the user defined attributes of the two entities; no system code among them) |
 | REG5 | Attribute not assigned to any form | not shown; submitted values still work | ✅ automated: api.php, playwright/tests/reg5-attribute-without-form.spec.ts |
 
 ### CHK. Hyvä Checkout: values reach the quote address
@@ -146,13 +146,13 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | CHK11 ★ | Logged-in customer, new address | same as CHK1 | ✅ |
 | CHK12 ★ | Logged-in customer selects a saved address without values | no stale values from the previous address | ✅ |
 | CHK13 | Saved address with values | values on the quote and in the form | ✅ |
-| CHK14 | Date typed in a store with another locale | stored consistently, shown correctly | **manual** |
+| CHK14 | Date typed in a store with another locale | stored consistently, shown correctly | ✅ automated: playwright/tests/chk-steps-tabs-locale.spec.ts (Italy store: customer and address date stored as typed with 00:00:00, label `YYYY-MM-DD`, the admin order view shows the same day) |
 | CHK15 | Virtual-only cart (billing only) | billing values stored | ✅ (a temporary virtual product; sections at shipping positions are not shown) |
-| CHK16 | Back from payment to shipping and edit | values reload from the quote | ☐ |
-| CHK17 | Two tabs edit the same quote | last write wins, no duplicates | **manual** |
+| CHK16 | Back from payment to shipping and edit | values reload from the quote | ✅ automated: playwright/tests/chk-steps-tabs-locale.spec.ts (multi-step checkout: back button, values reload, edit kept, payment value kept, order carries them) |
+| CHK17 | Two tabs edit the same quote | last write wins, no duplicates | ✅ automated: playwright/tests/chk-steps-tabs-locale.spec.ts (two tabs of one session; the quote and the order hold the last write, one row per attribute) |
 | CHK18 | Old quote created before the attributes existed | no errors | ✅ register page and checkout (typing, Magewire calls 200): no console errors; admin shows only core's ViewTransition warning · automated: playwright/tests/chk18-old-quote.spec.ts (a guest cart with an address, then a new address attribute and a new customer attribute for the checkout are created: the reloaded checkout shows the empty new fields without script errors, CSP violations or failed Magewire calls, keeps the old values, takes the new ones and the order carries all of them) |
 | CHK19 | Guest cart merged into the customer cart at login | customer cart keeps its values, nothing orphaned | ✅ (the guest cart's typed values go with the guest cart when the customer already has an active cart) |
-| CHK20 | Default (multi-step) and mobile checkout variants, second store view | same results as the one-page run | **manual** |
+| CHK20 | Default (multi-step) and mobile checkout variants, second store view | same results as the one-page run | ✅ automated in parts: dep11-variants-guest-store.spec.ts, rad8-address-groups-checkout.spec.ts, cco2-positions.spec.ts, smoke-variants.spec.ts, sav-saved-address-notice.spec.ts (multi-step and mobile: sections per step, rules, groups, order values, saved address notice; Italy store: DEP11, CHK14, WEB) |
 
 ### ORD. Order address snapshot
 | ID | Test | Expected | Status |
@@ -194,7 +194,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | ADM3 | Create dropdown with 3 options, text with max length, date with min/max | saved with the right rules | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
 | ADM4 | Entity type, backend type, `is_user_defined`, form assignments in the database | as expected | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
 | ADM5 | Input type switch shows/hides default value, validation rows, options | per type | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
-| ADM6 | Edit: code and input type read-only; options and values reload | yes | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
+| ADM6 | Edit: code and input type read-only; options and values reload | yes | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts (found and fixed: Magento 2.4.9 appends a script to the tab that unlocks the input type of a saved attribute and offers compatible types; the tab no longer adds it, the save ignored a posted type anyway) |
 | ADM7 | Change, add, delete options; change default option | saved | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
 | ADM8 | Manage Labels per store view | `eav_attribute_label` rows | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
 | ADM9 | Storefront Properties: forms, status, sort order | updated | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
@@ -246,7 +246,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | CUS6 | Order API `customer_attribute_values` | rows present | ✅ |
 | CUS7 | Rename or delete the attribute after the order | order rows unchanged | ✅ automated: playwright/tests/cus7-order-survives-attribute-changes.spec.ts |
 | CUS8 | Required customer attribute empty | inline message, nothing saved | ✅ (found and fixed: the account information form could not be saved while a required customer attribute was hidden by a dependency rule; `EavDataRequiredForHiddenAttribute` now covers customer attributes too) · automated: playwright/tests/cus8-account-forms.spec.ts |
-| CUS9 | Order placed in the Hyvä Checkout by a logged-in customer | same rows | **manual** |
+| CUS9 | Order placed in the Hyvä Checkout by a logged-in customer | same rows | ✅ automated: playwright/tests/cus9-logged-in-order-rows.spec.ts (one row per value the customer has, with labels; none for an attribute without a value; account-form-only attributes come from the customer; the admin order view lists them; the account is unchanged) |
 | CUS10 | Guest checkout | no customer rows, no errors | ✅ automated: playwright/tests/val7-virtual-cart.spec.ts |
 | CUS11 | Value editable in the admin customer form | saved | ✅ automated: playwright/tests/cus-admin-customer.spec.ts |
 | CUS12 | Groups (radio/checkbox) and dependency rules in registration and account edit forms | render, save, hide | ✅ automated: playwright/tests/cus12-registration-form.spec.ts, playwright/tests/cus8-account-forms.spec.ts (registration: a required customer attribute that is only in the checkout forms blocks every registration in core, so the test makes it optional) |
@@ -262,7 +262,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | AOC6 | "Add to address book" ticked | customer address gets the values | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
 | AOC7 | New customer | no errors, form values on the order | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts (needs the required account-only attribute made optional: core refuses to create the customer otherwise) |
 | AOC8 | Reorder from the admin | values copied | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts, aoc8-reorder-more.spec.ts (also after an address attribute was deleted: its value is left out and the old order keeps it; reorder of a guest order and of an Italy store order; found and fixed: core copies only the standard address fields, so the custom values were lost; `Plugin/AdminOrderReorderAddressValues` now carries them from the order's snapshot rows; a value hidden by a rule is not on the old order, so a required dependent is asked again) |
-| AOC9 | Other store view locale, date parsing | correct | **manual** |
+| AOC9 | Other store view locale, date parsing | correct | ✅ automated: playwright/tests/aoc9-italy-store-view.spec.ts (admin order for the Italy store view with an Italian address: `5/6/2026` is 6 May, values on the order, shown in the admin view) |
 | AOC10 | Required address attribute empty | admin validation message | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
 | AOC11 | Admin forms with attributes shown as radio/checkbox or hidden by rules | keep the dropdown/list, show every attribute | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
 
@@ -272,8 +272,8 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | VAL1 | Too short text, invalid email, non-numeric, date out of range, unknown option, yes/no 7 | order rejected, message names the address and attribute | ✅ |
 | VAL2 | Required attribute empty | rejected | ✅ · automated: api.php |
 | VAL3 | Valid values | placed | ✅ |
-| VAL4 | Admin Edit Order Address with invalid values | not saved, message | ✅ (script), ☐ (browser) |
-| VAL5 | Rejection message on the Hyvä Checkout page | readable, values kept | **manual** |
+| VAL4 | Admin Edit Order Address with invalid values | not saved, message | ✅ (script) · automated in the browser: playwright/tests/val4-edit-order-address.spec.ts (the form refuses, the server refuses when the browser check is bypassed, nothing saved; a valid value is saved) |
+| VAL5 | Rejection message on the Hyvä Checkout page | readable, values kept | ✅ automated: playwright/tests/val5-rejection-message-checkout.spec.ts (a text longer than its rule, sent past the browser's checks: a message at the top of the page and one at the field naming the attribute and the limit; typed values, shipping and payment choice kept; the corrected order is placed. The top message is core's "Please shorten your address..." and does not name the attribute) |
 | VAL6 | Required attribute only in the address book form | core blocks the checkout (the Hyvä Checkout form does not show it); the admin warns on the attribute's edit page; adding it to "Hyvä Checkout Address Forms" fixes it | ✅ automated: playwright/tests/val6-required-address-book-only.spec.ts |
 | VAL7 | Virtual cart: shipping values not validated | placed | ✅ automated: playwright/tests/val7-virtual-cart.spec.ts |
 | VAL8 | Multiselect with an unknown id | rejected | ✅ automated: api.php |
@@ -281,17 +281,17 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 ### DEP. Dependencies and customer groups
 | ID | Test | Expected | Status |
 |---|---|---|---|
-| DEP1 | Relations screen: list, new, save, edit, delete | saved, delete removes rules | ✅ |
+| DEP1 | Relations screen: list, new, save, edit, delete | saved, delete removes rules | ✅ · automated (new, save, edit page, delete): playwright/tests/dep3-relation-validation.spec.ts |
 | DEP2 | Circular rules | rejected | ✅ |
-| DEP3 | Rule validation messages (unknown option, text parent, self rule, duplicate) | rejected with the rule number | ✅ (unit), ☐ (browser) |
+| DEP3 | Rule validation messages (unknown option, text parent, self rule, duplicate) | rejected with the rule number | ✅ (unit) · automated in the browser: playwright/tests/dep3-relation-validation.spec.ts (empty name, no rule, unknown option, text parent, self rule on rule 2, duplicate on rule 2) |
 | DEP4 | Order with a hidden required attribute | placed, no row | ✅ |
 | DEP5 | Parent option chosen, dependent empty and required | rejected | ✅ |
 | DEP6 | Value of a hidden or group-restricted attribute sent | not kept | ✅ |
-| DEP7 | Customer Groups saved and shown again | rows stored and shown | ✅ saved, ☐ shown again |
+| DEP7 | Customer Groups saved and shown again | rows stored and shown | ✅ automated: playwright/tests/dep7-customer-groups-shown-again.spec.ts (selected, saved, selected again after the save and after opening from the grid, changed, cleared = every group) |
 | DEP8 | Account address form: group-restricted hidden, dependent shown for its option | works, hidden fields disabled | ✅ |
 | DEP9 | Hyvä Checkout (one-page, logged in): live hide and show | instant, order without the hidden value | ✅ |
-| DEP10 | Hand-typed new address: change the parent several times, "Ship here", place the order | order has the parent and visible dependents only | **manual** |
-| DEP11 | Default and mobile variants, billing form, guest, second store | works | **manual** |
+| DEP10 | Hand-typed new address: change the parent several times, "Ship here", place the order | order has the parent and visible dependents only | ✅ automated: playwright/tests/dep10-new-address-parent-changes.spec.ts (logged-in customer, radio parent; found and fixed: the radio and checkbox groups of address attributes in Hyvä Checkout lost every `wire:` attribute, so their values never reached the quote or the order; checked: both tests fail without the fix) |
+| DEP11 | Default and mobile variants, billing form, guest, second store | works | ✅ automated: playwright/tests/dep11-variants-guest-store.spec.ts (multi-step and mobile with a guest, one-page guest, the billing form with its own parent and dependent, the Italy store) |
 | DEP12 | Multiselect parent in the checkout | dependent follows | ✅ automated: playwright/tests/dep12-multiselect-parent.spec.ts (fails when the rule is broken, checked) |
 | DEP13 | Required dependent shown and left empty | place order blocked with the field message | ✅ automated: playwright/tests/dep13-required-dependent.spec.ts |
 | DEP14 | Account address form saved with a hidden required attribute | saves | ✅ (found and fixed: the account form did not send the hidden field and the plugin treated that as a value; `EavDataRequiredForHiddenAttribute` now handles `false`) · automated: playwright/tests/dep14-account-address-hidden-required.spec.ts |
@@ -302,13 +302,13 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | ID | Test | Expected | Status |
 |---|---|---|---|
 | RAD1 | Admin "Display As" per input type | only dropdown, multiple select, yes/no | ✅ |
-| RAD2 | Account address form groups | saved values checked, "None" when optional, saves | ✅ |
+| RAD2 | Account address form groups | saved values checked, "None" when optional, saves | ✅ automated: playwright/tests/rad2-account-address-groups.spec.ts |
 | RAD3 | Rules with radio and checkbox parents | instant show/hide | ✅ |
-| RAD4 | Hyvä Checkout one-page: render, saved values, instant visibility, order | works | ✅ |
+| RAD4 | Hyvä Checkout one-page: render, saved values, instant visibility, order | works | ✅ automated (address attributes): playwright/tests/rad4-saved-address-groups-checkout.spec.ts (the saved address card shows the groups and the order carries them; a new address in the dialog starts empty and leaves the saved address alone), rad8-address-groups-checkout.spec.ts, dep10 and dep11 |
 | RAD5 | Core metadata and REST output | standard input type plus rule `mageos_display` | ✅ |
 | RAD6 | Required checkbox group with nothing ticked | blocked (server) | ✅ automated: playwright/tests/rad6-required-checkbox-group.spec.ts |
 | RAD7 | Customer attributes as groups in registration and account edit | render and save | ✅ automated: playwright/tests/cus8-account-forms.spec.ts |
-| RAD8 | Other checkout variants, hand-typed address, billing form | works | **manual** |
+| RAD8 | Other checkout variants, hand-typed address, billing form | works | ✅ automated: playwright/tests/rad8-address-groups-checkout.spec.ts (found and fixed: a checkbox group of an address attribute sent a single true instead of the ticked options, so every order with a ticked box was refused with "has an invalid value"; its starting value is now a list) |
 | RAD9 | Keyboard use and screen reader labels | usable | **manual** |
 
 ### REST. REST API
@@ -337,13 +337,13 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 ### SAV. Saved address missing a required attribute
 | ID | Test | Expected | Status |
 |---|---|---|---|
-| SAV1 | Attribute becomes required; checkout with a saved address lacking it | notice with an edit link under the address list | ✅ |
-| SAV2 | Place the order anyway | message names the address type and the field | ✅ |
-| SAV3 | Follow the link, fill the field, save, return, order | placed | ✅ |
-| SAV4 | Switch between complete and incomplete saved addresses | notice appears and disappears | ✅ |
-| SAV5 | Attribute hidden by rule or group | no notice, no block | ✅ (disabled per website ☐) |
+| SAV1 | Attribute becomes required; checkout with a saved address lacking it | notice with an edit link under the address list | ✅ · automated: playwright/tests/sav-saved-address-notice.spec.ts |
+| SAV2 | Place the order anyway | message names the address type and the field | ✅ · automated: playwright/tests/sav-saved-address-notice.spec.ts |
+| SAV3 | Follow the link, fill the field, save, return, order | placed | ✅ · automated: playwright/tests/sav-saved-address-notice.spec.ts |
+| SAV4 | Switch between complete and incomplete saved addresses | notice appears and disappears | ✅ · automated: playwright/tests/sav-saved-address-notice.spec.ts |
+| SAV5 | Attribute hidden by rule or group | no notice, no block | ✅ · automated for a rule: playwright/tests/sav-saved-address-notice.spec.ts (group and disabled per website ☐) |
 | SAV6 | Several missing fields, several addresses, different billing and shipping | one field named, several give a generic text, one notice each | ✅ |
-| SAV7 | Default and mobile variants | notice in place | **manual** |
+| SAV7 | Default and mobile variants | notice in place | ✅ automated: playwright/tests/sav-saved-address-notice.spec.ts |
 | SAV8 | Return to the checkout in the same tab | updated after a reload only | ☐ known |
 
 ### CCO. Customer attributes in the Hyvä Checkout
@@ -389,7 +389,7 @@ multi-step (default) and the mobile checkout were tested; the sections use the c
 | ROB1 | `var/log/exception.log`, `system.log`, `debug.log` after all runs | no module errors | ✅ no module errors; the only exceptions are the intended validation failures of earlier tests |
 | ROB2 | Browser console and network tab at checkout and in the admin | no errors | ✅ automated: playwright/tests/rob-console-csp.spec.ts (storefront, Italy, customer pages, admin screens; third-party Stripe/PayPal/Amazon/Google messages ignored) |
 | ROB3 | 50 attributes, 5 addresses | queries stay bounded (batched loads) | ✅ automated: playwright/tests/rob3-bounded-queries.spec.ts (found and fixed: the address text read the options of every dropdown from the database once per address; now once per request) |
-| ROB4 | Request count and time compared with the module disabled | small difference | ✅ measured with `dev/e2e/compare-module-off.sh` (module and companion disabled, then enabled; run on demand, not in run-all): first-party requests identical on every page (checkout 11/11, home 24/24, others 8/8); DOM ready: home +17 ms, registration +72, account edit +3, new address +99, guest checkout +878 ms (1633 → 2511; an earlier run +445 ms), which includes rendering the ~45 custom fields the module adds there. **To be tested further** (more pages, a warm full-page cache, production mode, fewer attributes) |
+| ROB4 | Request count and time compared with the module disabled | small difference | ✅ measured with `dev/e2e/compare-module-off.sh` (module and companion disabled, then enabled; run on demand, not in run-all): first-party requests identical on every page (checkout 11/11, home 24/24, others 8/8); DOM ready: home +17 ms, registration +72, account edit +3, new address +99, guest checkout +878 ms (1633 → 2511; an earlier run +445 ms), which includes rendering the ~45 custom fields the module adds there. Second run (2026-11-16, now with a logged-in checkout, the admin order create page and time to first byte; developer mode, caches warm, 7 loads, first dropped): home +10 ms, registration -19, account edit -56, new address -25, guest checkout +42, logged-in checkout -19, admin order create -122; first byte on/off: guest checkout 825/748 ms, logged-in checkout 858/764 ms, others within 100 ms; first-party requests identical on all 7 pages. The differences are inside the run-to-run noise of the bench (the first run's +445 to +878 ms for the guest checkout did not repeat). **Not measured**: production mode (needs `setup:di:compile`, a baseline change), a cold cache, the cost per field (ROB3 covers the SQL statements per address) |
 | ROB5 | CSP: no inline `style`/`on*` attributes or unregistered inline scripts; checkout, account and registration forms, and the admin relation list/edit page, with the browser console open | no CSP violations, relation rows still open on click | ✅ automated: playwright/tests/rob-console-csp.spec.ts (raw server HTML of checkout, registration, login, account edit, address book, new address, order list, Italy pages: no `on*`/`style` on the module's elements and no nonce-less inline script of the module; no CSP violation on those pages and the admin screens) |
 
 ## 6. Known gaps (by decision, not bugs)

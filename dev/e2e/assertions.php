@@ -12,6 +12,7 @@ declare(strict_types=1);
  *   php dev/e2e/assertions.php order <increment_id>        the module's snapshot rows of one order as JSON
  *   php dev/e2e/assertions.php customer <email>            the stored values of all custom customer attributes as JSON
  *   php dev/e2e/assertions.php quote <email>               the module's values on the customer's latest quote as JSON
+ *   php dev/e2e/assertions.php providers                   the attribute codes the module picks up for customers and addresses, and the user defined ones in the EAV tables (JSON), to show system attributes are not among them
  *   php dev/e2e/assertions.php queries                     how many SQL statements loading order and order address collections of several sizes takes (JSON), to show the module adds none per row
  *   php dev/e2e/assertions.php perf <email>                SQL statements the module needs to build the storefront address form fields and the address text lines of a customer's saved addresses (JSON, ROB3)
  *   php dev/e2e/assertions.php attribute <entity> <code>   how an attribute is stored (labels, options, forms, rules) as JSON; entity customer|address
@@ -32,7 +33,7 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf'], true) || (!in_array($command, ['check', 'queries', 'perf'], true) && $argument === '')) {
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
     fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
@@ -133,6 +134,28 @@ if ($command === 'check') {
     }
     echo $failed === 0 ? "All checks passed.\n" : "$failed check(s) failed.\n";
     exit($failed === 0 ? 0 : 1);
+}
+
+if ($command === 'providers') {
+    $eav = static fn (string $entity): array => $db->fetchCol($sql(
+        'SELECT a.attribute_code FROM {{eav_attribute}} a JOIN {{eav_entity_type}} t ON t.entity_type_id = a.entity_type_id
+         WHERE t.entity_type_code = ? AND a.is_user_defined = 1 ORDER BY a.attribute_code'
+    ), [$entity]);
+    $all = static fn (string $entity): array => $db->fetchCol($sql(
+        'SELECT a.attribute_code FROM {{eav_attribute}} a JOIN {{eav_entity_type}} t ON t.entity_type_id = a.entity_type_id
+         WHERE t.entity_type_code = ? AND a.is_user_defined = 0 ORDER BY a.attribute_code'
+    ), [$entity]);
+    $customer = array_keys($objectManager->get(\MageOS\CustomerCustomAttributes\Model\CustomerAttributeProvider::class)->getUserDefined());
+    $address = array_keys($objectManager->get(\MageOS\CustomerCustomAttributes\Model\AddressAttributeProvider::class)->getUserDefined());
+    sort($customer);
+    sort($address);
+    echo json_encode([
+        'customer' => $customer,
+        'address' => $address,
+        'eav_user_defined' => ['customer' => $eav('customer'), 'customer_address' => $eav('customer_address')],
+        'eav_system' => ['customer' => $all('customer'), 'customer_address' => $all('customer_address')],
+    ], JSON_PRETTY_PRINT) . "\n";
+    exit(0);
 }
 
 if ($command === 'queries') {
@@ -245,6 +268,7 @@ if ($command === 'attribute') {
         'forms' => $db->fetchCol($sql('SELECT form_code FROM {{customer_form_attribute}} WHERE attribute_id = ? ORDER BY form_code'), [$id]),
         'options' => $options,
         'rules' => $rules,
+        'groups' => array_map('intval', $db->fetchCol($sql('SELECT customer_group_id FROM {{mageos_cca_attribute_group}} WHERE attribute_id = ? ORDER BY customer_group_id'), [$id])),
         'websites' => $db->fetchAssoc($sql('SELECT website_id, is_visible, is_required, default_value FROM {{customer_eav_attribute_website}} WHERE attribute_id = ?'), [$id]),
     ]);
     exit(0);

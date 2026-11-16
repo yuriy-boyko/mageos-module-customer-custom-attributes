@@ -141,7 +141,7 @@ test('AOC11: admin forms keep the dropdown and list and show every attribute', {
         const field = (code: string) => orderField(page, area, code);
         const kinds = area === 'account'
             ? { e2e_c_sel: 'select', e2e_c_bool: 'select', e2e_c_multi: 'multiple', e2e_c_dep: 'input', e2e_c_rdep: 'input', e2e_c_below: 'input' }
-            : { e2e_a_sel: 'select', e2e_a_bool: 'select', e2e_a_multi: 'multiple', e2e_a_dep: 'input', e2e_a_rdep: 'input', e2e_a_xdep: 'input', e2e_a_ndep: 'input', e2e_a_odep: 'input', e2e_a_mdep: 'input' };
+            : { e2e_a_sel: 'select', e2e_a_bool: 'select', e2e_a_multi: 'multiple', e2e_a_chk: 'multiple', e2e_a_yn: 'select', e2e_a_dep: 'input', e2e_a_rdep: 'input', e2e_a_xdep: 'input', e2e_a_ndep: 'input', e2e_a_odep: 'input', e2e_a_mdep: 'input' };
         for (const [code, kind] of Object.entries(kinds)) {
             const locator = field(code);
             await expect(locator, `${area} ${code} is shown`).toBeVisible();

@@ -56,6 +56,18 @@ class ValueNormalizer
         return $normalized;
     }
 
+    /**
+     * The chosen options of a multiple select as a list: an array stays a list of strings, a stored "1,2" is split, nothing gives an
+     * empty list. A group of checkboxes needs an array as its starting value, or the browser sends a single true instead of the options.
+     *
+     * @return string[]
+     */
+    public function toList(mixed $value): array
+    {
+        $normalized = $this->normalize($value);
+        return $normalized === null ? [] : explode(self::MULTI_VALUE_SEPARATOR, $normalized);
+    }
+
     private function scalarToString(mixed $value): ?string
     {
         if (is_bool($value)) {

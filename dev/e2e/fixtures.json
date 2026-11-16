@@ -48,6 +48,8 @@
          "rules": {"date_range_max": "2027-12-31"}},
         {"entity": "address", "code": "e2e_a_area", "label": "E2E Address Area", "input": "textarea"},
         {"entity": "address", "code": "e2e_a_bool", "label": "E2E Address Yes No", "input": "boolean"},
+        {"entity": "address", "code": "e2e_a_chk", "label": "E2E Address Check", "input": "multiselect", "display": "checkbox", "options": ["One", "Two", "Three"]},
+        {"entity": "address", "code": "e2e_a_yn", "label": "E2E Address Radio Yes No", "input": "boolean", "display": "radio"},
         {"entity": "address", "code": "e2e_a_dep", "label": "E2E Address Dependent", "input": "text"},
         {"entity": "address", "code": "e2e_a_warn", "label": "E2E Address Warn", "input": "text"},
         {"entity": "address", "code": "e2e_a_noform", "label": "E2E Address No Form", "input": "text", "forms": []},

@@ -64,4 +64,15 @@ class ValueNormalizerTest extends TestCase
     {
         self::assertSame($expected, (new ValueNormalizer())->normalizeForInput($inputType, $input));
     }
+
+    public function testToListSplitsAStoredValueAndKeepsAnArray(): void
+    {
+        $normalizer = new ValueNormalizer();
+        $this->assertSame([], $normalizer->toList(null));
+        $this->assertSame([], $normalizer->toList(''));
+        $this->assertSame([], $normalizer->toList([]));
+        $this->assertSame(['4', '5'], $normalizer->toList('4,5'));
+        $this->assertSame(['4', '5'], $normalizer->toList([4, '5', '']));
+        $this->assertSame(['7'], $normalizer->toList('7'));
+    }
 }

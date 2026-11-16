@@ -471,6 +471,7 @@ export type AttributeRow = {
     forms: string[];
     options: { label: string; sort_order: number; is_default: boolean; store_labels: Record<string, string> }[];
     rules: Record<string, unknown>;
+    groups: number[];
     websites: Record<string, { website_id: string; is_visible: string | null; is_required: string | null; default_value: string | null }>;
 };
 
@@ -733,8 +734,8 @@ export async function addAdminOrderProduct(page: Page, sku: string): Promise<voi
 }
 
 /** Gives the fixture customer one saved address with custom values (`code: 'option label' | 'a|b' | 'YYYY-MM-DD' | text`). */
-export function setSavedAddress(email: string, values: Record<string, string> = {}): void {
-    benchCommand('E2E_FIXTURE_CMD', ['set-address', email, ...Object.entries(values).map(([code, value]) => `${code}=${value}`)]);
+export function setSavedAddress(email: string, values: Record<string, string> = {}, add = false): void {
+    benchCommand('E2E_FIXTURE_CMD', ['set-address', email, ...(add ? ['--add'] : []), ...Object.entries(values).map(([code, value]) => `${code}=${value}`)]);
 }
 
 /** Removes every saved address of a customer. */

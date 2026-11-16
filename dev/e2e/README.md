@@ -214,6 +214,20 @@ E2E_HEADED=1 ...                                                                
 | `val6-required-address-book-only.spec.ts` | VAL6: the admin warns when an address attribute is required and only in the address book form; such an attribute blocks the guest checkout until it is added to the Hyvä Checkout address forms |
 | `rad6-required-checkbox-group.spec.ts` | RAD6: a required checkbox group with nothing ticked blocks the order |
 | `reg5-attribute-without-form.spec.ts` | REG5: an attribute in no storefront form is not shown in the checkout or the account address form (the REST suite proves its submitted values still work) |
+| `rad2-account-address-groups.spec.ts` | RAD2: radio and checkbox groups in the account address form: save, saved values shown as checked, "None" clears |
+| `sav-saved-address-notice.spec.ts` | SAV1-SAV5, SAV7: a saved address lacking an attribute that became required: the notice with the edit link, the refused order and its message, the fix, the notice following the selected address, a rule-hidden attribute giving none, the multi-step and mobile checkout |
+| `chk-steps-tabs-locale.spec.ts` | CHK14 a date in the Italy store; CHK16 back from payment to shipping in the multi-step checkout; CHK17 two tabs edit the same quote |
+| `reg4-system-attributes.spec.ts` | REG4: the module picks up the user defined attributes only (no browser) |
+| `val4-edit-order-address.spec.ts` | VAL4: Edit Order Address refuses an invalid value (browser and server) and saves a valid one |
+| `aoc9-italy-store-view.spec.ts` | AOC9: an admin order for the Italy store view, date `5/6/2026` read as 6 May |
+| `rad4-saved-address-groups-checkout.spec.ts` | RAD4: a customer with a saved address that has a checkbox group and radio buttons: the address card shows them, the order carries them, the "New Address" dialog starts empty and the saved address is left alone |
+| `rad8-address-groups-checkout.spec.ts` | RAD8: radio and checkbox groups of address attributes in the checkout: customer and guest, multi-step and mobile, the billing form, nothing ticked |
+| `val5-rejection-message-checkout.spec.ts` | VAL5: a value the server rejects gives a readable message at the top and at the field, the typed values are kept, the corrected order is placed |
+| `dep3-relation-validation.spec.ts` | DEP3: the relations screen refuses a rule that cannot work (empty name, no rule, unknown option, text parent, self rule, duplicate) with the rule number; a valid relation is saved and deleted |
+| `dep7-customer-groups-shown-again.spec.ts` | DEP7: the customer groups of an attribute are saved, shown again, changed and cleared |
+| `cus9-logged-in-order-rows.spec.ts` | CUS9: a logged-in Hyvä Checkout order has one row per value with labels, the admin order view lists them, the account is unchanged |
+| `dep10-new-address-parent-changes.spec.ts` | DEP10: a logged-in customer types a new address and changes the radio parent several times; the dependent follows, the order has the parent and only the visible dependent |
+| `dep11-variants-guest-store.spec.ts` | DEP11: the same rule as a guest in the multi-step, mobile and one-page checkout, in the billing form (own parent and dependent) and in the Italy store |
 | `dep12-multiselect-parent.spec.ts` | DEP12: a dependent address field follows a multiple select parent (shows for any matching option, hides and clears otherwise) |
 | `dep13-required-dependent.spec.ts` | DEP13: a shown required dependent left empty blocks the order (field marked, message names it), a hidden one does not; the order is placed once it is filled |
 | `dep14-account-address-hidden-required.spec.ts` | DEP14: the account address form saves with a required attribute hidden by a rule (it is disabled and not sent), and blocks when it is shown and empty |
@@ -232,6 +246,6 @@ More bench commands: `fixtures.php quote-address-saves` (SNAP8: four saves of a 
 
 Website commands: `fixtures.php set-website <code> <website id> enabled=|required=|default=` (`-` = use the default) and `fixtures.php create-customer <email> <website id>` (WEB specs; the Italy storefront is `ITA` in `helpers.ts`, an account lookup tries every website, `assertions.php attribute` also returns the website overrides and `assertions.php order` the order id).
 
-More: `fixtures.php bulk-attributes|bulk-addresses|bulk-clean` and `assertions.php perf` (ROB3); `dev/e2e/compare-module-off.sh` (ROB4: disables the module and its companion, measures, restores app/etc/config.php byte for byte; on demand only, not part of run-all.sh); `api.php` also covers REST5/REST7 and calls `fixtures.php set-website` for the Italy cases.
+More: `fixtures.php bulk-attributes|bulk-addresses|bulk-clean` and `assertions.php perf` (ROB3); `dev/e2e/compare-module-off.sh` (ROB4: disables the module and its companion, measures seven pages (home, registration, account edit, new address, guest and logged-in checkout, admin order create) with time to DOM ready, time to first byte and first-party request count, restores app/etc/config.php byte for byte; on demand only, not part of run-all.sh); `api.php` also covers REST5/REST7 and calls `fixtures.php set-website` for the Italy cases.
 
 `dev/e2e/check-deploy.sh` (INS11): Hyvä config generation, Tailwind build and static content deploy with the module installed; it backs up and restores `app/etc/hyva-themes.json`, the theme's `web/css/styles.css` and `web/tailwind/generated`, and removes the deployed `pub/static/frontend` and `adminhtml` (a developer-mode store rebuilds them on demand); on demand only, not part of run-all.sh. `check-tailwind-classes.mjs` is its helper. `create-attributes` also takes `--position=<checkout position>` for a customer attribute in the checkout.

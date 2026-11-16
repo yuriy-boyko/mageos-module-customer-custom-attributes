@@ -20,7 +20,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_; any entity), no error when absent
  *   php dev/e2e/fixtures.php set-attribute <code> <required=0|1> <forms=a,b,...>  change whether a fixture attribute is required and the forms it is in
  *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
- *   php dev/e2e/fixtures.php set-address <email> <code=value>...   give a customer one saved address (default billing and shipping) with these custom address values (select: option label, several: a|b, date: YYYY-MM-DD); `--delete` instead of the pairs removes all saved addresses
+ *   php dev/e2e/fixtures.php set-address <email> [--add] <code=value>...   give a customer one saved address (`--add` adds a second one, not a default, and keeps the first) (default billing and shipping) with these custom address values (select: option label, several: a|b, date: YYYY-MM-DD); `--delete` instead of the pairs removes all saved addresses
  *   php dev/e2e/fixtures.php quote-address-saves   save a throw-away quote address four times (new values, identical, changed, identical) and print how many rows the value table was asked to write each time (JSON)
  *   php dev/e2e/fixtures.php set-website <code> <website_id> [enabled=0|1|-] [required=0|1|-] [default=text|-]   the per-website override of a fixture attribute (`-` = use the default of the attribute)
  *   php dev/e2e/fixtures.php create-customer <email> <website_id>   a customer on that website (E2E_CUSTOMER_PASSWORD is the password); purge deletes it when the e-mail contains e2e
@@ -566,8 +566,14 @@ if ($command === 'set-address') {
     }
     $objectManager->get(Registry::class)->register('isSecureArea', true);
     $addressRepository = $objectManager->get(\Magento\Customer\Api\AddressRepositoryInterface::class);
-    foreach ($objectManager->get(\Magento\Customer\Model\ResourceModel\Address\CollectionFactory::class)->create()->setCustomerFilter($customer) as $old) {
-        $addressRepository->deleteById((int) $old->getId());
+    // `--add` keeps the saved addresses and adds a second one (not a default)
+    $add = ($argv[3] ?? '') === '--add';
+    if ($add) {
+        array_splice($argv, 3, 1);
+    } else {
+        foreach ($objectManager->get(\Magento\Customer\Model\ResourceModel\Address\CollectionFactory::class)->create()->setCustomerFilter($customer) as $old) {
+            $addressRepository->deleteById((int) $old->getId());
+        }
     }
     if (($argv[3] ?? '') === '--delete') {
         echo "removed  the saved addresses of $email\n";
@@ -581,8 +587,8 @@ if ($command === 'set-address') {
     }
     $address = $objectManager->create(\Magento\Customer\Model\Address::class);
     $address->setCustomerId((int) $customer->getId())->addData([
-        'firstname' => 'Ada', 'lastname' => 'Saved', 'street' => ['1 Saved Street'], 'city' => 'Austin', 'region_id' => 57,
-        'postcode' => '78701', 'country_id' => 'US', 'telephone' => '5125550100', 'is_default_billing' => 1, 'is_default_shipping' => 1,
+        'firstname' => $add ? 'Bob' : 'Ada', 'lastname' => 'Saved', 'street' => [$add ? '2 Other Street' : '1 Saved Street'], 'city' => 'Austin', 'region_id' => 57,
+        'postcode' => '78701', 'country_id' => 'US', 'telephone' => '5125550100', 'is_default_billing' => $add ? 0 : 1, 'is_default_shipping' => $add ? 0 : 1,
     ]);
     foreach (array_slice($argv, 3) as $pair) {
         [$code, $value] = array_pad(explode('=', $pair, 2), 2, '');
