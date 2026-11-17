@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ROB4: request count and load time of the pages the module changes, with the module and without it.
 #
-#   dev/e2e/compare-module-off.sh [--max-slower-percent 100] [--max-slower-ms 1000] [--max-more-requests 3]
+#   dev/e2e/compare-module-off.sh [--max-slower-percent 100] [--max-slower-ms 1000] [--max-more-requests 3] [--recompile]
 #
 # Disables the module and its Hyvä Checkout companion (`bin/magento module:disable`), measures, enables them again and measures again.
 # It changes app/etc/config.php while it runs: the file is copied first and put back byte for byte at the end (also after an error or Ctrl-C),
@@ -13,12 +13,13 @@ set -uo pipefail
 # shellcheck disable=SC1091
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-pct=100; ms=1000; more=3
+pct=100; ms=1000; more=3; recompile=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --max-slower-percent) pct="$2"; shift 2 ;;
         --max-slower-ms) ms="$2"; shift 2 ;;
         --max-more-requests) more="$2"; shift 2 ;;
+        --recompile) recompile=1; shift ;; # production mode: the compiled DI configuration must be built again without the module
         *) e2e_fail "Unknown option $1 (see the header of $0)." ;;
     esac
 done
@@ -58,6 +59,10 @@ echo "measuring with the module ..."
 measure on seed
 echo "disabling the module and its Hyvä Checkout companion ..."
 e2e_magento module:disable "${modules[@]}" >"$work/disable.log" 2>&1 || { cat "$work/disable.log" >&2; exit 2; }
+if [ "$recompile" -eq 1 ]; then
+    echo "compiling without the module (production mode) ..."
+    e2e_magento setup:di:compile >"$work/recompile.log" 2>&1 || { tail -5 "$work/recompile.log" >&2; exit 2; }
+fi
 e2e_magento cache:flush >/dev/null 2>&1
 echo "measuring without the module ..."
 measure off reuse

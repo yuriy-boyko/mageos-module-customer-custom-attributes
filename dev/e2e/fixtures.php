@@ -14,7 +14,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
- *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
+ *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
  *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
  *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
  *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_; any entity), no error when absent
@@ -55,7 +55,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -318,12 +318,21 @@ if ($command === 'create-attributes') {
     }
     $forms = $entity === 'customer' ? ['customer_account_edit'] : ['customer_address_edit'];
     $position = null;
+    $label = null;
+    $input = 'text';
+    $options = [];
     $codes = [];
     foreach (array_slice($argv, 3) as $argument) {
         if (str_starts_with($argument, '--forms=')) {
             $forms = array_values(array_filter(explode(',', substr($argument, 8))));
         } elseif (str_starts_with($argument, '--position=')) {
             $position = substr($argument, 11);
+        } elseif (str_starts_with($argument, '--label=')) {
+            $label = substr($argument, 8);
+        } elseif (str_starts_with($argument, '--input=')) {
+            $input = substr($argument, 8);
+        } elseif (str_starts_with($argument, '--options=')) {
+            $options = array_values(array_filter(explode(',', substr($argument, 10))));
         } else {
             $codes[] = $argument;
         }
@@ -333,7 +342,8 @@ if ($command === 'create-attributes') {
             fwrite(STDERR, "Only codes starting with e2e_ are created: $code\n");
             exit(2);
         }
-        $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => 'ADM ' . $code, 'input' => 'text', 'forms' => $forms]
+        $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => $label ?? 'ADM ' . $code, 'input' => $input, 'forms' => $forms]
+            + ($options !== [] ? ['options' => $options] : [])
             + ($position !== null ? ['checkout' => ['position' => $position, 'sort' => 5, 'prefill' => false]] : []));
         echo "created  $code\n";
     }
@@ -359,13 +369,17 @@ if ($command === 'delete-created') {
     exit(0);
 }
 
-if ($command === 'delete-option' || $command === 'delete-attribute') {
+if ($command === 'delete-option' || $command === 'delete-attribute' || $command === 'rename-option') {
     $code = (string) ($argv[2] ?? '');
     $definition = null;
     foreach ($fixtures['attributes'] as $candidate) {
         if ($candidate['code'] === $code) {
             $definition = $candidate;
         }
+    }
+    if ($definition === null && preg_match('/^e2e_(a|c)_/', $code, $kind) === 1) {
+        // an attribute a test created (create-attributes): the entity is in the code
+        $definition = ['entity' => $kind[1] === 'a' ? 'address' : 'customer', 'code' => $code];
     }
     if ($definition === null) {
         fwrite(STDERR, "$code is not a fixture attribute.\n");
@@ -399,6 +413,7 @@ if ($command === 'delete-option' || $command === 'delete-attribute') {
 
     // delete-option: saved through the module's form processor, like the admin form with the option marked as deleted
     $label = (string) ($argv[3] ?? '');
+    $newLabel = $command === 'rename-option' ? (string) ($argv[4] ?? '') : null; // rename-option <code> <old label> <new label>
     $objectManager->get(HttpRequest::class)->setParam(EntityContext::REQUEST_PARAM, $definition['entity']);
     $values = [];
     $order = [];
@@ -408,8 +423,14 @@ if ($command === 'delete-option' || $command === 'delete-attribute') {
         $key = (string) $option['value'];
         $values[$key] = [0 => (string) $option['label']];
         $order[$key] = $index + 1;
-        $delete[$key] = (string) $option['label'] === $label ? 1 : 0;
-        $found = $found || $delete[$key] === 1;
+        $matches = (string) $option['label'] === $label;
+        if ($newLabel !== null) {
+            $values[$key] = [0 => $matches ? $newLabel : (string) $option['label']];
+            $delete[$key] = 0;
+        } else {
+            $delete[$key] = $matches ? 1 : 0;
+        }
+        $found = $found || $matches;
     }
     if (!$found) {
         fwrite(STDERR, "$code has no option \"$label\".\n");
@@ -434,7 +455,7 @@ if ($command === 'delete-option' || $command === 'delete-attribute') {
     $attribute->addData($result['data']);
     $attribute->save();
     $eavConfig->clear();
-    echo "deleted  option \"$label\" of $code\n";
+    echo ($newLabel !== null ? "renamed  option \"$label\" to \"$newLabel\" of $code" : "deleted  option \"$label\" of $code") . "\n";
     echo "after    $code " . $references() . "\n";
     exit(0);
 }
@@ -446,6 +467,10 @@ if ($command === 'set-attribute') {
         if ($candidate['code'] === $code) {
             $definition = $candidate;
         }
+    }
+    if ($definition === null && preg_match('/^e2e_(a|c)_/', $code, $kind) === 1) {
+        // an attribute a test created (create-attributes)
+        $definition = ['entity' => $kind[1] === 'a' ? 'address' : 'customer', 'code' => $code];
     }
     if ($definition === null) {
         fwrite(STDERR, "$code is not a fixture attribute.\n");
@@ -479,8 +504,10 @@ if ($command === 'drop-quotes') {
     $email = (string) ($argv[2] ?? '');
     $resource = $objectManager->get(ResourceConnection::class);
     $connection = $resource->getConnection();
-    $deleted = $connection->delete($resource->getTableName('quote'), ['customer_email = ?' => $email]);
-    $customer = $email !== '' ? $findCustomer($email) : null;
+    $deleted = str_starts_with($email, '#')
+        ? $connection->delete($resource->getTableName('quote'), ['entity_id = ?' => (int) substr($email, 1)])
+        : $connection->delete($resource->getTableName('quote'), ['customer_email = ?' => $email]);
+    $customer = $email !== '' && $email[0] !== '#' ? $findCustomer($email) : null;
     if ($customer !== null) {
         $deleted += $connection->delete($resource->getTableName('quote'), ['customer_id = ?' => (int) $customer->getId()]);
     }
@@ -592,6 +619,10 @@ if ($command === 'set-address') {
     ]);
     foreach (array_slice($argv, 3) as $pair) {
         [$code, $value] = array_pad(explode('=', $pair, 2), 2, '');
+        if (!isset($definitions[$code]) && preg_match('/^e2e_a_/', $code) === 1 && $findAttribute('address', $code) !== null) {
+            // an attribute a test created (create-attributes)
+            $definitions[$code] = ['input' => (string) $findAttribute('address', $code)->getFrontendInput()];
+        }
         if (!isset($definitions[$code])) {
             fwrite(STDERR, "$code is not a fixture address attribute.\n");
             exit(2);
@@ -797,6 +828,108 @@ if ($command === 'bulk-clean') {
     $eavConfig->clear();
     $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('eav');
     echo "removed  $deleted bulk attributes\n";
+    exit(0);
+}
+
+if ($command === 'set-visible-all') {
+    // REG1: switch every user defined customer and address attribute off (0) and back on (1). The ones that were on are written to a
+    // file when switching off, and only those are switched on again, so the attributes that were off before stay off.
+    $resource = $objectManager->get(ResourceConnection::class);
+    $connection = $resource->getConnection();
+    $file = sys_get_temp_dir() . '/mageos-cca-e2e-visible.json';
+    $eavTable = $resource->getTableName('customer_eav_attribute');
+    if (($argv[2] ?? '') === '0') {
+        $ids = $connection->fetchCol(
+            'SELECT c.attribute_id FROM ' . $eavTable . ' c JOIN ' . $resource->getTableName('eav_attribute') . ' a ON a.attribute_id = c.attribute_id
+             JOIN ' . $resource->getTableName('eav_entity_type') . ' t ON t.entity_type_id = a.entity_type_id
+             WHERE a.is_user_defined = 1 AND t.entity_type_code IN (\'customer\', \'customer_address\') AND c.is_visible = 1'
+        );
+        if (!is_file($file)) {
+            file_put_contents($file, json_encode(array_map('intval', $ids)));
+        }
+        $count = $ids === [] ? 0 : $connection->update($eavTable, ['is_visible' => 0], ['attribute_id IN (?)' => $ids]);
+        echo "switched off $count attributes\n";
+    } else {
+        $ids = is_file($file) ? (array) json_decode((string) file_get_contents($file), true) : [];
+        $count = $ids === [] ? 0 : $connection->update($eavTable, ['is_visible' => 1], ['attribute_id IN (?)' => $ids]);
+        @unlink($file);
+        echo "switched on $count attributes\n";
+    }
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('eav');
+    $eavConfig->clear();
+    exit(0);
+}
+
+if ($command === 'set-customer-group') {
+    // CCO11: move a customer to another customer group (by group id), like the admin customer form does
+    $email = (string) ($argv[2] ?? '');
+    $groupId = (int) ($argv[3] ?? 0);
+    $customer = $findCustomer($email);
+    if ($customer === null || $groupId === 0) {
+        fwrite(STDERR, "Usage: set-customer-group <email> <group id>\n");
+        exit(2);
+    }
+    $customer->setGroupId($groupId);
+    $customerRepository->save($customer);
+    echo "set      customer group of $email to $groupId\n";
+    exit(0);
+}
+
+if ($command === 'set-stock') {
+    // ORD5: make a product unsalable (quantity 0) in the middle of a checkout; `ensure-stock` puts the stock back
+    $sku = (string) ($argv[2] ?? '');
+    $qty = (float) ($argv[3] ?? 0);
+    $resource = $objectManager->get(ResourceConnection::class);
+    $connection = $resource->getConnection();
+    $productId = (int) $connection->fetchOne('SELECT entity_id FROM ' . $resource->getTableName('catalog_product_entity') . ' WHERE sku = ?', [$sku]);
+    if ($productId === 0) {
+        fwrite(STDERR, "No product with the SKU $sku.\n");
+        exit(2);
+    }
+    $inStock = $qty > 0 ? 1 : 0;
+    $connection->update($resource->getTableName('inventory_source_item'), ['quantity' => $qty, 'status' => $inStock], ['sku = ?' => $sku]);
+    $connection->update($resource->getTableName('cataloginventory_stock_item'), ['qty' => $qty, 'is_in_stock' => $inStock], ['product_id = ?' => $productId]);
+    $objectManager->get(\Magento\CatalogInventory\Model\Indexer\Stock\Processor::class)->reindexRow($productId, true);
+    // the stock status table decides whether the product can be added to a cart: write it too, and drop the cached pages
+    $connection->update($resource->getTableName('cataloginventory_stock_status'), ['stock_status' => $inStock, 'qty' => $qty], ['product_id = ?' => $productId]);
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('full_page');
+    echo "set      stock of $sku to $qty\n";
+    exit(0);
+}
+
+if ($command === 'ensure-stock') {
+    // Test orders take stock: before a run every test product must have enough salable quantity (source quantity plus the reservations,
+    // which are negative). When it is low the source quantity is raised and the stock status index of the product is updated.
+    $resource = $objectManager->get(ResourceConnection::class);
+    $connection = $resource->getConnection();
+    $minimum = 300.0;
+    $skus = array_merge(['24-MB04', 'e2e-virtual-product'], array_slice($argv, 2));
+    foreach (array_unique($skus) as $sku) {
+        $items = $connection->fetchAll('SELECT source_code, quantity FROM ' . $resource->getTableName('inventory_source_item') . ' WHERE sku = ?', [$sku]);
+        if ($items === []) {
+            echo "skipped  stock of $sku: no source item\n";
+            continue;
+        }
+        $reserved = (float) $connection->fetchOne('SELECT COALESCE(SUM(quantity), 0) FROM ' . $resource->getTableName('inventory_reservation') . ' WHERE sku = ?', [$sku]);
+        $salable = array_sum(array_column($items, 'quantity')) + $reserved;
+        $statusProductId = (int) $connection->fetchOne('SELECT entity_id FROM ' . $resource->getTableName('catalog_product_entity') . ' WHERE sku = ?', [$sku]);
+        $status = $statusProductId === 0 ? 1 : (int) $connection->fetchOne('SELECT MIN(stock_status) FROM ' . $resource->getTableName('cataloginventory_stock_status') . ' WHERE product_id = ?', [$statusProductId]);
+        if ($salable >= $minimum && $status === 1) {
+            echo "ok       stock of $sku: salable $salable\n";
+            continue;
+        }
+        $productId = (int) $connection->fetchOne('SELECT entity_id FROM ' . $resource->getTableName('catalog_product_entity') . ' WHERE sku = ?', [$sku]);
+        if ($productId === 0) {
+            echo "skipped  stock of $sku: no product\n";
+            continue;
+        }
+        $connection->update($resource->getTableName('inventory_source_item'), ['quantity' => 1000 - $reserved, 'status' => 1], ['sku = ?' => $sku, 'source_code = ?' => $items[0]['source_code']]);
+        $connection->update($resource->getTableName('cataloginventory_stock_item'), ['qty' => 1000 - $reserved, 'is_in_stock' => 1], ['product_id = ?' => $productId]);
+        $objectManager->get(\Magento\CatalogInventory\Model\Indexer\Stock\Processor::class)->reindexRow($productId, true);
+        $connection->update($resource->getTableName('cataloginventory_stock_status'), ['stock_status' => 1, 'qty' => 1000 - $reserved], ['product_id = ?' => $productId]);
+        $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('full_page');
+        echo "raised   stock of $sku: salable was $salable, now 1000\n";
+    }
     exit(0);
 }
 

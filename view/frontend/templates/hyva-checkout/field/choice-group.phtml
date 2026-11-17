@@ -61,7 +61,8 @@ $cssClassesFieldWrapperInner = $element->renderClass(['field'], 'field-wrapper-i
 <div class="<?= $escaper->escapeHtmlAttr($cssClassesFieldWrapperInner) ?>">
     <?= /* @noEscape */ $renderer->renderLabel($element) ?>
     <?= /* @noEscape */ $renderer->renderBefore($element) ?>
-    <div class="flex flex-col gap-2 mageos-cca-choices" role="<?= $display === 'radio' ? 'radiogroup' : 'group' ?>">
+    <div class="flex flex-col gap-2 mageos-cca-choices" role="<?= $display === 'radio' ? 'radiogroup' : 'group' ?>"
+         aria-label="<?= $escaper->escapeHtmlAttr((string) $element->getLabel()) ?>">
         <?php foreach ($choices as $index => $choice): ?>
             <?php
             $optionId = $index === 0 ? $baseId : $baseId . '-' . $index;

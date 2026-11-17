@@ -37,7 +37,7 @@ async function italianCustomer(page: Page): Promise<string> {
     return email;
 }
 
-test('WEB2: an attribute disabled for one website is absent there and present on the other', { tag: ['@WEB2'] }, async ({ page }) => {
+test('WEB2: an attribute disabled for one website is absent there and present on the other', { tag: ['@WEB2', '@CCO12'] }, async ({ page }) => {
     override(TEXT, 2, { enabled: '0' });
     await openCheckoutAsGuest(page, ITA_PRODUCT);
     await requireFixtures(page, ['e2e_a_req']);

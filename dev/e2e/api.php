@@ -378,7 +378,7 @@ if ($customerPassword === '') {
             $badCustomer = $me;
             $badCustomer['addresses'] = [$bad + ['default_billing' => true, 'default_shipping' => true]];
             [$status, $refused] = $api('PUT', '/customers/me', ['customer' => $badCustomer], $customerToken);
-            $check('[REST4] PUT customers/me with an address that breaks a rule is refused and names the attribute', $status !== 200 && stripos($message($refused), 'E2E Address Length') !== false, "status $status " . $message($refused));
+            $check('[REST4][REST6] PUT customers/me with an address that breaks a rule is refused and the message names the attribute', $status !== 200 && stripos($message($refused), 'E2E Address Length') !== false, "status $status " . $message($refused));
             $saved = $address($required + ['e2e_a_text' => 'saved address text', 'e2e_a_sel' => $sel['South'], 'e2e_a_multi' => $multi['Red'] . ',' . $multi['Blue'], 'e2e_a_date' => '2026-06-07'], $customerEmail);
             unset($saved['email']);
             $me['addresses'] = [$saved + ['default_billing' => true, 'default_shipping' => true]];

@@ -38,7 +38,7 @@ TESTING.md, among them the dependency rows DEP12 to DEP16. They found one bug, n
 when a required attribute was hidden by a dependency rule (DEP14), and the same for the account information form with a required customer attribute (CUS8). A required address attribute that is only in the address book form blocks the checkout (core's behaviour, kept); the admin warns about it (VAL6).
 
 ## Open
-- Performance with the module on and off: measured twice (TESTING.md, ROB4: all pages within the noise of a developer-mode test store, including the logged-in checkout and the admin order create page, same number of requests of the shop itself, time to first byte at most 100 ms more); production mode and a cold cache are not measured.
+- Performance with the module on and off: measured twice (TESTING.md, ROB4: all pages within the noise of a developer-mode test store, including the logged-in checkout and the admin order create page, same number of requests of the shop itself, time to first byte at most 100 ms more); production mode measured once (checkout about 140 ms more with the module, same number of requests); a cold cache is not measured.
 - The ☐ rows in [TESTING.md](TESTING.md), including `setup:di:compile` on a store without Hyvä Checkout.
 - Customer attributes in the checkout: the open rows CCO in TESTING.md (one-page, multi-step and mobile were tested with guests and logged-in customers).
 - Manual checks: other Hyvä Checkout variants (multi-step, mobile), a second store view with another locale, card payments with

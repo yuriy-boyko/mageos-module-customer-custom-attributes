@@ -13,7 +13,7 @@ test.afterEach(() => {
     deleteCreated(ADDRESS);
 });
 
-test('an order keeps its customer and address values when the attributes are renamed or deleted', { tag: ['@CUS7'] }, async ({ adminPage: page }) => {
+test('an order keeps its customer and address values when the attributes are renamed or deleted', { tag: ['@CUS7', '@SNAP1', '@SNAP2', '@DSP3'] }, async ({ adminPage: page }) => {
     createAttributes('customer', [CUSTOMER], ['customer_account_edit', 'adminhtml_checkout']);
     createAttributes('address', [ADDRESS], ['customer_address_edit', 'mageos_address_text']); // the address text form decides what the order view shows
     setAccountValues(customerEmail(), { e2e_c_text: 'seed text' });

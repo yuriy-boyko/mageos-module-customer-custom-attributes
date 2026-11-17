@@ -23,7 +23,7 @@ async function openRelation(page: Page): Promise<void> {
 
 const warnings = (page: Page) => page.locator('.message-warning').allInnerTexts();
 
-test('REL3: several rules and forms give one warning per rule and form', { tag: ['@REL3'] }, async ({ adminPage: page }) => {
+test('REL3: several rules and forms give one warning per rule and form', { tag: ['@REL3', '@REL1', '@REL2'] }, async ({ adminPage: page }) => {
     // control: all attributes in the same forms, no warning
     await openRelation(page);
     expect(await warnings(page)).toEqual([]);

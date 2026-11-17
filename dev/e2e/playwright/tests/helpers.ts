@@ -194,7 +194,9 @@ export async function openCheckoutAsGuest(page: Page, productUrl?: string): Prom
     await page.goto(`${origin}/checkout/`);
     // a guest sees the address form; a customer with a saved address sees the list of addresses, but both see the module's sections
     await expect(page.locator('[name="firstname"], [data-mageos-cca-customer]').first()).toBeAttached();
-    await expect(page.locator('[data-mageos-cca-customer]').first()).toBeAttached();
+    if (!process.env.E2E_MODULE_OFF) {
+        await expect(page.locator('[data-mageos-cca-customer]').first()).toBeAttached(); // (INS9 runs with the module disabled)
+    }
 }
 
 /** The input (or select) of a checkout address field by attribute code. */

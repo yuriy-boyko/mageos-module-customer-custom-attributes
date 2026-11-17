@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# INS4 and INS8: the generated whitelist equals the one in the module, a second setup:upgrade has nothing to do, and PHPStan is clean.
+# INS4, INS6 and INS8: the generated whitelist equals the one in the module, a second setup:upgrade has nothing to do, and PHPStan is clean.
 #
 #   dev/e2e/check-install.sh [--skip-phpstan]
 #
@@ -49,6 +49,13 @@ if e2e_magento setup:db:status >"$work/status.log" 2>&1 && grep -qi "up to date"
     ok "[INS4] setup:db:status: all modules are up to date, a second setup:upgrade changes nothing"
 else
     bad "[INS4] setup:db:status does not say up to date, see $work/status.log"
+fi
+
+echo "== Classes without Hyvä"
+if e2e_run php "$module/dev/e2e/check-classes.php" >"$work/classes.log" 2>&1; then
+    ok "[INS6] $(sed 's/^ok *\[INS6\] //' "$work/classes.log")"
+else
+    bad "[INS6] a class of the module needs a Hyvä class to load, see $work/classes.log"
 fi
 
 if [ "$phpstan" -eq 1 ]; then

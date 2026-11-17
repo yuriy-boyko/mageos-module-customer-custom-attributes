@@ -35,7 +35,7 @@ async function fillCustomerRequired(page: Page, magewire: { idle(): Promise<void
     await magewire.idle();
 }
 
-test('the saved address card shows the groups and the order carries them', { tag: ['@RAD4'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+test('the saved address card shows the groups and the order carries them', { tag: ['@RAD4', '@DSP2'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
     await openCheckout(page, magewire);
     const card = page.locator('body');
     await expect(card).toContainText('E2E Address Check: Two, Three');

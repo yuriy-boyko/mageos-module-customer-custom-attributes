@@ -104,6 +104,9 @@ E2E_PHP_ENV="E2E_CUSTOMER_PASSWORD" e2e_php fixtures.php teardown >"$run/teardow
 if ! E2E_PHP_ENV="E2E_CUSTOMER_PASSWORD" e2e_php fixtures.php seed >"$run/seed.txt" 2>&1; then
     echo "Seeding the fixtures failed:" >&2; tail -8 "$run/seed.txt" >&2; exit 2
 fi
+# test orders use up stock: make sure the test products have enough before every run
+e2e_php fixtures.php ensure-stock >"$run/stock.txt" 2>&1 || true
+grep -h '^raised' "$run/stock.txt" || true
 e2e_magento cache:flush >/dev/null 2>&1
 [ -n "$original_variant" ] && echo "$original_variant" > "$CCA_E2E_HOME/.variant" || rm -f "$CCA_E2E_HOME/.variant"
 step "fixtures seeded"

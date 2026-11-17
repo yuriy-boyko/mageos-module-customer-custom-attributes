@@ -9,7 +9,7 @@ import {
  * CCO7: a required customer attribute left empty blocks the order with a message naming it.
  * CCO8: a dependency rule across two positions (e2e_c_sel at "above the payment methods" shows e2e_c_dep at "below the payment methods").
  */
-test('a guest types values at every position; they are saved on the quote and on the order', { tag: ['@CCO9', '@CCO6~', '@CCO4~', '@ORD2'] }, async ({ page, magewire }) => {
+test('a guest types values at every position; they are saved on the quote and on the order', { tag: ['@CCO9', '@CCO6~', '@CCO4~', '@ORD2', '@CCO13'] }, async ({ page, magewire }) => {
     const email = uniqueEmail('guest');
     await openCheckoutAsGuest(page);
     await requireFixtures(page, ['e2e_c_text', 'e2e_c_bool']);

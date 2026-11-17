@@ -34,7 +34,7 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers', 'address-api'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers', 'address-api', 'quote-rows', 'render-address', 'orders-of', 'mail', 'mail-delete'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
     fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
@@ -179,6 +179,80 @@ if ($command === 'check') {
     $report('[INS3] the quote tables cascade on delete', array_values($quoteCascade));
     echo $failed === 0 ? "All checks passed.\n" : "$failed check(s) failed.\n";
     exit($failed === 0 ? 0 : 1);
+}
+
+if ($command === 'quote-rows') {
+    // SNAP7: the module's rows of a quote. Argument: <quote_id>[:<quote_address_id>,...]; the address ids are given because the quote
+    // addresses are gone with the quote, and what is asked is whether their value rows went too.
+    [$quoteId, $addressList] = array_pad(explode(':', $argument, 2), 2, '');
+    $addressIds = array_values(array_filter(array_map('intval', explode(',', $addressList))));
+    $connection = $resource->getConnection();
+    $quote = $resource->getTableName('quote');
+    echo json_encode([
+        'quote_exists' => (bool) $connection->fetchOne("SELECT COUNT(*) FROM $quote WHERE entity_id = ?", [(int) $quoteId]),
+        'values' => (int) $connection->fetchOne('SELECT COUNT(*) FROM ' . $resource->getTableName('mageos_cca_quote_value') . ' WHERE quote_id = ?', [(int) $quoteId]),
+        'address_ids' => $addressIds === [] ? array_map('intval', $connection->fetchCol('SELECT address_id FROM ' . $resource->getTableName('quote_address') . ' WHERE quote_id = ?', [(int) $quoteId])) : $addressIds,
+        'address_values' => $addressIds === [] ? (int) $connection->fetchOne('SELECT COUNT(*) FROM ' . $resource->getTableName('mageos_cca_quote_address_value') . ' v JOIN ' . $resource->getTableName('quote_address') . ' a ON a.address_id = v.quote_address_id WHERE a.quote_id = ?', [(int) $quoteId])
+            : (int) $connection->fetchOne('SELECT COUNT(*) FROM ' . $resource->getTableName('mageos_cca_quote_address_value') . ' WHERE quote_address_id IN (' . implode(',', $addressIds) . ')'),
+    ]) . "\n";
+    exit(0);
+}
+
+if ($command === 'render-address') {
+    // DSP5/DSP6: the billing address of an order in every address format the shop has (html, text, pdf, oneline)
+    $objectManager->get(\Magento\Framework\App\State::class)->setAreaCode('frontend');
+    $order = $objectManager->get(\Magento\Sales\Api\OrderRepositoryInterface::class)->get(
+        (int) $resource->getConnection()->fetchOne('SELECT entity_id FROM ' . $resource->getTableName('sales_order') . ' WHERE increment_id = ?', [$argument])
+    );
+    $renderer = $objectManager->get(\Magento\Sales\Model\Order\Address\Renderer::class);
+    $result = [];
+    foreach (['html', 'text', 'pdf', 'oneline'] as $format) {
+        $result[$format] = (string) $renderer->format($order->getBillingAddress(), $format);
+    }
+    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+    exit(0);
+}
+
+if ($command === 'orders-of') {
+    // ORD5: how many orders and how many module rows belong to an e-mail (a refused order leaves none)
+    $connection = $resource->getConnection();
+    $orders = $connection->fetchCol('SELECT entity_id FROM ' . $resource->getTableName('sales_order') . ' WHERE customer_email = ?', [$argument]);
+    echo json_encode([
+        'orders' => count($orders),
+        'customer_rows' => $orders === [] ? 0 : (int) $connection->fetchOne('SELECT COUNT(*) FROM ' . $resource->getTableName('mageos_cca_order_value') . ' WHERE order_id IN (' . implode(',', array_map('intval', $orders)) . ')'),
+    ]) . "\n";
+    exit(0);
+}
+
+if ($command === 'mail' || $command === 'mail-delete') {
+    // DSP7: the mails sent to an address, read from the test mail catcher of the bench (Mailpit, `http://mailhog:8025/api/v1`).
+    // `mail <address>` prints [{id, subject, text, html}, ...]; `mail-delete <address>` deletes them (a test removes only its own mails).
+    $base = (string) (getenv('E2E_MAIL_API') ?: 'http://mailhog:8025/api/v1');
+    $fetch = static function (string $url, string $method = 'GET', ?string $body = null) {
+        $context = stream_context_create(['http' => ['method' => $method, 'timeout' => 10, 'ignore_errors' => true, 'header' => "Content-Type: application/json\r\n", 'content' => $body ?? '']]);
+        $result = @file_get_contents($url, false, $context);
+        return $result === false ? null : json_decode((string) $result, true);
+    };
+    $found = $fetch($base . '/search?query=' . rawurlencode('to:' . $argument));
+    if (!is_array($found)) {
+        fwrite(STDERR, "The mail catcher at $base does not answer.\n");
+        exit(2);
+    }
+    $ids = array_map(static fn (array $message): string => (string) $message['ID'], $found['messages'] ?? []);
+    if ($command === 'mail-delete') {
+        if ($ids !== []) {
+            $fetch($base . '/messages', 'DELETE', json_encode(['IDs' => $ids]));
+        }
+        echo json_encode(['deleted' => count($ids)]) . "\n";
+        exit(0);
+    }
+    $messages = [];
+    foreach ($ids as $id) {
+        $message = $fetch($base . '/message/' . $id);
+        $messages[] = ['id' => $id, 'subject' => (string) ($message['Subject'] ?? ''), 'text' => (string) ($message['Text'] ?? ''), 'html' => (string) ($message['HTML'] ?? '')];
+    }
+    echo json_encode($messages, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+    exit(0);
 }
 
 if ($command === 'address-api') {

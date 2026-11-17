@@ -60,5 +60,8 @@ class OrderAddressSaveAfter implements ObserverInterface
 
         $this->storage->save((int) $address->getId(), $rows);
         $address->unsetData(ConvertQuoteAddressToOrderAddress::DATA_KEY);
+        // The order e-mail is sent by the request that places the order, with this very address object, which was not loaded from the
+        // database: give it the snapshot a load would give it, so that the address text of the e-mail has the custom lines.
+        $address->setData(OrderAddressLoadAfter::DATA_KEY, $this->storage->load([(int) $address->getId()])[(int) $address->getId()] ?? []);
     }
 }
