@@ -1,4 +1,4 @@
-import { chromium, FullConfig } from '@playwright/test';
+import { Browser, chromium, FullConfig } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -8,6 +8,35 @@ import * as path from 'path';
  */
 export const authDir = (): string => path.join(process.env.CCA_E2E_HOME || process.cwd(), '.auth');
 
+/**
+ * Signs the fixture customer in and writes the session to .auth/customer.json. Also called by the customerPage fixture when the
+ * session is older than the store's cookie lifetime allows (one hour by default; a full run takes longer).
+ */
+export async function signInCustomer(browser: Browser, baseURL: string): Promise<boolean> {
+    if (!process.env.E2E_CUSTOMER_PASSWORD) {
+        return false;
+    }
+    const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true });
+    try {
+        const page = await context.newPage();
+        await page.goto('/customer/account/login/');
+        const form = page.locator('form[action*="loginPost"]');
+        await form.locator('[name="login[username]"]').fill(process.env.E2E_CUSTOMER_EMAIL || 'e2e.customer@example.com');
+        await form.locator('[name="login[password]"]').fill(process.env.E2E_CUSTOMER_PASSWORD);
+        await form.locator('button[type="submit"]').click();
+        await page.waitForURL(/customer\/account/, { timeout: 20_000 }).catch(() => undefined);
+        if (/customer\/account\/login/.test(page.url())) {
+            return false;
+        }
+        const file = path.join(authDir(), 'customer.json');
+        await context.storageState({ path: `${file}.tmp` });
+        fs.renameSync(`${file}.tmp`, file);
+        return true;
+    } finally {
+        await context.close();
+    }
+}
+
 export default async function globalSetup(config: FullConfig): Promise<void> {
     const baseURL = config.projects[0].use.baseURL as string;
     fs.mkdirSync(authDir(), { recursive: true });
@@ -15,22 +44,9 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
         fs.rmSync(path.join(authDir(), file), { force: true });
     }
     const browser = await chromium.launch();
-    const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true });
-    const page = await context.newPage();
 
-    const email = process.env.E2E_CUSTOMER_EMAIL || 'e2e.customer@example.com';
-    if (process.env.E2E_CUSTOMER_PASSWORD) {
-        await page.goto('/customer/account/login/');
-        const form = page.locator('form[action*="loginPost"]');
-        await form.locator('[name="login[username]"]').fill(email);
-        await form.locator('[name="login[password]"]').fill(process.env.E2E_CUSTOMER_PASSWORD);
-        await form.locator('button[type="submit"]').click();
-        await page.waitForURL(/customer\/account/, { timeout: 20_000 }).catch(() => undefined);
-        if (/customer\/account\/login/.test(page.url())) {
-            console.warn('global setup: the customer could not sign in; logged-in tests will be skipped.');
-        } else {
-            await context.storageState({ path: path.join(authDir(), 'customer.json') });
-        }
+    if (process.env.E2E_CUSTOMER_PASSWORD && !(await signInCustomer(browser, baseURL))) {
+        console.warn('global setup: the customer could not sign in; logged-in tests will be skipped.');
     }
 
     if (process.env.E2E_ADMIN_USER && process.env.E2E_ADMIN_PASSWORD) {

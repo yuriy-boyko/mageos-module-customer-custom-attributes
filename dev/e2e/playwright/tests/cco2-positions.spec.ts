@@ -11,7 +11,7 @@ import { expect, fillCheckout, openCheckoutAsGuest, requireFixtures, sections, t
 const shippingStep = {
     shipping_address_above: ['e2e_c_text'],
     shipping_address_below: ['e2e_c_below'],
-    shipping_methods_above: ['e2e_c_req'],
+    shipping_methods_above: ['e2e_c_req', 'e2e_c_xsel'],
     shipping_methods_below: ['e2e_c_order'],
 };
 const paymentStep = { payment_above: ['e2e_c_sel', 'e2e_c_date'], payment_below: ['e2e_c_multi', 'e2e_c_area'] };

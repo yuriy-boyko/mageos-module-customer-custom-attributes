@@ -869,8 +869,14 @@ if ($command === 'set-customer-group') {
         fwrite(STDERR, "Usage: set-customer-group <email> <group id>\n");
         exit(2);
     }
-    $customer->setGroupId($groupId);
-    $customerRepository->save($customer);
+    // Written directly: a repository save validates the saved addresses, and SAV5 moves the customer into a group whose required
+    // attribute the saved address lacks on purpose.
+    $resource = $objectManager->get(ResourceConnection::class);
+    $resource->getConnection()->update(
+        $resource->getTableName('customer_entity'),
+        ['group_id' => $groupId],
+        ['entity_id = ?' => (int) $customer->getId()]
+    );
     echo "set      customer group of $email to $groupId\n";
     exit(0);
 }

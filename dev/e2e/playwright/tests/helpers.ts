@@ -2,8 +2,11 @@ import { expect, test as base, Browser, BrowserContext, Locator, Page, Request }
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { signInCustomer } from '../global-setup';
 
 const authFile = (name: string): string => path.join(process.env.CCA_E2E_HOME || process.cwd(), '.auth', name);
+/** Age after which the customerPage fixture signs the customer in again (seconds in E2E_CUSTOMER_SESSION_MAX_AGE, default 40 minutes). */
+const CUSTOMER_SESSION_MAX_AGE_MS = Number(process.env.E2E_CUSTOMER_SESSION_MAX_AGE || 2400) * 1000;
 
 type Inflight = { readonly count: number; add(request: Request): void; remove(request: Request): void; clear(): void };
 
@@ -108,6 +111,10 @@ export const test = base.extend<Fixtures>({
     customerPage: async ({ browser, problems }, use, testInfo) => {
         const file = authFile('customer.json');
         testInfo.skip(!fs.existsSync(file), 'no customer session (set E2E_CUSTOMER_PASSWORD and seed the fixtures)');
+        // The storefront session ends after the cookie lifetime (one hour by default) and a full run takes longer: sign in again.
+        if (Date.now() - fs.statSync(file).mtimeMs > CUSTOMER_SESSION_MAX_AGE_MS) {
+            await signInCustomer(browser, testInfo.project.use.baseURL as string);
+        }
         const context = await newContext(browser, file, testInfo.project.use.baseURL as string);
         const page = await context.newPage();
         const inflight = newInflight();
@@ -541,7 +548,17 @@ export async function addOption(page: Page, label: string, storeLabels: Record<n
 
 /** Clicks "Save Attribute" (or "Save and Continue Edit" with `stay`) and waits for the page that follows. */
 export async function saveAttribute(page: Page, stay = false): Promise<void> {
+    // The button first validates the form by AJAX and only then submits it. "networkidle" alone can settle between the two, and a
+    // success message from an earlier save is still on the page, so wait for the save request itself when the validation passed.
+    const validated = page.waitForResponse((response) => response.url().includes('/attribute/validate/'), { timeout: 15_000 }).catch(() => null);
+    const saved = page.waitForResponse((response) => response.url().includes('/attribute/save/') && response.request().method() === 'POST', { timeout: 60_000 }).catch(() => null);
     await page.locator(stay ? '#save_and_edit_button' : '#save').click();
+    const validation = await validated;
+    const passed = validation !== null && (await validation.json().catch(() => ({ error: true }))).error === false;
+    if (passed) {
+        await saved;
+        await page.waitForLoadState('load');
+    }
     await page.waitForLoadState('networkidle');
 }
 

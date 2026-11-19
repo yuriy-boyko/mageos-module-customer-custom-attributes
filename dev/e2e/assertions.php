@@ -17,6 +17,9 @@ declare(strict_types=1);
  *   php dev/e2e/assertions.php queries                     how many SQL statements loading order and order address collections of several sizes takes (JSON), to show the module adds none per row
  *   php dev/e2e/assertions.php perf <email>                SQL statements the module needs to build the storefront address form fields and the address text lines of a customer's saved addresses (JSON, ROB3)
  *   php dev/e2e/assertions.php attribute <entity> <code>   how an attribute is stored (labels, options, forms, rules) as JSON; entity customer|address
+ *   php dev/e2e/assertions.php query-log reset|count       empties Magento's query log (var/debug/db.log) or counts its statements (JSON: all, the module's,
+ *                                                          the module's by statement). A statement is the module's when module code is in its call stack.
+ *                                                          Used by count-queries.sh; this command does not start Magento, so it adds nothing to the log.
  *
  * `customer` before and after a checkout, compared with `diff`, proves the account was not changed:
  *
@@ -34,7 +37,7 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers', 'address-api', 'quote-rows', 'render-address', 'orders-of', 'mail', 'mail-delete'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers', 'address-api', 'quote-rows', 'render-address', 'orders-of', 'mail', 'mail-delete', 'query-log'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
     fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
@@ -44,6 +47,35 @@ if (!is_file($root . '/app/bootstrap.php')) {
     fwrite(STDERR, "Run from the Magento root or set MAGENTO_ROOT (app/bootstrap.php not found in $root).\n");
     exit(2);
 }
+
+if ($command === 'query-log') {
+    // Before the bootstrap on purpose: starting Magento would write its own statements into the log being counted.
+    $log = $root . '/var/debug/db.log';
+    if ($argument === 'reset') {
+        file_put_contents($log, '');
+        exit(0);
+    }
+    $text = is_file($log) ? (string) file_get_contents($log) : '';
+    $all = 0;
+    $module = 0;
+    $statements = [];
+    foreach (preg_split('/^## \d+ ## /m', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $entry) {
+        if (!str_starts_with($entry, 'QUERY')) {
+            continue;
+        }
+        $all++;
+        if (str_contains($entry, 'MageOS\\CustomerCustomAttributes')) {
+            $module++;
+            preg_match('/^SQL: (.*)$/m', $entry, $match);
+            $key = substr((string) preg_replace(['/\s+/', '/\d+/'], [' ', 'N'], $match[1] ?? ''), 0, 120);
+            $statements[$key] = ($statements[$key] ?? 0) + 1;
+        }
+    }
+    arsort($statements);
+    echo json_encode(['all' => $all, 'module' => $module, 'statements' => $statements], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+    exit(0);
+}
+
 require $root . '/app/bootstrap.php';
 
 $objectManager = Bootstrap::create(BP, $_SERVER)->getObjectManager();
