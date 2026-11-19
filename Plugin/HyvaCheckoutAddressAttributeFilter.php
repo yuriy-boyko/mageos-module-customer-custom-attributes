@@ -11,6 +11,7 @@ use MageOS\CustomerCustomAttributes\Model\AddressAttributeProvider;
 use MageOS\CustomerCustomAttributes\Service\EntityDefinitions;
 use Magento\Customer\Api\AddressMetadataInterface;
 use Magento\Customer\Model\AttributeMetadataDataProvider;
+use Magento\Framework\ObjectManager\ResetAfterRequestInterface;
 
 /**
  * Hyvä Checkout shows the address attributes assigned to the form "customer_register_address". For user-defined
@@ -18,7 +19,7 @@ use Magento\Customer\Model\AttributeMetadataDataProvider;
  * assigned to the pseudo form "mageos_hyva_checkout" ("Hyvä Checkout Address Forms" in the admin). System attributes are
  * not touched, and "customer_register_address" keeps its normal meaning (the registration address form).
  */
-class HyvaCheckoutAddressAttributeFilter
+class HyvaCheckoutAddressAttributeFilter implements ResetAfterRequestInterface
 {
     /** @var string[]|null */
     private ?array $checkoutCodes = null;
@@ -69,5 +70,10 @@ class HyvaCheckoutAddressAttributeFilter
             }
         }
         return $this->checkoutCodes;
+    }
+
+    public function _resetState(): void
+    {
+        $this->checkoutCodes = null;
     }
 }

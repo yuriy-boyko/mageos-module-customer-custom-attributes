@@ -42,6 +42,9 @@ class QuoteAddressLoadAfter implements ObserverInterface
         }
 
         $codesById = array_flip($this->attributeProvider->getIdsByCode());
+        if ($codesById === []) {
+            return;
+        }
         $stored = $this->storage->load(array_keys($byId));
         foreach ($stored as $addressId => $values) {
             foreach ($values as $attributeId => $value) {

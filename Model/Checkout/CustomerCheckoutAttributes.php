@@ -35,6 +35,21 @@ class CustomerCheckoutAttributes implements ResetAfterRequestInterface
     /** @var string[]|null */
     private ?array $codes = null;
 
+    /**
+     * The fields of the checkout form without values, built once per request: every section asks for them on each render.
+     *
+     * @var list<array<string, mixed>>|null
+     */
+    private ?array $formFields = null;
+
+    /**
+     * The stored values by quote id, read once per request and dropped when values are saved: each of the seven sections reads
+     * them several times per render.
+     *
+     * @var array<int, array<string, string>>
+     */
+    private array $values = [];
+
     public function __construct(
         private readonly FormAttributes $formAttributes,
         private readonly CustomerAttributeProvider $attributeProvider,
@@ -114,13 +129,25 @@ class CustomerCheckoutAttributes implements ResetAfterRequestInterface
      */
     public function getValues(Quote $quote): array
     {
+        $quoteId = (int) $quote->getId();
+        if ($quoteId <= 0 || $this->getCodes() === []) {
+            return [];
+        }
+        return $this->values[$quoteId] ??= $this->readValues($quoteId);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function readValues(int $quoteId): array
+    {
         $user = $this->attributeProvider->getUserDefined();
         $byId = [];
         foreach ($this->getCodes() as $code) {
             $byId[(int) $user[$code]->getAttributeId()] = $code;
         }
         $values = [];
-        foreach ($this->storage->load((int) $quote->getId()) as $attributeId => $value) {
+        foreach ($this->storage->load($quoteId) as $attributeId => $value) {
             if (isset($byId[$attributeId])) {
                 $values[$byId[$attributeId]] = $value;
             }
@@ -135,12 +162,17 @@ class CustomerCheckoutAttributes implements ResetAfterRequestInterface
      */
     public function getFields(Quote $quote, string $position): array
     {
+        // Most positions have no attribute: no queries for them.
+        if (!$this->hasPosition($position)) {
+            return [];
+        }
         $settings = $this->getSettings();
         $stored = $this->getValues($quote);
         $visible = $this->getVisibleCodes($quote, $stored);
 
+        $this->formFields ??= $this->formAttributes->getCustomerFields(EntityDefinitions::FORM_HYVA_CHECKOUT);
         $fields = [];
-        foreach ($this->formAttributes->getCustomerFields(EntityDefinitions::FORM_HYVA_CHECKOUT) as $index => $field) {
+        foreach ($this->formFields as $index => $field) {
             $code = $field['code'];
             if (!isset($settings[$code]) || $settings[$code]['position'] !== $position) {
                 continue;
@@ -181,6 +213,7 @@ class CustomerCheckoutAttributes implements ResetAfterRequestInterface
             $rows[(int) $user[$code]->getAttributeId()] = $value;
         }
         $this->storage->save((int) $quote->getId(), $rows);
+        unset($this->values[(int) $quote->getId()]);
         return array_filter($values, static fn (?string $value): bool => $value !== null && $value !== '');
     }
 
@@ -291,6 +324,8 @@ class CustomerCheckoutAttributes implements ResetAfterRequestInterface
     public function _resetState(): void
     {
         $this->codes = null;
+        $this->formFields = null;
+        $this->values = [];
     }
 
     /**

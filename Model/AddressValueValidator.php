@@ -11,13 +11,17 @@ use MageOS\CustomerCustomAttributes\Service\EntityDefinitions;
 use MageOS\CustomerCustomAttributes\Service\ValueValidator;
 use Magento\Customer\Api\AddressMetadataInterface;
 use Magento\Customer\Model\AttributeMetadataDataProvider;
+use Magento\Framework\ObjectManager\ResetAfterRequestInterface;
 
 /**
  * Validates address attribute values against the attribute definitions (rules, options, required) and returns translated
  * messages. Adapter around the pure Service\ValueValidator.
  */
-class AddressValueValidator
+class AddressValueValidator implements ResetAfterRequestInterface
 {
+    /** @var string[]|null read once per request: the checkout asks for every saved address of the customer */
+    private ?array $checkoutCodes = null;
+
     public function __construct(
         private readonly AddressAttributeProvider $attributeProvider,
         private readonly OptionLabels $optionLabels,
@@ -64,6 +68,9 @@ class AddressValueValidator
      */
     public function getCheckoutCodes(): array
     {
+        if ($this->checkoutCodes !== null) {
+            return $this->checkoutCodes;
+        }
         $codes = [];
         $collection = $this->metadataDataProvider->loadAttributesCollection(
             AddressMetadataInterface::ENTITY_TYPE_ADDRESS,
@@ -74,7 +81,7 @@ class AddressValueValidator
                 $codes[] = (string) $item->getAttributeCode();
             }
         }
-        return $codes;
+        return $this->checkoutCodes = $codes;
     }
 
     /**
@@ -85,5 +92,10 @@ class AddressValueValidator
     public function getAllCodes(): array
     {
         return array_keys($this->attributeProvider->getUserDefined());
+    }
+
+    public function _resetState(): void
+    {
+        $this->checkoutCodes = null;
     }
 }
