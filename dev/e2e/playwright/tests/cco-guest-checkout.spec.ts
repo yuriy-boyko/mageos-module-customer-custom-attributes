@@ -9,7 +9,7 @@ import {
  * CCO7: a required customer attribute left empty blocks the order with a message naming it.
  * CCO8: a dependency rule across two positions (e2e_c_sel at "above the payment methods" shows e2e_c_dep at "below the payment methods").
  */
-test('a guest types values at every position; they are saved on the quote and on the order', { tag: ['@CCO9', '@CCO6~', '@CCO4~', '@ORD2', '@CCO13'] }, async ({ page, magewire }) => {
+test('a guest types values at every position; they are saved on the quote and on the order', { tag: ['@quick', '@CCO9', '@CCO6~', '@CCO4~', '@ORD2', '@CCO13'] }, async ({ page, magewire }) => {
     const email = uniqueEmail('guest');
     await openCheckoutAsGuest(page);
     await requireFixtures(page, ['e2e_c_text', 'e2e_c_bool']);
@@ -82,7 +82,7 @@ test('a required customer attribute left empty blocks the order', { tag: ['@CCO7
     expect(snapshot.customer.e2e_c_req?.value).toBe('now typed');
 });
 
-test('a dependency rule across two positions shows and hides instantly; hidden values are dropped and a hidden required one does not block', { tag: ['@CCO8'] }, async ({ page, magewire }) => {
+test('a dependency rule across two positions shows and hides instantly; hidden values are dropped and a hidden required one does not block', { tag: ['@quick', '@CCO8'] }, async ({ page, magewire }) => {
     const email = uniqueEmail('guest');
     await openCheckoutAsGuest(page);
     await requireFixtures(page, ['e2e_c_sel', 'e2e_c_dep', 'e2e_c_rdep']);

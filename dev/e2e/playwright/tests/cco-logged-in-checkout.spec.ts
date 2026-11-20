@@ -91,7 +91,7 @@ test('clearing a prefilled value stores it as empty; the account keeps it; it is
     await expect(field(page, 'e2e_c_below')).toHaveValue('account below');
 });
 
-test('the order carries the typed values and the account-only values; the account stays unchanged', { tag: ['@CCO6', '@ORD3'] }, async ({ customerPage: page, customerMagewire }) => {
+test('the order carries the typed values and the account-only values; the account stays unchanged', { tag: ['@quick', '@CCO6', '@ORD3'] }, async ({ customerPage: page, customerMagewire }) => {
     const before = accountValues(customerEmail()).customer_attributes;
     await openCheckoutAsGuest(page);
     await requireFixtures(page, ['e2e_c_text']);

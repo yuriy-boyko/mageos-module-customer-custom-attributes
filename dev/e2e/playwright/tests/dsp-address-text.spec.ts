@@ -58,7 +58,7 @@ test('DSP5 and DSP6: html, text, pdf and oneline formats: escaped html, labels a
     expect(formats.text).not.toContain('<br');
 });
 
-test('DSP2: customer order page, admin order, invoice and shipment show the lines after the standard ones', { tag: ['@DSP2'] }, async ({ adminPage, customerPage }) => {
+test('DSP2: customer order page, admin order, invoice and shipment show the lines after the standard ones', { tag: ['@quick', '@DSP2'] }, async ({ adminPage, customerPage }) => {
     const incrementId = await placeOrder(adminPage);
 
     // admin order view

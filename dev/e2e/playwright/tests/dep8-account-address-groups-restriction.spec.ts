@@ -9,7 +9,7 @@ test.afterEach(() => {
     deleteSavedAddresses(customerEmail());
 });
 
-test('DEP8: a field limited to another customer group is not in the form; a dependent is shown for its option and disabled when hidden', { tag: ['@DEP8'] }, async ({ customerPage: page }) => {
+test('DEP8: a field limited to another customer group is not in the form; a dependent is shown for its option and disabled when hidden', { tag: ['@quick', '@DEP8'] }, async ({ customerPage: page }) => {
     await page.goto('/customer/address/new/');
     await expect(page.locator('[name="e2e_a_text"]'), 'the form is there').toBeVisible();
     const restricted = page.locator('[name="e2e_a_ws"]');

@@ -1,4 +1,4 @@
-import { expect, fillCheckout, openCheckoutAsGuest, requireFixtures, sections, test, useVariant, walkSteps } from './helpers';
+import { expect, fillCheckout, openCheckoutAsGuest, requireFixtures, sections, test, useVariant, variantTag, walkSteps } from './helpers';
 
 /**
  * CCO2: the customer attribute sections render at their positions, on the right step of each Hyvä Checkout variant.
@@ -26,7 +26,7 @@ test.describe('one-page checkout', () => {
     });
 });
 
-test.describe('multi-step checkout', () => {
+test.describe('multi-step checkout', variantTag('default'), () => {
     useVariant('default');
     test('shipping positions on the first step, payment positions on the payment step, summary on both', { tag: ['@CCO2'] }, async ({ page, magewire }) => {
         await openCheckoutAsGuest(page);
@@ -39,7 +39,7 @@ test.describe('multi-step checkout', () => {
     });
 });
 
-test.describe('mobile checkout', () => {
+test.describe('mobile checkout', variantTag('mobile'), () => {
     useVariant('mobile');
     test('shipping, payment and summary positions each on their own step', { tag: ['@CCO2'] }, async ({ page, magewire }) => {
         await openCheckoutAsGuest(page);

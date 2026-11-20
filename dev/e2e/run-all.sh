@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Runs the whole end-to-end suite and prints a short summary:
 #
-#   dev/e2e/run-all.sh [--only api,assert,playwright] [--keep] [--no-relax] [--update-docs] [-- <playwright arguments>]
+#   dev/e2e/run-all.sh [--quick] [--variants] [--only api,assert,playwright] [--keep] [--no-relax] [--update-docs] [-- <playwright arguments>]
 #
+#   --quick         the browser tests tagged @quick only (the main paths, about a tenth of the suite), with the REST suite and the database
+#                   checks; for everyday changes. Run the full suite before a release.
+#   --variants      also run the tests of the multi-step and mobile checkouts (tag @variants; left out by default, the one-page checkout is
+#                   the main target). Only them: `--variants -- --grep @variants`
 #   --only          run only some suites (api = REST, assert = database checks, playwright = browser)
 #   --keep          do not remove the fixtures and test orders afterwards (to look at the store after a failure)
 #   --no-relax      do not make foreign required attributes optional (the preflight then stops when there are some)
@@ -23,6 +27,8 @@ only="api,assert,playwright"
 keep=0
 relax=1
 update_docs=0
+quick=0
+variants=0
 pw_args=()
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -30,6 +36,8 @@ while [ $# -gt 0 ]; do
         --keep) keep=1; shift ;;
         --no-relax) relax=0; shift ;;
         --update-docs) update_docs=1; shift ;;
+        --quick) quick=1; shift ;;
+        --variants) variants=1; shift ;;
         --) shift; pw_args=("$@"); break ;;
         *) e2e_fail "Unknown option $1 (see the header of $0)." ;;
     esac
@@ -49,6 +57,9 @@ run="$CCA_E2E_HOME/run"
 rm -rf "$run"; mkdir -p "$run"
 started="$(date '+%Y-%m-%d %H:%M')"; t0=$SECONDS
 step() { printf '%s\n' "$*"; }
+# seconds per phase, for the summary: `mark <name>` closes the phase that started at the previous mark
+last_mark=$SECONDS
+mark() { printf '%s %s\n' "$1" "$((SECONDS - last_mark))" >> "$run/phases.txt"; last_mark=$SECONDS; }
 
 # the fixture customer's password: generated once and kept in local.env
 if [ -z "${E2E_CUSTOMER_PASSWORD:-}" ]; then
@@ -109,7 +120,7 @@ e2e_php fixtures.php ensure-stock >"$run/stock.txt" 2>&1 || true
 grep -h '^raised' "$run/stock.txt" || true
 e2e_magento cache:flush >/dev/null 2>&1
 [ -n "$original_variant" ] && echo "$original_variant" > "$CCA_E2E_HOME/.variant" || rm -f "$CCA_E2E_HOME/.variant"
-step "fixtures seeded"
+step "fixtures seeded"; mark setup
 
 # the size of the Magento logs now: ROB1 looks at what the suites add
 log_dir="$E2E_MAGENTO_ROOT/var/log"
@@ -124,10 +135,11 @@ if wants api; then
     E2E_PHP_ENV="E2E_BASE_URL E2E_HOST_HEADER E2E_ADMIN_USER E2E_ADMIN_PASSWORD E2E_CUSTOMER_PASSWORD E2E_SKU E2E_INSECURE" \
         E2E_BASE_URL="$api_url" E2E_HOST_HEADER="${E2E_API_HOST_HEADER:-}" E2E_INSECURE=1 \
         e2e_php api.php >"$run/api.txt" 2>&1
-    step "api suite done"
+    step "api suite done"; mark api
 fi
 if wants playwright; then
-    E2E_TERSE=1 E2E_PW_JSON="$run/pw.json" E2E_VARIANT_CMD="$e2e_here/set-variant.sh" E2E_FIXTURE_CMD="$e2e_here/fixture.sh" E2E_ASSERT_CMD="$e2e_here/assert.sh" "$e2e_here/run-playwright.sh" ${pw_args[@]+"${pw_args[@]}"} >"$run/pw.txt" 2>&1
+    [ "$quick" -eq 1 ] && pw_args=(--grep @quick ${pw_args[@]+"${pw_args[@]}"})
+    E2E_VARIANTS="$variants" E2E_TIMINGS="$run/timings.jsonl" E2E_TERSE=1 E2E_PW_JSON="$run/pw.json" E2E_VARIANT_CMD="$e2e_here/set-variant.sh" E2E_FIXTURE_CMD="$e2e_here/fixture.sh" E2E_ASSERT_CMD="$e2e_here/assert.sh" "$e2e_here/run-playwright.sh" ${pw_args[@]+"${pw_args[@]}"} >"$run/pw.txt" 2>&1
     rc=$?
     if [ "$rc" -eq 3 ]; then
         cat "$run/pw.txt" >&2
@@ -137,11 +149,11 @@ if wants playwright; then
         echo "The browser suite could not run:" >&2; tail -15 "$run/pw.txt" >&2
         exit 2
     fi
-    step "browser suite done"
+    step "browser suite done"; mark playwright
 fi
 if wants assert; then
     e2e_php assertions.php check >"$run/assert.txt" 2>&1
-    step "database checks done"
+    step "database checks done"; mark assertions
 fi
 
 # ROB1: the log entries the suites added to var/log/exception.log, system.log and debug.log: none may be an error or exception raised in the
@@ -164,7 +176,7 @@ else
 fi
 
 # 4. summary
-printf '{"started":"%s","seconds":%s,"variant":"%s"}\n' "$started" "$((SECONDS - t0))" "$original_variant" > "$run/meta.json"
+printf '{"started":"%s","seconds":%s,"variant":"%s","quick":%s,"variants":%s}\n' "$started" "$((SECONDS - t0))" "$original_variant" "$quick" "$variants" > "$run/meta.json"
 docs_args=()
 [ "$update_docs" -eq 1 ] && docs_args=(--docs "$(cd "$e2e_here/../.." && pwd)/docs/TESTING.md" --update-docs)
 echo

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import {
     accountValues, chooseShippingAndPayment, customerEmail, deleteSavedAddresses, dropQuotes, expect, fillCheckout, openCheckoutAsGuest, placeOrder,
-    placedOrderSnapshot, requireFixtures, setAccountValues, test, useVariant, walkSteps,
+    placedOrderSnapshot, requireFixtures, setAccountValues, test, useVariant, variantTag, walkSteps,
 } from './helpers';
 
 /**
@@ -62,7 +62,7 @@ test.describe('one-page checkout', () => {
         deleteSavedAddresses(customerEmail());
     });
 
-    test('RAD8: a customer types a new address: the groups follow, the order and the saved address have them', { tag: ['@RAD8'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+    test('RAD8: a customer types a new address: the groups follow, the order and the saved address have them', { tag: ['@quick', '@RAD8'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
         dropQuotes(customerEmail());
         deleteSavedAddresses(customerEmail());
         setAccountValues(customerEmail(), { e2e_c_text: 'account text' });
@@ -125,7 +125,7 @@ test.describe('one-page checkout', () => {
 });
 
 for (const variant of ['default', 'mobile'] as const) {
-    test.describe(`${variant} checkout`, () => {
+    test.describe(`${variant} checkout`, variantTag(variant), () => {
         useVariant(variant);
         test(`RAD8: a guest ticks the groups in the ${variant} checkout`, { tag: ['@RAD8'] }, async ({ page, magewire }) => {
             await openCheckoutAsGuest(page);

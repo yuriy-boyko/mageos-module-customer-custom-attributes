@@ -112,7 +112,7 @@ test('DEP2: rules that form a circle are refused', { tag: ['@DEP2'] }, async ({ 
     expect(message).toMatch(/The rules form a circle: an attribute would depend on itself through other attributes \(.*e2e_a_.*\)/);
 });
 
-test('DEP3: a valid relation is saved, listed and deleted again', { tag: ['@DEP3', '@DEP1'] }, async ({ adminPage: page }) => {
+test('DEP3: a valid relation is saved, listed and deleted again', { tag: ['@quick', '@DEP3', '@DEP1'] }, async ({ adminPage: page }) => {
     await newRelation(page, 'E2E browser relation');
     await page.locator('#mageos-cca-relation-rules tbody tr').first().locator('select').nth(0).selectOption('e2e_a_yn');
     await page.locator('#mageos-cca-relation-rules tbody tr').first().locator('select').nth(1).selectOption({ index: 1 });

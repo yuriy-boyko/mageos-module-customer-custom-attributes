@@ -63,7 +63,7 @@ async function visit(page: Page, url: string, watch: Watch, label: string): Prom
 
 const clean = (watch: Watch) => expect(watch.issues, 'console errors, failed requests, CSP and markup problems').toEqual([]);
 
-test('ROB2 + ROB5: guest pages of the main website', { tag: ['@ROB2', '@ROB5', '@CCO18'] }, async ({ page }) => {
+test('ROB2 + ROB5: guest pages of the main website', { tag: ['@quick', '@ROB2', '@ROB5', '@CCO18'] }, async ({ page }) => {
     const watch = new Watch(page, ['https://app.magento249.test']);
     await visit(page, '/customer/account/create/', watch, 'registration');
     await visit(page, '/customer/account/login/', watch, 'login');

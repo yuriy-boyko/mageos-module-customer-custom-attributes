@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import {
-    expect, field, fillCheckout, openCheckoutAsGuest, pickRadio, placeOrder, placedOrderSnapshot, requireFixtures, test, useVariant,
+    expect, field, fillCheckout, openCheckoutAsGuest, pickRadio, placeOrder, placedOrderSnapshot, requireFixtures, test, useVariant, variantTag,
 } from './helpers';
 
 /**
@@ -52,7 +52,7 @@ async function toPlaceOrder(page: Page, magewire: Idle, expectedSteps: number): 
 }
 
 function suite(variant: 'default' | 'mobile', expectedSteps: number): void {
-    test.describe(`${variant} checkout`, () => {
+    test.describe(`${variant} checkout`, variantTag(variant), () => {
         useVariant(variant);
 
         test(`CCO19/CCO20: parent Left on the first step: the dependent is shown on the payment step and is on the order (${variant})`, { tag: ['@CCO19', '@CCO20', '@CCO17'] }, async ({ page, magewire }) => {

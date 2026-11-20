@@ -21,7 +21,7 @@ test('both attribute grids open from the Stores menu', { tag: ['@ADM1'] }, async
     }
 });
 
-test('a dropdown, a text field with a maximum length and a date with a range are created and stored as expected', { tag: ['@ADM3', '@ADM4'] }, async ({ adminPage: page }) => {
+test('a dropdown, a text field with a maximum length and a date with a range are created and stored as expected', { tag: ['@quick', '@ADM3', '@ADM4'] }, async ({ adminPage: page }) => {
     track('e2e_adm_cd', 'e2e_adm_ct', 'e2e_adm_cdt');
 
     await openNewAttribute(page, 'address');

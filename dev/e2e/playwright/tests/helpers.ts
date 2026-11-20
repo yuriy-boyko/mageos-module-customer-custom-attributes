@@ -43,7 +43,16 @@ function watch(page: Page, problems: string[], inflight: Inflight): void {
             inflight.clear();
         }
     });
-    page.on('requestfinished', (request) => inflight.remove(request));
+    page.on('requestfinished', (request) => {
+        inflight.remove(request);
+        const magewire = request.url().includes('/magewire/');
+        if (magewire || (request.isNavigationRequest() && request.frame() === page.mainFrame())) {
+            const timing = request.timing();
+            if (timing.responseStart > 0) {
+                recordTiming(magewire ? 'magewire' : 'page', new URL(request.url()).pathname, timing.responseStart);
+            }
+        }
+    });
     page.on('requestfailed', (request) => inflight.remove(request));
     page.on('response', (response) => {
         if (response.url().includes('/magewire/') && response.status() >= 400) {
@@ -128,6 +137,11 @@ export const test = base.extend<Fixtures>({
         testInfo.skip(!fs.existsSync(file), 'no admin session (set E2E_ADMIN_USER and E2E_ADMIN_PASSWORD)');
         const context = await newContext(browser, file, testInfo.project.use.baseURL as string);
         const page = await context.newPage();
+        page.on('requestfinished', (request) => {
+            if (request.isNavigationRequest() && request.frame() === page.mainFrame() && request.timing().responseStart > 0) {
+                recordTiming('page', new URL(request.url()).pathname.replace(/\/key\/[0-9a-f]+\/?$/, '/'), request.timing().responseStart);
+            }
+        });
         await use(page);
         await context.close();
     },
@@ -296,7 +310,38 @@ export function benchCommand(which: 'E2E_FIXTURE_CMD' | 'E2E_ASSERT_CMD', args: 
         test.skip(true, `${which} is not set (run through dev/e2e/run-all.sh)`);
         return '';
     }
-    return execFileSync(command, args, { encoding: 'utf8', timeout: 120_000 });
+    const started = Date.now();
+    try {
+        return execFileSync(command, args, { encoding: 'utf8', timeout: 120_000 });
+    } finally {
+        recordTiming('bench', `${which === 'E2E_FIXTURE_CMD' ? 'fixture' : 'assert'} ${args[0] ?? ''}`, Date.now() - started);
+    }
+}
+
+/**
+ * Timing log of a run (run-all.sh sets E2E_TIMINGS): one JSON line per bench command ("bench") and per page load or Magewire request
+ * ("page", "magewire": the time until the response arrived, i.e. the server's share). summarize.mjs adds it up per test file.
+ */
+function recordTiming(kind: 'bench' | 'page' | 'magewire', name: string, ms: number): void {
+    const file = process.env.E2E_TIMINGS;
+    if (!file) {
+        return;
+    }
+    let spec = '';
+    try {
+        spec = path.basename(test.info().file);
+    } catch {
+        spec = '(outside a test)';
+    }
+    fs.appendFileSync(file, JSON.stringify({ spec, kind, name, ms: Math.round(ms) }) + '\n');
+}
+
+/**
+ * The tag of a describe group that runs in another Hyvä Checkout variant than the one-page one. Such groups run only when asked
+ * (run-all.sh --variants): the config leaves out the tag @variants otherwise.
+ */
+export function variantTag(variant: 'onepage' | 'default' | 'mobile'): { tag: string[] } {
+    return { tag: variant === 'onepage' ? [] : ['@variants'] };
 }
 
 export type Snapshot = {

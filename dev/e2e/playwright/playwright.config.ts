@@ -10,6 +10,7 @@ import * as path from 'path';
  *   E2E_VARIANT_CMD       command that switches the Hyvä Checkout variant: `<command> onepage|default|mobile`
  *   E2E_HEADED=1          show the browser
  *   E2E_TERSE=1           no console report, only the JSON file (E2E_PW_JSON) that run-all.sh summarises
+ *   E2E_VARIANTS=1        also run the tests of the multi-step and mobile checkouts (tag @variants; run-all.sh --variants)
  */
 const baseURL = process.env.E2E_BASE_URL;
 if (!baseURL) {
@@ -23,6 +24,8 @@ export default defineConfig({
     // The checkout holds one cart per browser session and the store state is shared: run one test at a time.
     workers: 1,
     fullyParallel: false,
+    // the multi-step and mobile checkout tests run only when asked: the one-page checkout is the main target
+    grepInvert: process.env.E2E_VARIANTS === '1' ? undefined : /@variants/,
     retries: 0,
     // the longest checkout tests (many Magewire round trips, two websites) take 60-100 s on the Warden bench
     timeout: 150_000,

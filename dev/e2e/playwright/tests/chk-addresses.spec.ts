@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import {
     benchCommand, chooseShippingAndPayment, customerEmail, deleteSavedAddresses, dropQuotes, expect, field, fillCheckout, openCheckoutAsGuest, placeOrder,
-    placedOrderSnapshot, quoteValues, requireFixtures, setAccountValues, setSavedAddress, test, uniqueEmail, useVariant, walkSteps,
+    placedOrderSnapshot, quoteValues, requireFixtures, setAccountValues, setSavedAddress, test, uniqueEmail, useVariant, variantTag, walkSteps,
 } from './helpers';
 
 /**
@@ -45,7 +45,7 @@ async function typeSeven(page: Page, magewire: Idle, form: 'shipping' | 'billing
 const FIRST = { text: 'shipping text', area: 'shipping area', sel: 'North', multi: ['Red', 'Blue'], date: '2026-08-08', yn: 'Yes' };
 const SECOND = { text: 'billing text', area: 'billing area', sel: 'South', multi: ['Green'], date: '2026-09-09', yn: 'No' };
 
-test('CHK1, CHK2, ORD1: a guest fills the seven address fields; billing the same as shipping has the same values; the order rows are complete', { tag: ['@CHK1', '@CHK2', '@ORD1'] }, async ({ page, magewire }) => {
+test('CHK1, CHK2, ORD1: a guest fills the seven address fields; billing the same as shipping has the same values; the order rows are complete', { tag: ['@quick', '@CHK1', '@CHK2', '@ORD1'] }, async ({ page, magewire }) => {
     await openCheckoutAsGuest(page);
     await requireFixtures(page, ['e2e_a_text', 'e2e_a_area', 'e2e_a_date', 'e2e_a_sel', 'e2e_a_multi', 'e2e_a_bool']);
     await fillCheckout(page, magewire, { email_address: uniqueEmail('chk1') });
@@ -113,7 +113,7 @@ test('CHK3: a different billing address keeps its own values; each address has i
     expect(snapshot.billing.e2e_a_multi).toMatchObject({ value_label: 'Green' });
 });
 
-test.describe('multi-step checkout', () => {
+test.describe('multi-step checkout', variantTag('default'), () => {
     useVariant('default');
 
     test('CHK10: reload at each step: the values are still there', { tag: ['@CHK10'] }, async ({ page, magewire }) => {

@@ -1,4 +1,4 @@
-import { expect, field, openCheckoutAsGuest, requireFixtures, test, useVariant } from './helpers';
+import { expect, field, openCheckoutAsGuest, requireFixtures, test, useVariant, variantTag } from './helpers';
 
 /**
  * Smoke test of the three Hyvä Checkout variants: the checkout opens, the address fields of the module are there and a customer
@@ -6,10 +6,10 @@ import { expect, field, openCheckoutAsGuest, requireFixtures, test, useVariant }
  * variant switch of the test setup works. Every test also fails on a CSP violation, a script error or a failed Magewire call.
  */
 for (const variant of ['onepage', 'default', 'mobile'] as const) {
-    test.describe(`variant ${variant}`, () => {
+    test.describe(`variant ${variant}`, variantTag(variant), () => {
         useVariant(variant);
 
-        test(`the checkout renders the module's fields (${variant})`, { tag: ['@SMOKE'] }, async ({ page, magewire }) => {
+        test(`the checkout renders the module's fields (${variant})`, { tag: ['@quick', '@SMOKE'] }, async ({ page, magewire }) => {
             await openCheckoutAsGuest(page);
             await requireFixtures(page, ['e2e_a_text', 'e2e_c_text']);
             await magewire.idle();

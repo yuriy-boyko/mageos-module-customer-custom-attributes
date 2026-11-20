@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import {
     benchCommand, chooseShippingAndPayment, customerEmail, deleteSavedAddresses, dropQuotes, expect, field, loginAs, openCheckoutAsGuest, placeOrder,
-    placedOrderSnapshot, setAccountValues, setSavedAddress, test, useVariant, websiteOverride,
+    placedOrderSnapshot, setAccountValues, setSavedAddress, test, useVariant, variantTag, websiteOverride,
 } from './helpers';
 
 /**
@@ -43,7 +43,7 @@ async function typeCustomerRequired(page: Page, magewire: { idle(): Promise<void
     }
 }
 
-test('SAV1-SAV3: the notice names the field and links to the address; the order is refused; after the fix it is placed', { tag: ['@SAV1', '@SAV2', '@SAV3'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+test('SAV1-SAV3: the notice names the field and links to the address; the order is refused; after the fix it is placed', { tag: ['@quick', '@SAV1', '@SAV2', '@SAV3'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
     setSavedAddress(customerEmail(), INCOMPLETE);
     setRequired(true);
     await openCheckout(page, magewire);
@@ -167,7 +167,7 @@ test.describe('SAV5 with a customer group restriction and a disabled website', (
 });
 
 for (const variant of ['default', 'mobile'] as const) {
-    test.describe(`${variant} checkout`, () => {
+    test.describe(`${variant} checkout`, variantTag(variant), () => {
         useVariant(variant);
         test(`SAV7: the notice is shown in the ${variant} checkout`, { tag: ['@SAV7'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
             setSavedAddress(customerEmail(), INCOMPLETE);

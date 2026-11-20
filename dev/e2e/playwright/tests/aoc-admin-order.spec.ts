@@ -65,7 +65,7 @@ test('AOC4: picking a saved address fills the custom fields', { tag: ['@AOC4'] }
     expect(await chosenLabels(orderField(page, 'billing_address', 'e2e_a_multi'))).toEqual([]);
 });
 
-test('AOC5: typed values with "same as billing" go to both addresses of the placed order', { tag: ['@AOC5'] }, async ({ adminPage: page }) => {
+test('AOC5: typed values with "same as billing" go to both addresses of the placed order', { tag: ['@quick', '@AOC5'] }, async ({ adminPage: page }) => {
     setAccountValues(email, { e2e_c_text: 'seed text' });
     await startAdminOrder(page, email);
     await expect(page.locator('#order-shipping_same_as_billing')).toBeChecked();

@@ -5,7 +5,8 @@
  *   node summarize.mjs --run-dir <dir> [--docs <path to TESTING.md>] [--update-docs]
  *
  * <dir> holds the raw results written by run-all.sh: api.txt and assert.txt (lines `ok   name` / `FAIL name` with indented detail),
- * pw.json (Playwright's JSON report) and meta.json ({started, seconds, variant}). Every test or check can carry row IDs of
+ * pw.json (Playwright's JSON report), meta.json ({started, seconds, variant, quick, variants}) and, when present, phases.txt (seconds per
+ * phase) and timings.jsonl (bench commands, page loads and Magewire requests per test file, written by the Playwright helpers). Every test or check can carry row IDs of
  * docs/TESTING.md as `[REST1]` (the row is proven by it) or `[VAL1~]` (it proves part of the row). A row counts as automated and
  * passing when all of its full tests pass, and as failing when one fails. Partial tests are listed but never change a row.
  * Writes last-run.json and last-run.md next to the run directory.
@@ -49,12 +50,15 @@ for (const [suite, file] of [['api', 'api.txt'], ['assertions', 'assert.txt']]) 
 // Playwright JSON report
 const pwText = read('pw.json');
 let pwSkipped = 0;
+/** @type {Map<string, number>} milliseconds per test file */
+const specMs = new Map();
 if (pwText) {
     const report = JSON.parse(pwText);
     const walk = (suite) => {
         for (const spec of suite.specs ?? []) {
             for (const test of spec.tests ?? []) {
                 const status = test.status;
+                specMs.set(spec.file, (specMs.get(spec.file) ?? 0) + (test.results ?? []).reduce((sum, r) => sum + (r.duration ?? 0), 0));
                 if (status === 'skipped') {
                     pwSkipped++;
                     continue;
@@ -101,6 +105,8 @@ for (const suite of suites) {
     if (c.pass + c.fail > 0) lines.push(`  ${suite.padEnd(11)} ${String(c.pass).padStart(3)} passed  ${String(c.fail).padStart(3)} failed`);
 }
 if (pwSkipped > 0) lines.push(`  playwright  ${pwSkipped} skipped (missing session or variant command)`);
+if (pwText && meta.quick) lines.push('  quick run: only the browser tests tagged @quick');
+if (pwText && !meta.variants) lines.push('  multi-step and mobile checkout tests not run (run-all.sh --variants)');
 for (const failure of failures) {
     lines.push(`FAIL [${failure.suite}] ${failure.name}`);
     if (failure.detail) lines.push(`     ${failure.detail.slice(0, 500)}`);
@@ -110,6 +116,44 @@ for (const [, entry] of rowList) counts[rowStatus(entry)]++;
 lines.push(`Rows: ${counts.pass} automated and passing, ${counts.fail} failing, ${counts.partial} only partly covered`);
 const failingRows = rowList.filter(([, e]) => rowStatus(e) === 'fail').map(([id]) => id);
 if (failingRows.length) lines.push(`Failing rows: ${failingRows.join(', ')}`);
+
+// time: per phase, and where the browser tests spend it (bench commands, page loads, Magewire requests; see timings.jsonl)
+const timing = { phases: {}, totals: {}, specs: [] };
+const phases = read('phases.txt').trim();
+if (phases) {
+    for (const line of phases.split('\n')) {
+        const [name, seconds] = line.split(' ');
+        timing.phases[name] = Number(seconds);
+    }
+    lines.push(`Time: ${Object.entries(timing.phases).map(([name, seconds]) => `${name} ${seconds} s`).join(', ')}`);
+}
+const timingLines = read('timings.jsonl').trim();
+if (timingLines) {
+    /** @type {Map<string, Record<string, number>>} */
+    const perSpec = new Map();
+    for (const line of timingLines.split('\n')) {
+        let entry;
+        try { entry = JSON.parse(line); } catch { continue; }
+        const totals = (timing.totals[entry.kind] ??= { count: 0, ms: 0 });
+        totals.count++;
+        totals.ms += entry.ms;
+        const spec = perSpec.get(entry.spec) ?? {};
+        spec[entry.kind] = (spec[entry.kind] ?? 0) + entry.ms;
+        perSpec.set(entry.spec, spec);
+    }
+    const label = { bench: 'bench commands', page: 'page loads', magewire: 'Magewire requests' };
+    const testMs = [...specMs.values()].reduce((a, b) => a + b, 0);
+    const parts = Object.entries(timing.totals).map(([kind, t]) => `${label[kind] ?? kind} ${t.count} × ${(t.ms / t.count / 1000).toFixed(1)} s = ${Math.round(t.ms / 1000)} s`);
+    lines.push(`  of ${Math.round(testMs / 1000)} s in browser tests: ${parts.join('; ')}`);
+    timing.specs = [...specMs.entries()].sort((a, b) => b[1] - a[1]).map(([file, ms]) => {
+        const spec = perSpec.get(path.basename(file)) ?? {};
+        return { file, s: Math.round(ms / 1000), bench: Math.round((spec.bench ?? 0) / 1000), page: Math.round((spec.page ?? 0) / 1000), magewire: Math.round((spec.magewire ?? 0) / 1000) };
+    });
+    lines.push('  slowest test files (s: total / bench / pages / Magewire):');
+    for (const spec of timing.specs.slice(0, 8)) {
+        lines.push(`    ${spec.file.replace(/\.spec\.ts$/, '').padEnd(40)} ${String(spec.s).padStart(4)} / ${spec.bench} / ${spec.page} / ${spec.magewire}`);
+    }
+}
 
 // docs
 const docs = option('--docs');
@@ -151,5 +195,5 @@ if (args.includes('--update-docs') && docs && fs.existsSync(docs)) {
 console.log(lines.join('\n'));
 const out = path.dirname(path.resolve(runDir));
 fs.writeFileSync(path.join(out, 'last-run.md'), lines.join('\n') + '\n');
-fs.writeFileSync(path.join(out, 'last-run.json'), JSON.stringify({ meta, counts: count, rows: Object.fromEntries(rowList.map(([id, e]) => [id, rowStatus(e)])), failures }, null, 2));
+fs.writeFileSync(path.join(out, 'last-run.json'), JSON.stringify({ meta, timing, counts: count, rows: Object.fromEntries(rowList.map(([id, e]) => [id, rowStatus(e)])), failures }, null, 2));
 process.exit(failures.length ? 1 : 0);

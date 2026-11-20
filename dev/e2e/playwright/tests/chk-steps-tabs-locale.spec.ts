@@ -1,6 +1,6 @@
 import {
     chooseShippingAndPayment, expect, field, fillCheckout, ITA_PRODUCT, openAdminOrder, openCheckoutAsGuest, orderViewAddresses, placeOrder,
-    placedOrderSnapshot, quoteValues, requireFixtures, test, useVariant, walkSteps, pickRadio,
+    placedOrderSnapshot, quoteValues, requireFixtures, test, useVariant, variantTag, walkSteps, pickRadio,
 } from './helpers';
 
 /**
@@ -28,7 +28,7 @@ test('CHK14: a date typed in the Italy store is stored as typed and shown correc
     expect(shown).toMatch(/(2026-08-08|8\/8\/26|8\/8\/2026|08\/08\/2026|08\.08\.2026|8 Aug)/);
 });
 
-test.describe('multi-step checkout', () => {
+test.describe('multi-step checkout', variantTag('default'), () => {
     useVariant('default');
 
     test('CHK16: back from the payment step to the shipping step: the values reload from the quote and can be edited', { tag: ['@CHK16', '@CHK20~'] }, async ({ page, magewire }) => {

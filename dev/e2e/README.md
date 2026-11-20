@@ -15,6 +15,9 @@ It prints a short summary (a few lines when everything passes; the name and deta
 0 (all passed), 1 (a test failed), 2 (a setup problem) or 3 (the user has to do something; the block `ACTION NEEDED` says what).
 
 ```
+dev/e2e/run-all.sh --quick                          # the main paths only (browser tests tagged @quick, REST suite, database checks): for everyday changes
+dev/e2e/run-all.sh --variants                       # also the multi-step and mobile checkout tests (tag @variants, left out by default)
+dev/e2e/run-all.sh --variants -- --grep @variants   # only the multi-step and mobile checkout tests
 dev/e2e/run-all.sh --only api,assert                # only some suites (api, assert, playwright)
 dev/e2e/run-all.sh -- --grep @DEP12                 # everything after -- goes to Playwright (a file, --grep, --headed ...)
 dev/e2e/run-all.sh --update-docs                    # write the result of every automated row into docs/TESTING.md
@@ -30,7 +33,16 @@ What a run does, in order, and undoes at the end (also after a failure):
    Checkout variant is switched by the tests that need another one (`set-variant.sh`) and set back at the end.
 4. **Summary** (`summarize.mjs`): counts per suite, failures with detail and the path of the screenshot and trace, and the result per
    row of `docs/TESTING.md`. The raw output of every step stays in `~/.cache/mageos-cca-e2e/run/`; the summary is also in
-   `last-run.md` and `last-run.json` there. To save effort, read `last-run.md` first.
+   `last-run.md` and `last-run.json` there. To save effort, read `last-run.md` first. It ends with where the time went: seconds per
+   phase, the bench commands (`fixture.sh`/`assert.sh` calls), page loads and Magewire requests of the browser tests (count, average,
+   total; the time until the response arrived, so mostly the server's share) and the slowest test files. The raw records are in
+   `run/timings.jsonl`.
+
+**Which run when.** The one-page checkout is the main target: a default run leaves out the tests of the multi-step and mobile
+checkouts (Playwright tag `@variants`, set with `variantTag()` on their describe group); `--variants` adds them. Run `--quick` while
+working, the default run before a commit that touches more than one area, and the default run plus `--variants` before a release. A
+new test that only covers another checkout variant goes into a group with `variantTag(variant)`; a test for the main paths can carry
+`@quick` (keep that set small: about 20 tests, one per area).
 
 `local.env` holds passwords and is ignored by git. `lib.sh` reads it and decides how PHP and `bin/magento` are run on the store's
 machine (`E2E_EXEC`, for example `warden env exec -T php-fpm`, or empty for a local install).

@@ -64,7 +64,7 @@ test.describe('REG2 and REG3', () => {
     });
 });
 
-test('CUS1/CUS2: the account information form shows the stored values and saves emoji and a date', { tag: ['@CUS1', '@CUS2'] }, async ({ customerPage: page }) => {
+test('CUS1/CUS2: the account information form shows the stored values and saves emoji and a date', { tag: ['@quick', '@CUS1', '@CUS2'] }, async ({ customerPage: page }) => {
     setAccountValues(email, { e2e_c_areq: 'account required', e2e_c_text: 'stored text', e2e_c_sel: 'Silver', e2e_c_multi: 'Opt 1|Opt 3' });
     await page.goto('/customer/account/edit/');
     await expect(page.locator('[name="e2e_c_text"]')).toHaveValue('stored text');
@@ -99,7 +99,7 @@ test.describe('saved address', () => {
         deleteSavedAddresses(email);
     });
 
-    test('BOOK5: the account address form shows the saved values and saves changes', { tag: ['@BOOK5'] }, async ({ customerPage: page }) => {
+    test('BOOK5: the account address form shows the saved values and saves changes', { tag: ['@quick', '@BOOK5'] }, async ({ customerPage: page }) => {
         setSavedAddress(email, { e2e_a_req: 'saved required', e2e_a_text: 'saved text', e2e_a_sel: 'North', e2e_a_multi: 'Red|Blue', e2e_a_area: 'one' });
         const [id] = Object.keys(accountValues(email).addresses);
         await page.goto(`/customer/address/edit/id/${id}/`);
@@ -113,7 +113,7 @@ test.describe('saved address', () => {
         expect(saved.e2e_a_area, 'untouched values stay').toBe('one');
     });
 
-    test('BOOK3: a later order with the saved address has its values on the quote and the order', { tag: ['@BOOK3'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+    test('BOOK3: a later order with the saved address has its values on the quote and the order', { tag: ['@quick', '@BOOK3'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
         setSavedAddress(email, { e2e_a_req: 'saved required', e2e_a_text: 'saved text', e2e_a_sel: 'South', e2e_a_multi: 'Green' });
         await openCheckoutAsGuest(page);
         await magewire.idle();

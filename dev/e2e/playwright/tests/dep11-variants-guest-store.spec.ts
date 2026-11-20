@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import {
     chooseShippingAndPayment, expect, field, fillCheckout, ITA_PRODUCT, openCheckoutAsGuest, placeOrder, placedOrderSnapshot, requireFixtures,
-    test, useVariant, walkSteps,
+    test, useVariant, variantTag, walkSteps,
 } from './helpers';
 
 /**
@@ -55,7 +55,7 @@ function expectOrder(snapshot: Awaited<ReturnType<typeof placedOrderSnapshot>>['
     }
 }
 
-test.describe('multi-step checkout', () => {
+test.describe('multi-step checkout', variantTag('default'), () => {
     useVariant('default');
     test('DEP11: a guest changes the parent, the order has the parent and the dependent', { tag: ['@DEP11'] }, async ({ page, magewire }) => {
         await openCheckoutAsGuest(page);
@@ -68,7 +68,7 @@ test.describe('multi-step checkout', () => {
     });
 });
 
-test.describe('mobile checkout', () => {
+test.describe('mobile checkout', variantTag('mobile'), () => {
     useVariant('mobile');
     test('DEP11: a guest changes the parent, the order has the parent and the dependent', { tag: ['@DEP11'] }, async ({ page, magewire }) => {
         await openCheckoutAsGuest(page);

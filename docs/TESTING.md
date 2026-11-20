@@ -43,7 +43,9 @@ generation. The main module must compile without Hyvä Checkout installed: only 
 ### Test fixtures and automated runs
 
 `dev/e2e/run-all.sh` runs the automated checks in one command and prints a short summary (see `dev/e2e/README.md`); rows it proves are
-marked `automated` in the lists below. The scripts it uses:
+marked `automated` in the lists below. The tests of the multi-step and mobile checkouts run only with `run-all.sh --variants`
+(rows CHK10, CHK16, CHK20, SAV7, CCO19, CCO20 and the variant parts of CCO2, DEP11, RAD8); a default run leaves those rows as they are.
+`--quick` runs the main paths only (about 20 browser tests). The scripts it uses:
 
 `dev/e2e/fixtures.php seed` creates a ready set of test attributes (customer attributes at every checkout position, address
 attributes of every input type, two relations, a test customer) and `teardown` removes them again, so a run starts from a known
