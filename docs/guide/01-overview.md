@@ -52,8 +52,8 @@ and a multiple select as **checkboxes**; the stored data stays that of a standar
 ## Requirements
 
 - Magento Open Source 2.4.9 or Mage-OS, PHP 8.3, 8.4 or 8.5.
-- Hyvä Theme. For the Hyvä Checkout features also Hyvä Checkout and the companion package
-  `mage-os/module-customer-custom-attributes-hyva-checkout`.
+- Hyvä Theme. For the Hyvä Checkout features also Hyvä Checkout 1.3.15 or newer (tested on 1.3.15 and 3.0.2) and the companion
+  package `mage-os/module-customer-custom-attributes-hyva-checkout` of the same version.
 
 ## Packages
 

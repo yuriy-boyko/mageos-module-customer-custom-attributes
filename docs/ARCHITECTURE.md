@@ -29,8 +29,9 @@ For contributors and AI coding tools. Read this before changing code; [TESTING.m
 | `mage-os/module-customer-custom-attributes-hyva-checkout` | `MageOS_CustomerCustomAttributesHyvaCheckout` | `Model/AttributeVisibilityModifier` (extends Hyvä Checkout's form modifier class; `form:*:magewire` hooks, plus the bare 1.x hooks on Checkout 1.x only), the Magewire component `Magewire/CustomerAttributes` for the customer attribute sections, their layout `hyva_checkout_index_index.xml` and template, and the `etc/frontend/di.xml` registration |
 
 Both packages share one version number and are tagged together. The companion's `composer.json` requires Hyvä Checkout 1.3.15 or newer
-(the first version with `AddressAttributeFormFilter`; the same code serves 1.3 and 3.x, see the companion README) and the main package without a version constraint until the first tags exist;
-tighten that to the matching minor version, for example `^0.1`, afterwards.
+(the first version with `AddressAttributeFormFilter`; the same code serves 1.3 and 3.x, see the companion README) and the main package
+of the same minor version (`^0.1.0`). Both `composer.json` files carry the version, and `etc/module.xml` the same `setup_version`; a
+release changes all four and the two CHANGELOGs together, then tags both repositories (`v0.1.0`).
 
 The split exists because `setup:di:compile` loads every class of every enabled module: a class that implements a Hyvä
 Checkout interface fatals on stores without Hyvä Checkout. Keep the main module free of references to `Hyva\Checkout\*`

@@ -2,6 +2,7 @@
     "name": "mage-os/module-customer-custom-attributes",
     "description": "Customer and customer address custom attributes for Magento Open Source and Mage-OS, built Hyvä Theme and Hyvä Checkout first",
     "type": "magento2-module",
+    "version": "0.1.0",
     "license": "OSL-3.0",
     "authors": [
         {

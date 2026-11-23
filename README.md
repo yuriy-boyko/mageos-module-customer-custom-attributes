@@ -139,7 +139,8 @@ Hyvä Theme only; Luma is not supported. Layout files use the `hyva_` prefix so 
 
 ## Requirements
 
-Magento Open Source 2.4.9 (or Mage-OS), PHP 8.3, 8.4 or 8.5. Hyvä Theme and Hyvä Checkout are the target storefront.
+Magento Open Source 2.4.9 (or Mage-OS), PHP 8.3, 8.4 or 8.5. Hyvä Theme and Hyvä Checkout are the target storefront: Hyvä Checkout
+1.3.15 or newer (tested on 1.3.15 and 3.0.2).
 
 For Hyvä Checkout (live hiding by dependency rules and customer group, radio/checkbox display) also install
 `mage-os/module-customer-custom-attributes-hyva-checkout`; it is separate so this module compiles without Hyvä Checkout.
