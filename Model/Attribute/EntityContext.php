@@ -86,11 +86,12 @@ class EntityContext
 
     /**
      * @param string[] $selected
+     * @param string[] $stored
      * @return string[]
      */
-    public function resolveForms(array $selected): array
+    public function resolveForms(array $selected, array $stored = []): array
     {
-        return $this->definitions->resolveForms($this->getKey(), $selected);
+        return $this->definitions->resolveForms($this->getKey(), $selected, $stored);
     }
 
     public function createCollection(): Collection

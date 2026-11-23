@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Adapter tests (plugins, observers) that mock Magento classes: run them inside a Magento install, from the Magento root:
+        vendor/bin/phpunit -c <module path>/phpunit.magento.xml.dist
+    The Magento-free tests of Service/ are in phpunit.xml.dist (dev/check.sh).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         bootstrap="dev/bootstrap-magento.php"
+         colors="true"
+         cacheDirectory="/tmp/mageos-cca-phpunit-magento-cache"
+         failOnWarning="true"
+         failOnRisky="true">
+    <testsuites>
+        <testsuite name="magento">
+            <directory>Test/Magento</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

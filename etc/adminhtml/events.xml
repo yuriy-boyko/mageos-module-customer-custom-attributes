@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!-- Admin order create: the customer attribute values a reorder or an edited order brought along, for "Account Information" -->
+    <event name="sales_quote_load_after">
+        <observer name="mageos_cca_admin_quote_customer_values" instance="MageOS\CustomerCustomAttributes\Observer\AdminQuoteCustomerValues"/>
+    </event>
+</config>

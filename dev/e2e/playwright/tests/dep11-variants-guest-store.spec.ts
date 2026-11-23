@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import {
-    chooseShippingAndPayment, expect, field, fillCheckout, ITA_PRODUCT, openCheckoutAsGuest, placeOrder, placedOrderSnapshot, requireFixtures,
+    chooseShippingAndPayment, expect, field, fillCheckout, ITA_PRODUCT, requireSecondWebsite, openCheckoutAsGuest, placeOrder, placedOrderSnapshot, requireFixtures,
     test, useVariant, variantTag, walkSteps,
 } from './helpers';
 
@@ -96,6 +96,7 @@ test.describe('one-page checkout', () => {
     });
 
     test('DEP11: the same in the Italy store', { tag: ['@DEP11'] }, async ({ page, magewire }) => {
+        requireSecondWebsite();
         await openCheckoutAsGuest(page, ITA_PRODUCT);
         await requireFixtures(page, ['e2e_a_sel', 'e2e_a_dep']);
         await fillCheckout(page, magewire, ITALY, 'Roma');

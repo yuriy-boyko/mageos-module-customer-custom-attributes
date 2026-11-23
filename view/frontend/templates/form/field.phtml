@@ -34,7 +34,8 @@ $base = 'id="' . $escaper->escapeHtmlAttr($code) . '" name="' . $escaper->escape
     . '" title="' . $escaper->escapeHtmlAttr($field['label']) . '"';
 ?>
 <div class="field field-reserved <?= $field['required'] ? 'required' : '' ?> <?= $escaper->escapeHtmlAttr($code) ?> w-full<?= $input === 'textarea' ? ' md:col-span-2' : '' ?>">
-    <label class="label" for="<?= $escaper->escapeHtmlAttr($code) ?>">
+    <?php // A group (radio buttons, checkboxes) is named by aria-label below: its label points at no option, so a click on it selects nothing. ?>
+    <label class="label"<?= $isGroup ? '' : ' for="' . $escaper->escapeHtmlAttr($code) . '"' ?>>
         <span><?= $escaper->escapeHtml($field['label']) ?></span>
     </label>
     <div class="control">

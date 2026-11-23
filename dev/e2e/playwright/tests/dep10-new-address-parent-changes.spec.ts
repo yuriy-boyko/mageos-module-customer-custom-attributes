@@ -80,3 +80,22 @@ test('DEP10: the order ends with the parent on another option: the dependent typ
     expect(snapshot.shipping.e2e_a_dep, 'no row for a hidden dependent').toBeUndefined();
     expect(snapshot.billing.e2e_a_dep).toBeUndefined();
 });
+
+test('DEP18: a dependent hidden and shown again before the next update sends no old value', { tag: ['@DEP18'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+    await prepare(page, magewire);
+    await chooseParent(page, magewire, 'North');
+    // typed, then hidden and shown again without any other field being sent in between
+    await field(page, 'e2e_a_dep').fill('typed before the hide');
+    await parent(page, 'South').check();
+    await parent(page, 'North').check();
+    await expect(field(page, 'e2e_a_dep')).toBeVisible();
+    await expect(field(page, 'e2e_a_dep')).toHaveValue('');
+    await magewire.idle();
+
+    await chooseShippingAndPayment(page, magewire);
+    await placeOrder(page);
+    const { snapshot } = await placedOrderSnapshot(page);
+    expect(snapshot.shipping.e2e_a_sel).toMatchObject({ value_label: 'North' });
+    expect(snapshot.shipping.e2e_a_dep, 'the cleared value is not sent with the next update').toBeUndefined();
+    expect(snapshot.billing.e2e_a_dep).toBeUndefined();
+});

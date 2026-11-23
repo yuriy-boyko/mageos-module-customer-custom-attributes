@@ -59,7 +59,8 @@ $selected = array_map('strval', array_filter((array) $element->getValue(), stati
 $cssClassesFieldWrapperInner = $element->renderClass(['field'], 'field-wrapper-inner');
 ?>
 <div class="<?= $escaper->escapeHtmlAttr($cssClassesFieldWrapperInner) ?>">
-    <?= /* @noEscape */ $renderer->renderLabel($element) ?>
+    <?php // The group is named by aria-label below; its label must not point at the first option, or a click on it would tick that option. ?>
+    <?= /* @noEscape */ preg_replace('/\s+for="[^"]*"/', '', (string) $renderer->renderLabel($element), 1) ?>
     <?= /* @noEscape */ $renderer->renderBefore($element) ?>
     <div class="flex flex-col gap-2 mageos-cca-choices" role="<?= $display === 'radio' ? 'radiogroup' : 'group' ?>"
          aria-label="<?= $escaper->escapeHtmlAttr((string) $element->getLabel()) ?>">

@@ -29,7 +29,7 @@ test('ROB4: request count and load time of the pages the module changes', { tag:
         for (let i = 0; i < LOADS; i++) {
             let requests = 0;
             // only the shop's own requests: the checkout loads about 80 more from Stripe, PayPal, Amazon and Google, which vary from load to load
-            const count = (request: { url(): string }) => { if (request.url().startsWith(new URL(url, 'https://app.magento249.test').origin)) requests++; };
+            const count = (request: { url(): string }) => { if (request.url().startsWith(new URL(url, process.env.E2E_BASE_URL).origin)) requests++; };
             target.on('request', count);
             let start = Date.now();
             // the checkout never goes network-idle and its load event waits for the payment widgets of third parties: time to the DOM, then a

@@ -51,4 +51,44 @@ class AddressAttributeValue extends DataObject implements AddressAttributeValueI
     {
         return $this->getData('value_label');
     }
+
+    /**
+     * @inheritDoc
+     */
+    public function setAttributeCode($attributeCode)
+    {
+        return $this->setData('attribute_code', $attributeCode);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setAttributeLabel($attributeLabel)
+    {
+        return $this->setData('attribute_label', $attributeLabel);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setInputType($inputType)
+    {
+        return $this->setData('input_type', $inputType);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setValue($value)
+    {
+        return $this->setData('value', $value);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setValueLabel($valueLabel)
+    {
+        return $this->setData('value_label', $valueLabel);
+    }
 }

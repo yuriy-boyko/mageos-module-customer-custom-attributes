@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import {
-    expect, field, fillCheckout, openCheckoutAsGuest, pickRadio, placeOrder, placedOrderSnapshot, requireFixtures, test, useVariant, variantTag,
+    chooseVisibleMethods, expect, field, fillCheckout, openCheckoutAsGuest, pickRadio, placeOrder, placedOrderSnapshot, requireFixtures, test, useVariant, variantTag,
 } from './helpers';
 
 /**
@@ -23,7 +23,7 @@ async function choosePayment(page: Page, magewire: Idle): Promise<void> {
 
 /** One step forward ("Proceed to ..."). */
 async function advance(page: Page, magewire: Idle): Promise<void> {
-    await choosePayment(page, magewire);
+    await chooseVisibleMethods(page, magewire as Parameters<typeof chooseVisibleMethods>[1]);
     await page.getByRole('button', { name: /^proceed to /i }).filter({ visible: true }).first().click();
     await magewire.idle();
     await page.waitForTimeout(300);

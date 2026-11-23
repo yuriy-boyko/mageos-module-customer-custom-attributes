@@ -12,6 +12,7 @@ use MageOS\CustomerCustomAttributes\Model\Data\AddressAttributeValueFactory;
 use MageOS\CustomerCustomAttributes\Observer\OrderLoadAfter;
 use Magento\Sales\Api\Data\OrderAddressExtensionFactory;
 use Magento\Sales\Api\Data\OrderAddressInterface;
+use Magento\Sales\Api\Data\OrderAddressSearchResultInterface;
 use Magento\Sales\Api\Data\OrderExtensionFactory;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Api\Data\OrderSearchResultInterface;
@@ -48,10 +49,22 @@ class OrderAddressExtensionAttributes
         return $result;
     }
 
-    public function afterGetList(OrderRepositoryInterface $subject, OrderSearchResultInterface $result): OrderSearchResultInterface
+    /**
+     * Used for both repositories as well: plugin methods are matched by name, so this also runs for
+     * OrderAddressRepositoryInterface::getList(), whose items are order addresses.
+     *
+     * @param OrderRepositoryInterface|OrderAddressRepositoryInterface $subject
+     * @param OrderSearchResultInterface|OrderAddressSearchResultInterface $result
+     * @return OrderSearchResultInterface|OrderAddressSearchResultInterface
+     */
+    public function afterGetList($subject, $result)
     {
-        foreach ($result->getItems() as $order) {
-            $this->populateOrder($order);
+        foreach ($result->getItems() as $item) {
+            if ($item instanceof OrderInterface) {
+                $this->populateOrder($item);
+            } elseif ($item instanceof OrderAddressInterface) {
+                $this->populateAddress($item);
+            }
         }
         return $result;
     }

@@ -61,13 +61,44 @@ function watch(page: Page, problems: string[], inflight: Inflight): void {
     });
 }
 
+/**
+ * Hyvä Checkout 3 keeps the typed values of its address forms in the browser until the next request of that form (Place Order
+ * saves them): Checkout 1.3 sent each change at once. The tests read the quote after typing, so on 3.x the address forms with
+ * unsent changes are committed here, the same request the form would send next. Does nothing on 1.3 (no `$commit`).
+ */
+async function commitDeferredAddressForms(page: Page): Promise<void> {
+    await page.evaluate(async () => {
+        type Api = { find?: (id: string) => any };
+        const globals = window as unknown as { Livewire?: Api; Magewire?: Api };
+        const magewire = globals.Livewire?.find ? globals.Livewire : globals.Magewire;
+        if (!magewire?.find) {
+            return;
+        }
+        for (const element of Array.from(document.querySelectorAll('[wire\\:id$="address-form"]'))) {
+            const wire = magewire.find(element.getAttribute('wire:id') || '');
+            const component = wire?.__instance;
+            if (typeof wire?.$commit !== 'function' || !component) {
+                continue;
+            }
+            if (JSON.stringify(component.ephemeral) !== JSON.stringify(component.canonical)) {
+                await wire.$commit();
+            }
+        }
+    }).catch(() => undefined);
+}
+
 /** Waits until no Magewire request is in flight and none starts for a short while (see the `magewire` fixture). */
-export function magewireOf(page: Page): { idle(): Promise<void> } {
+export function magewireOf(page: Page): { idle(options?: { commit?: boolean }): Promise<void> } {
     const inflight = (page as Page & { __inflight: Inflight }).__inflight;
     // A change triggers a request, and its response can trigger more (other sections reload): wait until nothing is in flight
     // and nothing new starts for a short while, so the next step does not meet a half-updated page.
     return {
-        idle: async () => {
+        // commit: false waits without sending the unsent address values first (a keyboard test, where the re-render of a commit
+        // would move the focus away)
+        idle: async (options: { commit?: boolean } = {}) => {
+            if (options.commit !== false) {
+                await commitDeferredAddressForms(page);
+            }
             await expect.poll(async () => {
                 if (inflight.count > 0) {
                     return 'busy';
@@ -82,9 +113,9 @@ export function magewireOf(page: Page): { idle(): Promise<void> } {
 type Fixtures = {
     problems: string[];
     /** Waits until no Magewire request is in flight (the checkout re-renders after each one). */
-    magewire: { idle(): Promise<void> };
+    magewire: { idle(options?: { commit?: boolean }): Promise<void> };
     /** Waits until no Magewire request is in flight on the customer's page. */
-    customerMagewire: { idle(): Promise<void> };
+    customerMagewire: { idle(options?: { commit?: boolean }): Promise<void> };
     /** A page signed in as the fixture customer (skips the test when no customer session exists). */
     customerPage: Page;
     /** A page signed in to the admin (skips the test when no admin session exists). */
@@ -215,8 +246,9 @@ export async function openCheckoutAsGuest(page: Page, productUrl?: string): Prom
     await page.goto(`${origin}/checkout/`);
     // a guest sees the address form; a customer with a saved address sees the list of addresses, but both see the module's sections
     await expect(page.locator('[name="firstname"], [data-mageos-cca-customer]').first()).toBeAttached();
-    if (!process.env.E2E_MODULE_OFF) {
-        await expect(page.locator('[data-mageos-cca-customer]').first()).toBeAttached(); // (INS9 runs with the module disabled)
+    // (INS9 runs with the module disabled, INS12 with the companion disabled: no sections then)
+    if (!process.env.E2E_MODULE_OFF && !process.env.E2E_COMPANION_OFF) {
+        await expect(page.locator('[data-mageos-cca-customer]').first()).toBeAttached();
     }
 }
 
@@ -242,7 +274,7 @@ export async function requireFixtures(page: Page, codes: string[]): Promise<void
 }
 
 /** Magewire handle of the `magewire` fixture. */
-type Magewire = { idle(): Promise<void> };
+type Magewire = { idle(options?: { commit?: boolean }): Promise<void> };
 
 /**
  * Fills the shipping address of the checkout (guest) with valid values, including the fixture attribute that is always required
@@ -433,16 +465,26 @@ export async function walkSteps(page: Page, magewire: Magewire): Promise<{ step:
         if ((await next.count()) === 0) {
             break;
         }
-        const payment = page.locator('[name="payment-method-option"][value="checkmo"]');
-        if ((await payment.count()) > 0 && (await payment.first().isVisible())) {
-            await payment.first().check();
-            await magewire.idle();
-        }
+        await chooseVisibleMethods(page, magewire);
         await next.first().click();
         await magewire.idle();
         await page.waitForTimeout(300);
     }
     return steps;
+}
+
+/**
+ * Ticks the shipping method and the check/money order payment method when they are on the current step and not ticked yet.
+ * Hyvä Checkout 1.3 preselects a single shipping method, Checkout 3 does not: without one the step cannot be left.
+ */
+export async function chooseVisibleMethods(page: Page, magewire: Magewire): Promise<void> {
+    for (const selector of ['[name="shipping-method-option"]', '[name="payment-method-option"][value="checkmo"]']) {
+        const option = page.locator(selector).first();
+        if ((await option.count()) > 0 && (await option.isVisible()) && !(await option.isChecked())) {
+            await option.check();
+            await magewire.idle();
+        }
+    }
 }
 
 /** The first option of a group is also labelled by the group's own label (they share an id): match the end of the name. */
@@ -477,11 +519,20 @@ export async function sendMagewireValue(page: Page, position: string, code: stri
         const section = document.querySelector(`[data-mageos-cca-customer="${position}"]`);
         const root = section && section.closest('[wire\\:id]');
         const id = root && root.getAttribute('wire:id');
-        const magewire = (window as unknown as { Magewire?: { find(id: string): { set(property: string, value: string): void } } }).Magewire;
-        if (!id || !magewire) {
+        // Magewire 3 (Hyvä Checkout 3) has $set on window.Livewire; Magewire 1 has set on window.Magewire (Checkout 3 keeps it only
+        // while Hyva_CheckoutV1bc is enabled)
+        type Wire = { set?(property: string, value: string): void; $set?(property: string, value: string): void };
+        const globals = window as unknown as { Livewire?: { find(id: string): Wire }; Magewire?: { find(id: string): Wire } };
+        const api = globals.Livewire?.find ? globals.Livewire : globals.Magewire;
+        const wire = id && api ? api.find(id) : null;
+        if (!wire) {
             throw new Error(`No Magewire component for the position ${position}`);
         }
-        magewire.find(id).set(`values.${code}`, value);
+        if (wire.$set) {
+            wire.$set(`values.${code}`, value);
+        } else {
+            wire.set!(`values.${code}`, value);
+        }
     }, { position, code, value });
 }
 
@@ -523,7 +574,7 @@ export type AttributeRow = {
     is_visible: boolean;
     sort_order: number;
     forms: string[];
-    options: { label: string; sort_order: number; is_default: boolean; store_labels: Record<string, string> }[];
+    options: { id: number; label: string; sort_order: number; is_default: boolean; store_labels: Record<string, string> }[];
     rules: Record<string, unknown>;
     groups: number[];
     websites: Record<string, { website_id: string; is_visible: string | null; is_required: string | null; default_value: string | null }>;
@@ -599,7 +650,9 @@ export async function saveAttribute(page: Page, stay = false): Promise<void> {
     const saved = page.waitForResponse((response) => response.url().includes('/attribute/save/') && response.request().method() === 'POST', { timeout: 60_000 }).catch(() => null);
     await page.locator(stay ? '#save_and_edit_button' : '#save').click();
     const validation = await validated;
-    const passed = validation !== null && (await validation.json().catch(() => ({ error: true }))).error === false;
+    // The body cannot be read when the page has already navigated away: the form was submitted, so the validation passed.
+    const body = validation === null ? null : await validation.json().catch((error: Error) => (/navigated away/i.test(error.message) ? { error: false } : { error: true }));
+    const passed = body !== null && body.error === false;
     if (passed) {
         await saved;
         await page.waitForLoadState('load');
@@ -949,9 +1002,17 @@ export async function startAdminOrderNewCustomer(page: Page, storeView = 'Defaul
 // Websites: the Italy store (WEB specs)
 // ---------------------------------------------------------------------------------------------------------------------------------
 
-/** The Italy website's storefront (website id 2, EUR, Italian address forms); the main website is the project's base URL. */
-export const ITA = 'https://ita.magento249.test';
-export const ITA_PRODUCT = `${ITA}/strive-shoulder-pack.html`;
+/**
+ * The second website's storefront (website id 2, store code ita: EUR, Italian address forms), from E2E_SECOND_BASE_URL; the main
+ * website is E2E_BASE_URL. Empty when the store has no second website: the tests that need it are skipped.
+ */
+export const ITA = (process.env.E2E_SECOND_BASE_URL || '').replace(/\/+$/, '');
+export const ITA_PRODUCT = ITA ? `${ITA}${process.env.E2E_PRODUCT_URL || '/strive-shoulder-pack.html'}` : '';
+
+/** Skips the current test (or, at the top of a file, every test of the file) when the store has no second website. */
+export function requireSecondWebsite(): void {
+    test.skip(!ITA, 'E2E_SECOND_BASE_URL is not set (the second website, store code ita)');
+}
 
 /** Sets or clears (`'-'`) the per-website override of a fixture attribute: enabled, required, default value. */
 export function websiteOverride(code: string, websiteId: number, settings: { enabled?: '0' | '1' | '-'; required?: '0' | '1' | '-'; default?: string }): void {

@@ -1,0 +1,11 @@
+# Left out of the Composer package (git archive / dist): development, tests and documentation stay in the repository.
+/.github            export-ignore
+/dev                export-ignore
+/docs               export-ignore
+/Test               export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/AGENTS.md          export-ignore
+/CLAUDE.md          export-ignore
+/phpstan.neon.dist  export-ignore
+/phpunit.xml.dist   export-ignore

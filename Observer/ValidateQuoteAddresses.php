@@ -22,8 +22,9 @@ use Magento\Quote\Model\Quote\Address;
  * Event sales_model_service_quote_submit_before: checks the custom values of the billing and shipping address against the
  * attribute rules before the order is created, whatever way they got onto the quote (Hyvä Checkout, REST, admin).
  * The "required" flag is enforced for the attributes shown in the form the customer filled: the checkout address forms,
- * or all attributes in the admin. Values of attributes hidden by a dependency rule or a customer group restriction are
- * removed from the address first and are not required.
+ * or all attributes in the admin. Outside the admin, values of attributes that are not in those forms (or disabled for the
+ * website) are removed from the address first. Values of attributes hidden by a dependency rule or a customer group restriction
+ * are removed as well and are not required.
  */
 class ValidateQuoteAddresses implements ObserverInterface
 {
@@ -53,6 +54,19 @@ class ValidateQuoteAddresses implements ObserverInterface
             }
             $values = array_fill_keys($enforce, null);
             $values = array_replace($values, $this->valueReader->read($address));
+
+            // Outside the admin only the attributes of the Hyvä Checkout address forms (enabled for the website) are kept: a value
+            // for any other attribute (sent through the REST cart endpoints, or carried from a saved address) is dropped, so a
+            // customer cannot set an attribute the store keeps for the admin, has not put in the checkout or has disabled.
+            if (!$this->isAdmin()) {
+                foreach (array_diff(array_keys($values), $enforce) as $outside) {
+                    if ($values[$outside] !== null) {
+                        $address->setCustomAttribute($outside, null);
+                        $this->removeFromOrderAddress($orderAddress, $outside);
+                    }
+                    unset($values[$outside]);
+                }
+            }
 
             // Attributes hidden by a dependency rule or the customer group are neither required nor kept on the order.
             $visible = $this->visibility->getVisibleCodes('address', array_keys($values), $values, (int) $quote->getCustomerGroupId());

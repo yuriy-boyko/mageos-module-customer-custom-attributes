@@ -26,6 +26,10 @@
         <observer name="mageos_cca_order_address_collection_load" instance="MageOS\CustomerCustomAttributes\Observer\OrderAddressLoadAfter"/>
     </event>
     <!-- Customer attributes: snapshot on the order -->
+    <!-- a guest logs in while the customer has an active cart: the guest's typed customer attribute values fill the empty ones -->
+    <event name="sales_quote_merge_after">
+        <observer name="mageos_cca_quote_merge_customer_values" instance="MageOS\CustomerCustomAttributes\Observer\QuoteMergeCustomerValues"/>
+    </event>
     <event name="sales_model_service_quote_submit_before">
         <observer name="mageos_cca_validate_quote_addresses" instance="MageOS\CustomerCustomAttributes\Observer\ValidateQuoteAddresses"/>
         <observer name="mageos_cca_customer_values_to_order" instance="MageOS\CustomerCustomAttributes\Observer\QuoteSubmitBefore"/>

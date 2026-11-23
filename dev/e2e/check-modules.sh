@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# INS5, INS7, INS9: compile, compile without the Hyvä Checkout modules, and disabling the module on a test store.
+# INS5, INS7, INS9, INS12: compile, compile without the Hyvä Checkout modules, disabling the module and disabling the companion only.
 #
-#   dev/e2e/check-modules.sh [--only ins5|ins7|ins9]
+#   dev/e2e/check-modules.sh [--only ins5|ins7|ins9|ins12]
 #
 # INS5  `setup:di:compile` with everything enabled succeeds.
 # INS7  `setup:di:compile` with Hyvä Checkout, its dependants (Hyva_Checkout*) and the companion module disabled succeeds. The Hyvä files stay
@@ -9,6 +9,8 @@
 # INS9  the module and the companion disabled and `setup:upgrade`: the module tables are gone (Magento's declarative schema drops them), the
 #       storefront, the checkout, an order and the admin order view still work (tests/ins9-module-off.spec.ts); enabled again with
 #       `setup:upgrade` the tables are back (empty: the data is not kept) and an order carries its values again.
+# INS12 only the companion disabled (the main module on): the checkout has no customer attribute sections, and a required customer
+#       attribute ticked for the checkout does not block the order (tests/ins12-companion-off.spec.ts).
 # (INS10, `module:uninstall -r`, changes composer.json and the lock file: it is not run here.)
 #
 # It changes app/etc/config.php and, for the compile, the generated code while it runs: the config file is copied first and put back byte
@@ -122,6 +124,21 @@ if wants ins9; then
         fi
     else
         bad "[INS9] setup:upgrade after enabling failed, see $work/ins9-upgrade-on.log"
+    fi
+    restore
+fi
+
+if wants ins12; then
+    echo "== INS12: companion disabled, main module on"
+    if e2e_magento module:disable MageOS_CustomerCustomAttributesHyvaCheckout >"$work/ins12-disable.log" 2>&1; then
+        e2e_magento cache:flush >/dev/null 2>&1
+        if E2E_COMPANION_OFF=1 "$e2e_here/run-all.sh" --only playwright -- tests/ins12-companion-off.spec.ts >"$work/ins12.log" 2>&1; then
+            ok "[INS12] with the companion off a required checkout customer attribute does not block the order"
+        else
+            bad "[INS12] the order with the companion off failed, see $work/ins12.log"
+        fi
+    else
+        bad "[INS12] disabling the companion failed, see $work/ins12-disable.log"
     fi
     restore
 fi

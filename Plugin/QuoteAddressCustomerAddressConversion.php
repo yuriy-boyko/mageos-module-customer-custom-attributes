@@ -51,9 +51,16 @@ class QuoteAddressCustomerAddressConversion
         QuoteAddress $result,
         CustomerAddressInterface $address
     ): QuoteAddress {
+        // Hyvä Checkout builds the data object of a saved address from the model's flat data when it picks the first saved address
+        // at checkout start; such an object has the values as plain keys, not as custom attributes.
+        $flat = method_exists($address, '__toArray') ? (array) $address->__toArray() : [];
         foreach (array_keys($this->attributeProvider->getUserDefined()) as $code) {
             $custom = $address->getCustomAttribute($code);
-            $result->setCustomAttribute($code, $custom !== null ? $custom->getValue() : null);
+            $value = $custom !== null ? $custom->getValue() : ($flat[$code] ?? null);
+            if (is_array($value)) {
+                $value = implode(',', array_map('strval', $value));
+            }
+            $result->setCustomAttribute($code, is_scalar($value) || $value === null ? $value : null);
         }
         return $result;
     }

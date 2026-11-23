@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import {
-    adminOrderIdle, benchCommand, chooseAdminPayment, chooseAdminShipping, chosenLabels, completeAdminOrder, createAttributes, customerEmail, deleteCreated,
-    deleteSavedAddresses, expect, fillCheckout, fillOrderValues, ITA_PRODUCT, openAdminOrder, openCheckoutAsGuest, orderField, placeOrder,
+    addAdminOrderProduct, adminOrderIdle, benchCommand, chooseAdminPayment, chooseAdminShipping, chosenLabels, completeAdminOrder, createAttributes, customerEmail, deleteCreated,
+    deleteSavedAddresses, expect, fillCheckout, fillOrderAddress, fillOrderValues, ITA_PRODUCT, requireSecondWebsite, openAdminOrder, openCheckoutAsGuest, orderField, placeOrder,
     placedOrderSnapshot, setAccountValues, snapshotOf, startAdminOrder, submitAdminOrder, test, chooseShippingAndPayment, uniqueEmail,
 } from './helpers';
 
@@ -134,6 +134,7 @@ test('AOC8: reorder of a guest order copies the address values', { tag: ['@AOC8'
 });
 
 test('AOC8: reorder of an Italy store order keeps the store and the values', { tag: ['@AOC8'] }, async ({ page, adminPage, magewire }) => {
+    requireSecondWebsite();
     await openCheckoutAsGuest(page, ITA_PRODUCT);
     await fillCheckout(page, magewire, { ...ITALY, email_address: uniqueEmail('reita'), e2e_a_text: 'italian address text' }, 'Roma');
     await chooseShippingAndPlace(page, magewire);
@@ -159,3 +160,24 @@ async function chooseShippingAndPlace(page: Page, magewire: Parameters<typeof ch
     await chooseShippingAndPayment(page, magewire);
     await placeOrder(page);
 }
+
+test('AOC12: reorder carries the customer attribute values of the order to Account Information', { tag: ['@AOC12'] }, async ({ adminPage: page }) => {
+    // e2e_c_order is in the admin order create form only: the customer account never has a value, only the order does
+    setAccountValues(email, { e2e_c_text: 'seed text', e2e_c_order: '' });
+    await startAdminOrder(page, email);
+    await addAdminOrderProduct(page, '24-MB04');
+    await fillOrderAddress(page, 'billing_address');
+    await fillOrderValues(page, 'billing_address', { e2e_a_req: 'required text', e2e_a_rdep: 'required dep' });
+    await fillOrderValues(page, 'account', { e2e_c_order: 'from the first order' });
+    await chooseAdminShipping(page);
+    await chooseAdminPayment(page);
+    const first = await submitAdminOrder(page);
+    expect(snapshotOf(first.incrementId).customer.e2e_c_order).toMatchObject({ value: 'from the first order' });
+    setAccountValues(email, { e2e_c_order: '' });
+
+    await openAdminOrder(page, first.incrementId);
+    await reorder(page);
+    await expect(orderField(page, 'account', 'e2e_c_order'), 'shown from the old order').toHaveValue('from the first order');
+    const second = await placeReorder(page);
+    expect(snapshotOf(second.incrementId).customer.e2e_c_order, 'on the new order').toMatchObject({ value: 'from the first order' });
+});

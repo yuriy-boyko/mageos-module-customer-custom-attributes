@@ -1,4 +1,4 @@
-import { completeAdminOrder, customerEmail, deleteSavedAddresses, expect, openAdminOrder, openOrderAddressEdit, setAccountValues, snapshotOf, startAdminOrder, test } from './helpers';
+import { addAdminOrderProduct, chooseAdminPayment, chooseAdminShipping, completeAdminOrder, fillOrderAddress, fillOrderValues, customerEmail, deleteSavedAddresses, expect, openAdminOrder, openOrderAddressEdit, setAccountValues, snapshotOf, startAdminOrder, submitAdminOrder, test } from './helpers';
 
 /**
  * VAL4 (browser): Edit Order Address in the admin with a value that breaks a rule (e2e_a_len: text of 3 to 6 characters). The form
@@ -50,4 +50,45 @@ test('VAL4: Edit Order Address refuses an invalid value, in the browser and on t
     await expect(page.locator('.message-success')).toBeVisible();
     expect(snapshotOf(incrementId).billing.e2e_a_len).toMatchObject({ value: 'fixed' });
     expect(snapshotOf(incrementId).shipping.e2e_a_len, 'the shipping address keeps its value').toMatchObject({ value: 'okay' });
+});
+
+test('VAL9: Edit Order Address does not require an attribute its rule hides (server)', { tag: ['@VAL9'] }, async ({ adminPage: page }) => {
+    setAccountValues(email, { e2e_c_text: 'seed text' });
+    await startAdminOrder(page, email);
+    const { incrementId } = await completeAdminOrder(page, { e2e_a_len: 'okay' });
+
+    // e2e_a_rdep is required but hidden by its rule (e2e_a_rsel is not "Show"): saved empty, with the browser check of the admin form
+    // bypassed (the admin form applies no rules in the browser)
+    await openOrderAddressEdit(page, 'billing');
+    await page.locator('#e2e_a_rdep').fill('');
+    await page.locator('#e2e_a_len').fill('fine');
+    await page.evaluate(() => {
+        const form = document.querySelector('#edit_form') as HTMLFormElement;
+        form.noValidate = true;
+        form.submit();
+    });
+    await page.waitForLoadState('load');
+    await expect(page.locator('.message-success')).toBeVisible();
+    expect(snapshotOf(incrementId).billing.e2e_a_len).toMatchObject({ value: 'fine' });
+    expect(snapshotOf(incrementId).billing.e2e_a_rdep, 'no value for the hidden attribute').toBeUndefined();
+});
+
+test('VAL9: admin order create does not require an attribute its rule hides (server)', { tag: ['@VAL9'] }, async ({ adminPage: page }) => {
+    setAccountValues(email, { e2e_c_text: 'seed text' });
+    await startAdminOrder(page, email);
+    await addAdminOrderProduct(page, '24-MB04');
+    await fillOrderAddress(page, 'billing_address');
+    await fillOrderValues(page, 'billing_address', { e2e_a_req: 'required text' });
+    await chooseAdminShipping(page);
+    await chooseAdminPayment(page);
+    // e2e_a_rdep is required, hidden by its rule (e2e_a_rsel is not "Show") and left empty; the admin form's own check is taken off
+    // last, after the blocks have reloaded
+    await page.locator('#order-billing_address_e2e_a_rdep').evaluate((element: HTMLInputElement) => {
+        element.value = '';
+        element.required = false;
+        element.classList.remove('required-entry', '_required');
+    });
+    const { incrementId } = await submitAdminOrder(page);
+    expect(snapshotOf(incrementId).billing.e2e_a_req).toMatchObject({ value: 'required text' });
+    expect(snapshotOf(incrementId).billing.e2e_a_rdep, 'no value for the hidden attribute').toBeUndefined();
 });

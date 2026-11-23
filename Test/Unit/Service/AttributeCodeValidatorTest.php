@@ -47,4 +47,14 @@ class AttributeCodeValidatorTest extends TestCase
         self::assertNull($validator->validate(str_repeat("a", 60), 60));
         self::assertNotNull($validator->validate(str_repeat("a", 61), 60));
     }
+
+    public function testPrefixedColumnCodes(): void
+    {
+        $columns = ['entity_id', 'customer_note', 'customer_note_notify', 'customer_is_guest', 'customer_comment', 'customer_', 'grand_total'];
+        self::assertSame(
+            ['note', 'note_notify', 'is_guest', 'comment'],
+            AttributeCodeValidator::prefixedColumnCodes($columns, 'customer_')
+        );
+        self::assertSame([], AttributeCodeValidator::prefixedColumnCodes($columns, ''));
+    }
 }

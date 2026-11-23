@@ -17,7 +17,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
  *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
  *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
- *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_; any entity), no error when absent
+ *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_, or it has the label "ADM reserved column" of the ADM11 reserved-code test; any entity), no error when absent
  *   php dev/e2e/fixtures.php set-attribute <code> <required=0|1> <forms=a,b,...>  change whether a fixture attribute is required and the forms it is in
  *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
  *   php dev/e2e/fixtures.php set-address <email> [--add] <code=value>...   give a customer one saved address (`--add` adds a second one, not a default, and keeps the first) (default billing and shipping) with these custom address values (select: option label, several: a|b, date: YYYY-MM-DD); `--delete` instead of the pairs removes all saved addresses
@@ -25,6 +25,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php set-website <code> <website_id> [enabled=0|1|-] [required=0|1|-] [default=text|-]   the per-website override of a fixture attribute (`-` = use the default of the attribute)
  *   php dev/e2e/fixtures.php create-customer <email> <website_id>   a customer on that website (E2E_CUSTOMER_PASSWORD is the password); purge deletes it when the e-mail contains e2e
  *   php dev/e2e/fixtures.php bulk-attributes <n>   create n address attributes e2e_bulk_01... (every third a dropdown with 3 options) in all storefront address forms (ROB3); bulk-addresses <email> <n> gives a customer n saved addresses with values for them; bulk-clean deletes them and the addresses
+ *   php dev/e2e/fixtures.php add-form <code> <form>   assign an attribute a test created (code starts with e2e_) to a form this module does not offer, like another module would (ADM18)
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
  *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
  *
@@ -55,7 +56,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -352,13 +353,15 @@ if ($command === 'create-attributes') {
 
 if ($command === 'delete-created') {
     $code = (string) ($argv[2] ?? '');
-    if (!str_starts_with($code, 'e2e_')) {
-        fwrite(STDERR, "Only attributes with a code starting with e2e_ are deleted.\n");
-        exit(2);
-    }
+    // ADM11 tries codes that must be refused (note, comment ...); when a broken build accepts one, the attribute it created carries the
+    // test's label and is removed by that label, never by the code alone
+    $reservedTest = !str_starts_with($code, 'e2e_');
     $deleted = 0;
     foreach (['customer', 'customer_address'] as $entity) {
         $attribute = $findAttribute($entity === 'customer' ? 'customer' : 'address', $code);
+        if ($reservedTest && ($attribute === null || !$attribute->getIsUserDefined() || $attribute->getFrontendLabel() !== 'ADM reserved column')) {
+            continue;
+        }
         if ($attribute !== null && $attribute->getId()) {
             $attribute->delete();
             $deleted++;
@@ -878,6 +881,26 @@ if ($command === 'set-customer-group') {
         ['entity_id = ?' => (int) $customer->getId()]
     );
     echo "set      customer group of $email to $groupId\n";
+    exit(0);
+}
+
+if ($command === 'add-form') {
+    // ADM18: a form row written by another module (the attribute screens do not offer the form); removed with the attribute
+    $code = (string) ($argv[2] ?? '');
+    $form = (string) ($argv[3] ?? '');
+    $resource = $objectManager->get(ResourceConnection::class);
+    $connection = $resource->getConnection();
+    $attributeId = (int) $connection->fetchOne(
+        'SELECT a.attribute_id FROM ' . $resource->getTableName('eav_attribute') . ' a JOIN ' . $resource->getTableName('eav_entity_type')
+        . " t ON t.entity_type_id = a.entity_type_id WHERE a.attribute_code = ? AND t.entity_type_code IN ('customer', 'customer_address')",
+        [$code]
+    );
+    if (!str_starts_with($code, 'e2e_') || $attributeId === 0 || preg_match('/^[a-z0-9_]+$/', $form) !== 1) {
+        fwrite(STDERR, "Usage: add-form <e2e_ code> <form code>\n");
+        exit(2);
+    }
+    $connection->insertOnDuplicate($resource->getTableName('customer_form_attribute'), ['form_code' => $form, 'attribute_id' => $attributeId], ['form_code']);
+    echo "assigned $code to $form\n";
     exit(0);
 }
 

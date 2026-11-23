@@ -1,5 +1,5 @@
 import {
-    chooseShippingAndPayment, expect, field, fillCheckout, ITA_PRODUCT, openAdminOrder, openCheckoutAsGuest, orderViewAddresses, placeOrder,
+    chooseShippingAndPayment, expect, field, fillCheckout, ITA_PRODUCT, requireSecondWebsite, openAdminOrder, openCheckoutAsGuest, orderViewAddresses, placeOrder,
     placedOrderSnapshot, quoteValues, requireFixtures, test, useVariant, variantTag, walkSteps, pickRadio,
 } from './helpers';
 
@@ -10,6 +10,7 @@ import {
 const DATE = '2026-08-08';
 
 test('CHK14: a date typed in the Italy store is stored as typed and shown correctly', { tag: ['@CHK14'] }, async ({ page, magewire, adminPage }) => {
+    requireSecondWebsite();
     await openCheckoutAsGuest(page, ITA_PRODUCT);
     await requireFixtures(page, ['e2e_a_date', 'e2e_c_date']);
     await fillCheckout(page, magewire, { postcode: '00100', city: 'Roma', telephone: '0612345678', e2e_a_date: DATE, e2e_c_date: DATE }, 'Roma');

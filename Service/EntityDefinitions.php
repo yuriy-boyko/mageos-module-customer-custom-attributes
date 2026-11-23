@@ -91,18 +91,27 @@ class EntityDefinitions
 
     /**
      * Admin forms an attribute always belongs to, merged with the forms the admin picked. Unknown form codes are
-     * dropped, so a tampered request cannot assign an attribute to arbitrary forms.
+     * dropped, so a tampered request cannot assign an attribute to arbitrary forms. The stored forms that this module does not
+     * offer (assigned by core or another module) are kept.
      *
      * @param string[] $selected
+     * @param string[] $stored the forms the attribute has now (empty for a new attribute)
      * @return string[]
      */
-    public function resolveForms(?string $key, array $selected): array
+    public function resolveForms(?string $key, array $selected, array $stored = []): array
     {
         $definition = $this->get($key);
         $allowed = array_keys($definition['optional_forms']);
         $forms = $definition['mandatory_forms'];
         foreach ($selected as $form) {
             if (is_string($form) && in_array($form, $allowed, true) && !in_array($form, $forms, true)) {
+                $forms[] = $form;
+            }
+        }
+        // Forms this module does not offer (core forms such as checkout_register, forms of other modules) are not on the screen:
+        // keep their assignment, since saving the attribute rewrites all of its form rows.
+        foreach ($stored as $form) {
+            if (is_string($form) && $form !== '' && !in_array($form, $allowed, true) && !in_array($form, $forms, true)) {
                 $forms[] = $form;
             }
         }

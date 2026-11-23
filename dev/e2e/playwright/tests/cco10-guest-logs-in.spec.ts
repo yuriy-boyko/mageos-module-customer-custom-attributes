@@ -3,7 +3,8 @@ import { customerEmail, dropQuotes, expect, field, loginAs, openCheckoutAsGuest,
 /**
  * CCO10: a guest types values and then signs in during the checkout.
  *  - a customer without an active cart gets the guest cart: the typed values are kept, and the prefill only fills the fields that are empty;
- *  - a customer with an active cart keeps that cart: its values win and the guest's typed values go with the guest cart.
+ *  - a customer with an active cart keeps that cart: its values win; a value the guest typed for an attribute that cart has no value
+ *    for is carried over (the items are merged by core, the values by the module).
  * The account has e2e_c_date, e2e_c_below and e2e_c_sel (prefill on) and e2e_c_text (prefill off).
  */
 const account = { e2e_c_text: 'account text', e2e_c_below: 'account below', e2e_c_sel: 'Gold', e2e_c_date: '2026-05-17' };
@@ -34,7 +35,7 @@ test('a customer without an active cart keeps what the guest typed; empty fields
     await expect(optionOf(page, 'e2e_c_sel', 'radio', 'Gold')).toBeChecked();
 });
 
-test('a customer with an active cart keeps that cart and its values', { tag: ['@CCO10', '@CHK19'] }, async ({ page, magewire, customerPage, customerMagewire }) => {
+test('a customer with an active cart keeps that cart and its values; the guest fills the empty ones', { tag: ['@CCO10', '@CHK19'] }, async ({ page, magewire, customerPage, customerMagewire }) => {
     // the customer's own cart, with its own values
     await openCheckoutAsGuest(customerPage);
     await field(customerPage, 'e2e_c_text').fill('customer cart text');
@@ -52,6 +53,10 @@ test('a customer with an active cart keeps that cart and its values', { tag: ['@
     await field(page, 'e2e_c_date').fill('2027-01-01');
     await field(page, 'e2e_c_date').press('Tab');
     await magewire.idle();
+    // an attribute the customer's cart has no value for
+    await field(page, 'e2e_c_order').fill('guest only');
+    await field(page, 'e2e_c_order').press('Tab');
+    await magewire.idle();
 
     await loginAs(page, customerEmail());
     await page.goto('/checkout/');
@@ -59,4 +64,5 @@ test('a customer with an active cart keeps that cart and its values', { tag: ['@
 
     await expect(field(page, 'e2e_c_text')).toHaveValue('customer cart text');
     await expect(field(page, 'e2e_c_date')).toHaveValue('2028-03-03');
+    await expect(field(page, 'e2e_c_order'), 'the guest value fills the empty field of the customer cart').toHaveValue('guest only');
 });

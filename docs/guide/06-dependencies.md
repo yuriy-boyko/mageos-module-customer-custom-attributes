@@ -25,11 +25,11 @@ checkout the group of the quote is used (0 for guests).
 
 | Place | Behaviour |
 |---|---|
-| Hyvä account forms (customer and address) | the field is hidden and disabled; a dependent field appears for its option |
+| Hyvä account forms (customer and address) | the field is hidden and disabled; a dependent field appears for its option. A value posted for a hidden field anyway is not saved (the stored value stays) |
 | Hyvä Checkout address forms | dependent fields show and hide **instantly** as the customer changes the parent; the server also clears hidden values. A group-restricted field is not rendered |
 | Checkout sections for customer attributes | same, also when parent and dependent are in different sections or on different steps |
 | Order placement (server) | hidden attributes are not required and their values are not kept on the order, whatever way the values arrived (browser, REST, admin) |
-| Admin forms | always show every attribute |
+| Admin forms | always show every attribute; a required attribute hidden by a rule or the order's customer group is not required by the server (Edit Order Address, order create), and Edit Order Address removes its value. The admin form applies no rules in the browser, so its own check still asks for such a field |
 
 When a parent is on another step of a multi-step checkout, the field keeps the state the server rendered.
 

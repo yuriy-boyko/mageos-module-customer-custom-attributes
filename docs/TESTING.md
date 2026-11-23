@@ -14,7 +14,15 @@ PHPUnit is installed outside the module (`CCA_DEV_VENDOR`, default `/tmp/mageos-
 ever sits inside the module (`setup:di:compile` scans the module folder and would try to compile it). Set `PHP_OPTS` to pass
 extra flags to the PHP syntax check (for example `PHP_OPTS=-n` when `php -l` crashes with your ini files).
 
-Rules for new code: put logic into pure classes in `Service/` and cover it with a unit test; keep Magento adapters thin.
+The plugins and observers that carry logic have adapter tests in `Test/Magento`: they mock Magento classes, so they run inside a
+Magento install with its PHPUnit, from the Magento root (CI runs them in its Mage-OS job):
+
+```bash
+vendor/bin/phpunit -c <module path>/phpunit.magento.xml.dist
+```
+
+Rules for new code: put logic into pure classes in `Service/` and cover it with a unit test; keep Magento adapters thin, and give an
+adapter with a decision in it (what is dropped, kept or required) an adapter test.
 
 ## 2. Static checks (inside a Magento install)
 
@@ -120,6 +128,8 @@ browser, a second store or a card flow, ❌ fails. After each checkout case run 
 | INS9 | `module:disable` + `setup:upgrade`: storefront, checkout and admin order view still work; re-enable keeps the data | pages work, an order can be placed; **the module tables are dropped by `setup:upgrade` and come back empty** (Magento's declarative schema), documented in the guide | ✅ works, ⚠ data is not kept · automated: `dev/e2e/check-modules.sh` (on demand; checks the tables are dropped, an order is placed and the admin order view opens with the module off, the tables come back empty and an order carries its values again) |
 | INS10 | Disable the modules, `module:uninstall -r` | seven tables and the two form assignments removed, registry and Composer entries removed; EAV attributes stay | ✅ |
 | INS11 | Static content deploy and Hyvä Tailwind build | no errors | ✅ checked by `dev/e2e/check-deploy.sh` (run on demand, not part of run-all): `hyva:config:generate` lists the module and its companion, `npm run build` in the theme succeeds, the 14 Tailwind-looking classes of the templates have a rule in the compiled stylesheet (an empty stylesheet fails the same check), `setup:static-content:deploy -f` for the storefront theme and the admin theme succeeds without errors and deploys the compiled stylesheet; the files it touches are put back |
+| INS12 | Companion module disabled, main module on | no customer attribute sections; a required checkout customer attribute does not block the order | ✅ automated: `dev/e2e/check-modules.sh --only ins12` (on demand; changes app/etc/config.php while it runs and restores it byte for byte) |
+| INS13 | Hyvä Checkout 3.x (3.0.2, with and without `Hyva_CheckoutV1bc`) | rules, customer sections, notice and address text work as on 1.3; no deprecated-hook warnings from the companion | ✅ checked once in a test store on 3.0.2 (all browser specs, one-page, multi-step and mobile; the checkout specs also with v1bc disabled); not part of `run-all.sh`, which runs against the installed Checkout version. The specs touched by the 3.x fixes pass on 1.3.15 as well |
 
 ### REG. Attribute registration
 | ID | Test | Expected | Status |
@@ -128,7 +138,7 @@ browser, a second store or a card flow, ❌ fails. After each checkout case run 
 | REG2 | Create the test attributes | providers list all of them; the quote address attribute list contains them | ✅ · automated: playwright/tests/reg-cus-book.spec.ts |
 | REG3 | Delete an attribute | gone from the lists; quote rows cascade away | ✅ · automated: playwright/tests/reg-cus-book.spec.ts |
 | REG4 | System attributes (firstname, street, …) | never picked up | ✅ automated: playwright/tests/reg4-system-attributes.spec.ts (the codes the module works with are exactly the user defined attributes of the two entities; no system code among them) |
-| REG5 | Attribute not assigned to any form | not shown; submitted values still work | ✅ automated: api.php, playwright/tests/reg5-attribute-without-form.spec.ts |
+| REG5 | Attribute not assigned to any form | not shown; a value sent through REST is dropped from the order | ✅ automated: api.php, playwright/tests/reg5-attribute-without-form.spec.ts |
 
 ### CHK. Hyvä Checkout: values reach the quote address
 Main run on the one-page variant. Cases marked ★ are repeated on the other variants (manual).
@@ -155,6 +165,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | CHK18 | Old quote created before the attributes existed | no errors | ✅ register page and checkout (typing, Magewire calls 200): no console errors; admin shows only core's ViewTransition warning · automated: playwright/tests/chk18-old-quote.spec.ts (a guest cart with an address, then a new address attribute and a new customer attribute for the checkout are created: the reloaded checkout shows the empty new fields without script errors, CSP violations or failed Magewire calls, keeps the old values, takes the new ones and the order carries all of them) |
 | CHK19 | Guest cart merged into the customer cart at login | customer cart keeps its values, nothing orphaned | ✅ (the guest cart's typed values go with the guest cart when the customer already has an active cart) · automated: playwright/tests/cco10-guest-logs-in.spec.ts |
 | CHK20 | Default (multi-step) and mobile checkout variants, second store view | same results as the one-page run | ✅ automated in parts: dep11-variants-guest-store.spec.ts, rad8-address-groups-checkout.spec.ts, cco2-positions.spec.ts, smoke-variants.spec.ts, sav-saved-address-notice.spec.ts, chk-values.spec.ts (multi-step and mobile: sections per step, rules, groups, order values, saved address notice, the value cases CHK4/CHK6/CHK7; Italy store: DEP11, CHK14, WEB) |
+| CHK21 | Saved address with a value for an attribute in no storefront form, or disabled for the website | the value reaches neither the quote nor the order | ✅ automated: playwright/tests/chk21-values-outside-checkout.spec.ts |
 
 ### ORD. Order address snapshot
 | ID | Test | Expected | Status |
@@ -187,6 +198,8 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | SNAP6 | Delete the order | order rows cascade away | ✅ · automated: assertions.php |
 | SNAP7 | Delete the quote | quote rows cascade away | ✅ · automated: playwright/tests/snap-order-snapshots.spec.ts |
 | SNAP8 | Save a quote address twice with identical values | second save writes nothing | ✅ automated: playwright/tests/snap-ord-guards.spec.ts |
+| SNAP9 | Order of a store view with its own option labels, placed or edited in the admin | the snapshot has the store view's option label, like the attribute label | ✅ adapter test Test/Magento/Model/OptionLabelsTest (found and fixed: the admin wrote the admin option label) |
+| SNAP10 | Saved address chosen by Hyvä Checkout at checkout start (no default address) | its values reach the quote | ✅ in the test store the values were kept already; the plugin also reads the flat values of the address object Hyvä builds (adapter test Test/Magento/Plugin/QuoteAddressCustomerAddressConversionTest) |
 
 ### ADM. Admin attribute screens
 | ID | Test | Expected | Status |
@@ -201,13 +214,15 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | ADM8 | Manage Labels per store view | `eav_attribute_label` rows | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
 | ADM9 | Storefront Properties: forms, status, sort order | updated | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
 | ADM10 | Delete with confirmation | deleted, message | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
-| ADM11 | Validation: duplicate, reserved, malformed code, missing label, unsupported type, min > max, dropdown without options | clear message each | ✅ automated: playwright/tests/adm-attribute-validation.spec.ts |
+| ADM11 | Validation: duplicate, reserved (also codes that become a `customer_*` column of the quote or the order: note, comment, is_guest …), malformed code, missing label, unsupported type, min > max, dropdown without options | clear message each | ✅ automated: playwright/tests/adm-attribute-validation.spec.ts |
 | ADM12 | Failed save keeps the entered data | yes | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
 | ADM13 | URL tampering (`entity=foo`, id of another area, system attribute) | refused or fallback | ✅ automated: playwright/tests/adm-attribute-validation.spec.ts |
 | ADM14 | Code length limits (51 customer, 60 address) | enforced | ✅ automated: playwright/tests/adm-attribute-edit.spec.ts |
 | ADM15 | Mass enable, disable, delete (address grid) | messages, grid updated | ✅ automated: playwright/tests/adm-attribute-lifecycle.spec.ts |
 | ADM16 | Mass actions on the customer grid; Select All with a filter; nothing selected; system id posted by hand | filtered rows only; "Please select attributes."; skipped | ✅ automated: playwright/tests/adm-grid.spec.ts |
 | ADM17 | Attribute shown in the admin customer and address edit forms | field present | ✅ automated: playwright/tests/adm-entity-forms.spec.ts |
+| ADM18 | Form assignment written by core or another module, then the attribute saved | kept | ✅ automated: playwright/tests/adm18-save-guards.spec.ts |
+| ADM19 | Option ids of another attribute posted with the attribute form | refused, the other attribute unchanged | ✅ automated: playwright/tests/adm18-save-guards.spec.ts |
 
 ### ACL. Permissions
 | ID | Test | Expected | Status |
@@ -230,12 +245,14 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | DSP7 | Order emails, real PDF files, credit memo page | lines after the address | ✅ · automated: playwright/tests/dsp7-emails-and-pdf.spec.ts (the order, invoice, shipment and credit memo e-mails are read from the bench mail catcher; the invoice, shipment and credit memo PDF files are downloaded from the admin and their text is read; the credit memo page is checked). Found and fixed: the order e-mail of a checkout order lacked the lines |
 | DSP8 | Account address form: saved values, required block, rules (email, length, numeric, date range), new address defaults, server error keeps values | works with Hyvä styling | ✅ · automated: playwright/tests/dsp8-account-address-form.spec.ts |
 | DSP9 | Tailwind build includes the module's templates | classes present | ✅ · automated: `dev/e2e/check-deploy.sh` (the Tailwind classes of the templates have a rule in the compiled stylesheet) |
+| DSP10 | Address text in Hyvä Checkout's own address formats (`hyva_checkout_shipping`, `hyva_checkout_billing`) | escaped, one line per attribute | ✅ automated: playwright/tests/dsp-address-text.spec.ts, unit tests (found and fixed: these formats got unescaped text lines) |
 
 ### API. Extension attributes
 | ID | Test | Expected | Status |
 |---|---|---|---|
 | API1 | Order get, getList, shipping assignments, order address repository | `custom_attribute_values` and `customer_attribute_values` present | ✅ · automated: api.php (order get, order list, shipping assignment and order address repository carry the same values) |
 | API2 | Real REST call with an admin token | same data | ✅ `GET /V1/orders/:id` and `GET /V1/orders` (searchCriteria) with an admin token return `customer_attribute_values` and, on the billing and shipping assignment addresses, `custom_attribute_values` (code, label, input type, value, value label; the date label was a full timestamp, now "YYYY-MM-DD" for new orders); a guest order has no customer values; the order address repository has no REST route · automated: api.php |
+| API3 | Order address read through REST and sent back unchanged; `OrderAddressRepositoryInterface::getList()` | accepted, snapshot unchanged; the list carries the values | ✅ automated: api.php (found and fixed: HTTP 400 because the value objects had no setters; a TypeError in getList) |
 
 ### CUS. Customer attributes
 | ID | Test | Expected | Status |
@@ -267,6 +284,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | AOC9 | Other store view locale, date parsing | correct | ✅ automated: playwright/tests/aoc9-italy-store-view.spec.ts (admin order for the Italy store view with an Italian address: `5/6/2026` is 6 May, values on the order, shown in the admin view) |
 | AOC10 | Required address attribute empty | admin validation message | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
 | AOC11 | Admin forms with attributes shown as radio/checkbox or hidden by rules | keep the dropdown/list, show every attribute | ✅ automated: playwright/tests/aoc-admin-order-more.spec.ts |
+| AOC12 | Reorder (and Edit Order) of an order with customer attribute values | the values are in "Account Information" and on the new order | ✅ automated: playwright/tests/aoc8-reorder-more.spec.ts (found and fixed: only the address values were carried) |
 
 ### VAL. Server-side validation
 | ID | Test | Expected | Status |
@@ -279,6 +297,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | VAL6 | Required attribute only in the address book form | core blocks the checkout (the Hyvä Checkout form does not show it); the admin warns on the attribute's edit page; adding it to "Hyvä Checkout Address Forms" fixes it | ✅ automated: playwright/tests/val6-required-address-book-only.spec.ts |
 | VAL7 | Virtual cart: shipping values not validated | placed | ✅ automated: playwright/tests/val7-virtual-cart.spec.ts |
 | VAL8 | Multiselect with an unknown id | rejected | ✅ automated: api.php |
+| VAL9 | Admin Edit Order Address and order create with a required attribute hidden by its rule | not required by the server; its value is removed | ✅ automated (Edit Order Address and order create): playwright/tests/val4-edit-order-address.spec.ts (the admin form itself applies no rules in the browser and still asks for the field) |
 
 ### DEP. Dependencies and customer groups
 | ID | Test | Expected | Status |
@@ -299,6 +318,9 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | DEP14 | Account address form saved with a hidden required attribute | saves | ✅ (found and fixed: the account form did not send the hidden field and the plugin treated that as a value; `EavDataRequiredForHiddenAttribute` now handles `false`) · automated: playwright/tests/dep14-account-address-hidden-required.spec.ts |
 | DEP15 | Nested rules (A → B → C) | C only when A and B match | ✅ automated: playwright/tests/dep15-nested-rules.spec.ts (fails when the B to C rule is broken, checked) |
 | DEP16 | Parent option deleted later; attribute deleted | rule never matches; rules and group rows disappear | ✅ automated: playwright/tests/dep16-deleted-option-and-attribute.spec.ts |
+| DEP17 | A value posted for a field hidden by a rule or the customer group (account and address book forms) | not saved; the stored value stays | ✅ automated: playwright/tests/dep14-account-address-hidden-required.spec.ts (found and fixed: only the browser hid it) |
+| DEP18 | A dependent field hidden and shown again before the next update | its old value is not sent | ✅ automated: playwright/tests/dep10-new-address-parent-changes.spec.ts (found and fixed: the cleared field kept its value in Magewire) |
+| DEP19 | Browser rule scripts (account forms, checkout address forms) against `Service/VisibilityResolver` | the same fields shown for every case (nested rules, multiple select parent, two rules, group restriction, circle) | ✅ automated: playwright/tests/dep19-browser-rules-agree.spec.ts with the cases of dev/e2e/rule-cases.json (fails when a script drifts, checked) |
 
 ### RAD. Radio buttons and checkboxes
 | ID | Test | Expected | Status |
@@ -312,6 +334,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | RAD7 | Customer attributes as groups in registration and account edit | render and save | ✅ automated: playwright/tests/cus8-account-forms.spec.ts |
 | RAD8 | Other checkout variants, hand-typed address, billing form | works | ✅ automated: playwright/tests/rad8-address-groups-checkout.spec.ts (found and fixed: a checkbox group of an address attribute sent a single true instead of the ticked options, so every order with a ticked box was refused with "has an invalid value"; its starting value is now a list) |
 | RAD9 | Keyboard use and screen reader labels | usable | ✅ keyboard and accessible names automated: playwright/tests/rad9-keyboard-accessibility.spec.ts (arrow keys, Space and Tab in the checkout and the account address form; radio buttons and checkboxes announced with their label; the group has a role and the label of the attribute as its name, added after this test showed it was missing). **Not automated**: what a real screen reader says |
+| RAD10 | Click on the label of a radio or checkbox group | selects no option | ✅ automated: playwright/tests/rad9-keyboard-accessibility.spec.ts (found and fixed: the label pointed at the first option) |
 
 ### REST. REST API
 | ID | Test | Expected | Status |
@@ -347,6 +370,7 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | SAV6 | Several missing fields, several addresses, different billing and shipping | one field named, several give a generic text, one notice each | ✅ · automated: playwright/tests/sav6-cco-more.spec.ts |
 | SAV7 | Default and mobile variants | notice in place | ✅ automated: playwright/tests/sav-saved-address-notice.spec.ts |
 | SAV8 | Return to the checkout in the same tab | updated after a reload only | ✅ known limitation, characterised: the open tab keeps the old notice until a reload · automated: playwright/tests/sav6-cco-more.spec.ts |
+| SAV9 | A required attribute in the checkout but not in the address book form | notice without a link, asks to type a new address; the place-order message says the same | ✅ automated: playwright/tests/sav-saved-address-notice.spec.ts; the admin warns about such an attribute |
 
 ### CCO. Customer attributes in the Hyvä Checkout
 Use customer attributes (text, dropdown as radio buttons, date) ticked for "Hyvä Checkout" in Show in Forms. The one-page, the
@@ -363,7 +387,7 @@ multi-step (default) and the mobile checkout were tested; the sections use the c
 | CCO7 | Required attribute empty | the order is blocked with "…is a required value." | ✅ · automated: playwright/tests/cco-guest-checkout.spec.ts |
 | CCO8 | Dependency rule across two positions (dropdown above shipping address shows the text below) | instant show and hide; hidden value dropped on the server; hidden required value does not block; order without it | ✅ · automated: playwright/tests/cco-guest-checkout.spec.ts |
 | CCO9 | Guest: fields shown, value saved on the guest quote, guest order | yes | ✅ (multi-step and mobile guest orders) · automated: playwright/tests/cco-guest-checkout.spec.ts |
-| CCO10 | Guest logs in after typing | customer without an active cart: typed values kept (prefill only fills empty ones); customer with an active cart: that cart and its values win | ✅ · automated: playwright/tests/cco10-guest-logs-in.spec.ts |
+| CCO10 | Guest logs in after typing | customer without an active cart: typed values kept (prefill only fills empty ones); customer with an active cart: that cart and its values win, the guest's values fill the attributes that cart has no value for | ✅ · automated: playwright/tests/cco10-guest-logs-in.spec.ts |
 | CCO22 | Required customer attribute placed at a shipping position, virtual-only cart | order not blocked | ✅ (found and fixed: shipping-position attributes are skipped for virtual carts) · automated: playwright/tests/val7-virtual-cart.spec.ts |
 | CCO11 | Customer group restriction hides the section for other groups | hidden | ✅ attributes limited to Wholesale: hidden for a General customer (the order has no value for them although the account holds one); a Wholesale customer sees them · automated: playwright/tests/sav6-cco-more.spec.ts |
 | CCO12 | Website scope (disabled or required for one website) | follows the website | ✅ website 2 only: attribute disabled (field absent on the Italy checkout), required (radio without "None", `required` set); main website unchanged; server-side required check on the Italy site not placed · automated: playwright/tests/web-scope.spec.ts |
@@ -394,6 +418,7 @@ multi-step (default) and the mobile checkout were tested; the sections use the c
 | ROB4 | Request count and time compared with the module disabled | small difference | ✅ measured with `dev/e2e/compare-module-off.sh` (module and companion disabled, then enabled; run on demand, not in run-all): first-party requests identical on every page (checkout 11/11, home 24/24, others 8/8); DOM ready: home +17 ms, registration +72, account edit +3, new address +99, guest checkout +878 ms (1633 → 2511; an earlier run +445 ms), which includes rendering the ~45 custom fields the module adds there. Second run (2026-11-16, now with a logged-in checkout, the admin order create page and time to first byte; developer mode, caches warm, 7 loads, first dropped): home +10 ms, registration -19, account edit -56, new address -25, guest checkout +42, logged-in checkout -19, admin order create -122; first byte on/off: guest checkout 825/748 ms, logged-in checkout 858/764 ms, others within 100 ms; first-party requests identical on all 7 pages. The differences are inside the run-to-run noise of the bench (the first run's +445 to +878 ms for the guest checkout did not repeat). Production mode (`dev/e2e/compare-production.sh`: `deploy:mode:set production`, the configuration compiled again without the module for the second run; module on/off, DOM ready): home +32 ms, registration +20, account edit -9, new address +38, guest checkout +143 (871 → 1014; first byte 691 → 856), logged-in checkout +139 (866 → 1005), admin order create +69; first-party requests identical (checkout 11/11, home 24/24, others 8/8, admin 170/171). **Not measured**: a cold cache, the cost per field (ROB3 covers the SQL statements per address) |
 | ROB5 | CSP: no inline `style`/`on*` attributes or unregistered inline scripts; checkout, account and registration forms, and the admin relation list/edit page, with the browser console open | no CSP violations, relation rows still open on click | ✅ automated: playwright/tests/rob-console-csp.spec.ts (raw server HTML of checkout, registration, login, account edit, address book, new address, order list, Italy pages: no `on*`/`style` on the module's elements and no nonce-less inline script of the module; no CSP violation on those pages and the admin screens) |
 | ROB6 | Database statements of the module per page (home, registration, account edit, new address, guest and logged-in checkout) | within the limits of the spec | ✅ measured with `dev/e2e/count-queries.sh` (Magento's query log with call stacks; a statement counts when module code is in its stack; on demand, not in run-all; changes app/etc/env.php while it runs and restores it byte for byte): home 0, registration 6, account edit 6, new address 13, guest checkout 15, logged-in checkout 16. Negative control: the code before the checkout query reduction gives 55 and 56 on the two checkout pages and fails |
+| ROB7 | Idle checkout with dependency rules, with and without the saved-address notice | the module's scripts do not change the page | ✅ automated: playwright/tests/rob7-idle-checkout.spec.ts (found and fixed: the visibility script and the notice rewrote classes and text on every pass and woke themselves up again, about 6,000 changes a second) |
 
 ## 6. Known gaps (by decision, not bugs)
 Multiline, file and image input types, GraphQL, an "Update my account" button for values typed in the checkout, per-option control of dependent

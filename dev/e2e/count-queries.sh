@@ -32,7 +32,10 @@ had_log=0
 had_dir=0; [ -d "$(dirname "$dblog")" ] && had_dir=1
 if [ -f "$dblog" ]; then cp -p "$dblog" "$work/db.log.backup"; had_log=1; fi
 
+relaxed=0
 restore() {
+    # foreign required customer attributes (not this module's fixtures) made optional for the run, as run-all.sh does
+    if [ "$relaxed" -eq 1 ]; then e2e_php preflight.php restore >/dev/null 2>&1 && relaxed=0; fi
     cp -p "$work/env.php.backup" "$envfile"
     if [ "$had_log" -eq 1 ]; then cp -p "$work/db.log.backup" "$dblog"; else rm -f "$dblog"; fi
     if [ "$had_dir" -eq 0 ]; then rmdir "$(dirname "$dblog")" 2>/dev/null || true; fi
@@ -43,6 +46,8 @@ trap restore EXIT
 echo "seeding the fixtures ..."
 "$e2e_here/run-all.sh" --only playwright --keep -- tests/rob6-query-count.spec.ts >"$work/seed.log" 2>&1 || true
 grep -q 'fixtures seeded' "$work/seed.log" || { echo "Seeding failed, see $work/seed.log" >&2; exit 2; }
+# run-all.sh put foreign required attributes back when it ended: the spec saves the fixture customer, so they are optional again
+if e2e_php preflight.php relax >"$work/relax.log" 2>&1; then relaxed=1; fi
 
 echo "switching the query log on ..."
 e2e_magento dev:query-log:enable --include-all-queries=true --include-call-stack=true >"$work/enable.log" 2>&1 \

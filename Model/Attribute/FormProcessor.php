@@ -10,10 +10,12 @@ namespace MageOS\CustomerCustomAttributes\Model\Attribute;
 use MageOS\CustomerCustomAttributes\Service\AttributeCodeValidator;
 use MageOS\CustomerCustomAttributes\Service\EntityDefinitions;
 use MageOS\CustomerCustomAttributes\Service\InputTypeMap;
+use MageOS\CustomerCustomAttributes\Service\OptionKeyGuard;
 use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Customer\Model\Attribute;
 use Magento\Eav\Model\Config as EavConfig;
 use Magento\Eav\Model\Entity\Attribute\SetFactory;
+use Magento\Eav\Model\ResourceModel\Entity\Attribute\Option\CollectionFactory as OptionCollectionFactory;
 use Magento\Framework\Filter\FilterManager;
 
 /**
@@ -29,7 +31,8 @@ class FormProcessor
         private readonly ReservedCodeProvider $reservedCodes,
         private readonly EavConfig $eavConfig,
         private readonly SetFactory $attributeSetFactory,
-        private readonly FilterManager $filterManager
+        private readonly FilterManager $filterManager,
+        private readonly OptionCollectionFactory $optionCollectionFactory
     ) {
     }
 
@@ -58,7 +61,10 @@ class FormProcessor
         $data['is_required'] = empty($post['is_required']) ? 0 : 1;
         $data['is_visible'] = array_key_exists('is_visible', $post) ? ((int) $post['is_visible'] ? 1 : 0) : 1;
         $data['sort_order'] = $this->prepareSortOrder($post['sort_order'] ?? 0, $errors);
-        $data['used_in_forms'] = $context->resolveForms((array) ($post['used_in_forms'] ?? []));
+        $data['used_in_forms'] = $context->resolveForms(
+            (array) ($post['used_in_forms'] ?? []),
+            $existing !== null ? array_values((array) $existing->getUsedInForms()) : []
+        );
 
         if ($this->inputTypes->isSupported($inputType)) {
             $rules = $this->rulesBuilder->build($inputType, $post);
@@ -70,6 +76,12 @@ class FormProcessor
             if ($this->inputTypes->usesOptions($inputType)) {
                 $options = is_array($post['option'] ?? null) ? $post['option'] : [];
                 $this->validateOptions($options, $errors);
+                $ownIds = $existing !== null && $existing->getId()
+                    ? $this->optionCollectionFactory->create()->setAttributeFilter((int) $existing->getId())->getAllIds()
+                    : [];
+                if (OptionKeyGuard::foreignIds($options, $ownIds) !== []) {
+                    $errors[] = (string) __('The options do not belong to this attribute. Reload the page and try again.');
+                }
                 $data['option'] = $options;
                 $data['default'] = is_array($post['default'] ?? null) ? $post['default'] : [];
             }

@@ -27,7 +27,9 @@ Send the values as `custom_attributes` on the shipping and billing address of th
 Formats: see [value formats](07-orders-and-data.md#value-formats). The values are stored on the quote address and copied to the order.
 Invalid values (too short, unknown option, missing required value, wrong type) make placing the order fail with a 400 error.
 Core wraps some validation messages into a generic text. Values of attributes hidden by a rule or customer group are dropped, as
-in the browser.
+in the browser. Only the attributes ticked for "Hyvä Checkout Address Forms" and enabled for the website are accepted: a value for
+any other attribute (one shown only in the admin or the address book, or disabled) is dropped when the order is placed, so a
+customer cannot set it. The same applies to the values a saved address brings along.
 
 Customer attributes have no cart endpoint: for a logged-in customer they are read from the customer account when the order is
 placed (attributes shown in the Hyvä Checkout come from the checkout form instead). A required checkout attribute does not block
@@ -36,7 +38,10 @@ REST orders.
 ## Customers
 
 `GET` and `PUT /V1/customers/me` read and update customer and address attributes as `custom_attributes`, like any attribute. The
-metadata endpoints list them with their input types, so `custom_attributes` follow the standard format.
+metadata endpoints list them with their input types, so `custom_attributes` follow the standard format. This is core behaviour and
+covers every user-defined attribute, also one shown in the admin forms only: a customer can set such a value through this endpoint.
+Keep values that only the merchant may set (an approval flag, a credit limit) out of customer and address attributes, or check them
+where they are used.
 
 ## Reading orders
 

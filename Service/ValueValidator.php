@@ -32,9 +32,9 @@ class ValueValidator
     public const MSG_OPTION = '"%1" has an invalid value.';
 
     private const PATTERNS = [
-        'numeric' => ['/^[0-9]+$/', self::MSG_NUMERIC],
-        'alpha' => ['/^[A-Za-z]+$/', self::MSG_ALPHA],
-        'alphanumeric' => ['/^[A-Za-z0-9]+$/', self::MSG_ALPHANUMERIC],
+        'numeric' => ['/^[0-9]+$/D', self::MSG_NUMERIC],
+        'alpha' => ['/^[A-Za-z]+$/D', self::MSG_ALPHA],
+        'alphanumeric' => ['/^[A-Za-z0-9]+$/D', self::MSG_ALPHANUMERIC],
     ];
 
     /**
@@ -103,7 +103,7 @@ class ValueValidator
      */
     private function validateDate(string $label, array $rules, string $value): array
     {
-        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?: \d{2}:\d{2}:\d{2})?$/', $value, $m) !== 1
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?: \d{2}:\d{2}:\d{2})?$/D', $value, $m) !== 1
             || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])
         ) {
             return [$this->error(self::MSG_DATE_FORMAT, $label)];

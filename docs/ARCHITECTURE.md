@@ -25,11 +25,12 @@ For contributors and AI coding tools. Read this before changing code; [TESTING.m
 
 | Package | Magento module | Contains |
 |---|---|---|
-| `mage-os/module-customer-custom-attributes` | `MageOS_CustomerCustomAttributes` | everything except the Hyvä Checkout form modifier |
-| `mage-os/module-customer-custom-attributes-hyva-checkout` | `MageOS_CustomerCustomAttributesHyvaCheckout` | `Model/AttributeVisibilityModifier` (implements Hyvä Checkout's form modifier interface) and its `etc/frontend/di.xml` registration |
+| `mage-os/module-customer-custom-attributes` | `MageOS_CustomerCustomAttributes` | everything except the code that implements or extends Hyvä Checkout classes |
+| `mage-os/module-customer-custom-attributes-hyva-checkout` | `MageOS_CustomerCustomAttributesHyvaCheckout` | `Model/AttributeVisibilityModifier` (extends Hyvä Checkout's form modifier class; `form:*:magewire` hooks, plus the bare 1.x hooks on Checkout 1.x only), the Magewire component `Magewire/CustomerAttributes` for the customer attribute sections, their layout `hyva_checkout_index_index.xml` and template, and the `etc/frontend/di.xml` registration |
 
-Both packages share one version number and are tagged together (the companion's `composer.json` requires the main package without
-a version constraint until the first tags exist; tighten it to the matching minor version, for example `^0.1`, afterwards).
+Both packages share one version number and are tagged together. The companion's `composer.json` requires Hyvä Checkout 1.3.15 or newer
+(the first version with `AddressAttributeFormFilter`; the same code serves 1.3 and 3.x, see the companion README) and the main package without a version constraint until the first tags exist;
+tighten that to the matching minor version, for example `^0.1`, afterwards.
 
 The split exists because `setup:di:compile` loads every class of every enabled module: a class that implements a Hyvä
 Checkout interface fatals on stores without Hyvä Checkout. Keep the main module free of references to `Hyva\Checkout\*`
@@ -49,7 +50,8 @@ Hyvä Checkout form / REST cart endpoint
 
 Customer (non-address) attributes: values stay on the customer (core EAV); when a logged-in customer places an order
 `Observer/QuoteSubmitBefore` + `OrderSaveAfter` write the snapshot to `mageos_cca_order_value`, `OrderLoadAfter` loads it.
-`mageos_cca_quote_value` is created but not used by storefront code yet (reserved for admin order create).
+`mageos_cca_quote_value` holds the customer attribute values typed in the Hyvä Checkout sections (`Model/Checkout/CustomerCheckoutAttributes`,
+`Model/ResourceModel/QuoteValueStorage`); they go to the order snapshot and never to the customer account.
 
 ## Map of the code
 
@@ -58,24 +60,24 @@ Customer (non-address) attributes: values stay on the customer (core EAV); when 
 | Admin attribute screens | `Controller/Adminhtml/Attribute*`, `Block/Adminhtml/Attribute/*` (grid, edit tabs Main/Front/Advanced/Websites), `Model/Attribute/{EntityContext,FormProcessor,ReservedCodeProvider}`, layouts `mageos_cca_attribute_*`. One controller set serves both entities, chosen by the `entity` request parameter (`customer` or `address`), with an ACL resource each (`etc/acl.xml`) |
 | Admin relations | `Controller/Adminhtml/Relation*`, `Block/Adminhtml/Relation/Relation`, templates `relation/{list,edit}.phtml`, `Model/ResourceModel/RelationStorage`, `Service/RelationValidator` |
 | Value persistence | `Model/ResourceModel/{QuoteAddressValueStorage,OrderAddressValueStorage,OrderValueStorage,AttributeGroupStorage,AttributeWebsiteStorage,RelationStorage}`, `Model/{AddressAttributeProvider,CustomerAttributeProvider}`, `Service/{ValueNormalizer,SnapshotRowBuilder,ValueLabelResolver}` |
-| Validation | `Service/ValueValidator` (rules), `Model/AddressValueValidator` (adapter), `Observer/ValidateQuoteAddresses` (before the order is created), `Plugin/OrderAddressSaveSubmittedValues` (admin order address edit) |
-| Dependencies and groups | `Service/VisibilityResolver` (shared by server and browser), `Model/Dependency/{RuleProvider,VisibilityService,RelationAttributes}`, `view/frontend/templates/form/visibility.phtml` (account forms), `hyva-checkout/visibility.phtml` (checkout) |
+| Validation | `Service/ValueValidator` (rules), `Model/AddressValueValidator` (adapter), `Observer/ValidateQuoteAddresses` (before the order is created; outside the admin it also drops attributes that are not in the checkout forms), `Plugin/QuoteAddressSaveValues` (keeps only those on a storefront quote address), `Plugin/OrderAddressSaveSubmittedValues` (admin order address edit, rules applied), `Plugin/MetadataFormRequiredForHiddenAttribute` (admin order create) |
+| Dependencies and groups | `Service/VisibilityResolver` (the server side; the browser scripts below repeat the same resolution in JavaScript and must stay in step with it), `Model/Dependency/{RuleProvider,VisibilityService,RelationAttributes}`, `view/frontend/templates/form/visibility.phtml` (account forms), `Plugin/StorefrontFormHiddenValues` (a posted hidden value is not saved, frontend `etc/frontend/di.xml`), `hyva-checkout/visibility.phtml` (checkout; writes classes only when they change, so its page observer does not wake itself up); the page gets only the restriction state of the customer's own group (`VisibilityResolver::restrictionsForGroup`) |
 | Per-website scope | `Block/Adminhtml/Attribute/Edit/Tab/Websites`, `Service/WebsiteScopeNormalizer`, `Model/ResourceModel/AttributeWebsiteStorage` writing core's `customer_eav_attribute_website` |
 | Display | `Plugin/AddressRendererCustomAttributes` + `Model/AddressText/*` + `Service/AddressText/AddressTextBuilder` |
 | Storefront forms | `ViewModel/FormAttributes`, `Service/FieldAttributeBuilder`, templates `address/`, `customer/`, `form/field.phtml` (radio and checkbox groups), layouts `hyva_customer_*` |
 | Hyvä Checkout | `Plugin/HyvaCheckoutAddressAttributeFilter`, `ViewModel/HyvaCheckoutVisibility`, `view/frontend/layout/hyva_checkout_*`, templates `hyva-checkout/*`, `Model/SavedAddressRequirements`, `Plugin/CustomerManagementSavedAddressMessage`; the form modifier is in the companion module |
-| Customer attributes in the checkout | `Service/CheckoutPositions`, `Model/Checkout/CustomerCheckoutAttributes` (fields per position, values, prefill, rules, validation), `Model/ResourceModel/QuoteValueStorage`, admin fields in `Block/Adminhtml/Attribute/Edit/Tab/Front`, `Observer/QuoteSubmitBefore` (order snapshot + validation); in the companion module `Magewire/CustomerAttributes` (one virtual type per position in `etc/frontend/di.xml`), `view/frontend/layout/hyva_checkout_index_index.xml` (one block per position in the one-page containers) and `checkout/customer-attributes.phtml`; the field markup is the main module's `form/field.phtml` bound with `wire:model.lazy`; instant show/hide in `hyva-checkout/visibility.phtml` |
+| Customer attributes in the checkout | `Service/CheckoutPositions`, `Model/Checkout/CustomerCheckoutAttributes` (fields per position, values, prefill, rules, validation), `Model/ResourceModel/QuoteValueStorage`, admin fields in `Block/Adminhtml/Attribute/Edit/Tab/Front`, `Observer/QuoteSubmitBefore` (order snapshot + validation, only with the companion enabled), `Observer/QuoteMergeCustomerValues` (guest values fill the empty ones of the customer's cart on login); in the companion module `Magewire/CustomerAttributes` (one virtual type per position in `etc/frontend/di.xml`), `view/frontend/layout/hyva_checkout_index_index.xml` (one block per position in Hyvä Checkout's shared component containers, which every checkout type moves into its steps) and `checkout/customer-attributes.phtml`; the field markup is the main module's `form/field.phtml` bound with `wire:model.lazy`; instant show/hide in `hyva-checkout/visibility.phtml` |
 | Admin order create / edit / reorder | `Plugin/AdminOrder*`, `Plugin/AdminOrderCreateAddressFormValues`, `Plugin/QuoteAddressSaveValues`, `Model/QuoteAddressValueReader`; reorder: `Plugin/AdminOrderReorderAddressValues` (after `Create::initFromOrder`, core copies the addresses with a fieldset of standard fields only) + `Service/ReorderValues` |
 | API | `etc/extension_attributes.xml`, `Api/Data/AddressAttributeValueInterface`, `Plugin/OrderAddressExtensionAttributes` (`custom_attribute_values` on order addresses, `customer_attribute_values` on orders) |
 | Hyvä Tailwind | `Observer/RegisterModuleForHyvaConfig` on `hyva_config_generate_before` (adds the module to `app/etc/hyva-themes.json`) |
-| Install/uninstall | `etc/db_schema.xml`, `Setup/InstallSchema` (empty, only registers the module in `setup_module` so that `module:uninstall` finds `Setup/Uninstall`), `Setup/Uninstall` |
+| Install/uninstall | `etc/db_schema.xml`, `Setup/Uninstall` (Magento records the module in `setup_module` because `etc/module.xml` has a `setup_version`, so `module:uninstall` finds it) |
 
 ### Tables
 
 | Table | Key | Notes |
 |---|---|---|
 | `mageos_cca_quote_address_value` | quote address + attribute id | FK to `quote_address` and `eav_attribute`, cascade (checkout connection) |
-| `mageos_cca_quote_value` | quote + attribute id | customer attributes, reserved |
+| `mageos_cca_quote_value` | quote + attribute id | customer attribute values typed in the checkout sections |
 | `mageos_cca_order_address_value` | order address + attribute code | snapshot, FK to `sales_order_address` only (sales connection) |
 | `mageos_cca_order_value` | order + attribute code | snapshot of customer attributes, FK to `sales_order` only |
 | `mageos_cca_relation`, `mageos_cca_relation_detail` | relation; parent attribute + option + dependent attribute | dependency rules, FK cascade to the attributes |

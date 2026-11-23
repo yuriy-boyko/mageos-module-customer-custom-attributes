@@ -13,8 +13,9 @@ Magento and Hyvä behaviours the code depends on), [docs/TESTING.md](docs/TESTIN
 - Logic goes into pure classes in `Service/` with a unit test in `Test/Unit/`; Magento adapters stay thin.
 - Schema only through `etc/db_schema.xml`; regenerate `etc/db_schema_whitelist.json` after every change. Order tables are snapshots
   with no foreign key to `eav_attribute`.
-- Never reference `Hyva\Checkout\*` classes from this module (they belong to the companion module
-  `mage-os/module-customer-custom-attributes-hyva-checkout`), or `setup:di:compile` breaks on stores without Hyvä Checkout.
+- Never import, extend or implement `Hyva\Checkout\*` classes in this module's PHP (they belong to the companion module
+  `mage-os/module-customer-custom-attributes-hyva-checkout`), or `setup:di:compile` breaks on stores without Hyvä Checkout. A plugin
+  on a Hyvä class declared in `etc/di.xml` is fine, as long as the plugin class does not type-hint Hyvä classes (see ARCHITECTURE.md).
 - The companion package has the same version as this module: bump and tag both together, and keep both changelogs in step.
 - Never copy code from commercial modules; never commit Hyvä Checkout sources, `vendor/`, `node_modules/`, credentials or anything
   from a Magento install. Never leave `vendor/` or `node_modules/` inside the module folder (`setup:di:compile` scans it).

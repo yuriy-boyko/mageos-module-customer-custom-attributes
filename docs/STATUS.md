@@ -21,10 +21,13 @@ listed one by one in [TESTING.md](TESTING.md); the code map is in [ARCHITECTURE.
   enforced on the server (hidden attributes are not required and not kept) and applied instantly in the browser, in the Hyvä account
   forms and in Hyvä Checkout (companion module).
 - **Server-side validation** of all values when an order is placed (checkout, REST) and when an order address is edited in the admin.
+  Outside the admin only the attributes of the Hyvä Checkout address forms (enabled for the website) are kept on the quote and the
+  order; values posted for hidden fields of the account forms are not saved.
 - **Saved address missing a required attribute:** checkout notice with an edit link, clear place-order message.
 - **API:** `custom_attributes` on cart addresses and `customers/me`; extension attributes `custom_attribute_values` (order addresses)
   and `customer_attribute_values` (orders).
-- **Release tooling:** `dev/check.sh` (158 unit tests), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
+- **Release tooling:** `dev/check.sh` (171 unit tests of `Service/`), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
+  Magento install and in CI), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
   `.github/workflows/ci.yml`, `Setup/Uninstall` (drops the tables and form assignments; attributes stay).
 
 ## Verified
@@ -42,7 +45,10 @@ when a required attribute was hidden by a dependency rule (DEP14), and the same 
 - Performance with the module on and off: measured twice (TESTING.md, ROB4: all pages within the noise of a developer-mode test store, including the logged-in checkout and the admin order create page, same number of requests of the shop itself, time to first byte at most 100 ms more); production mode measured once (checkout about 140 ms more with the module, same number of requests); a cold cache is not measured. These figures date from before the checkout query reduction (see
   CHANGELOG). After it, a guest checkout page runs 10 module queries instead of 38 (122 instead of 150 in total). The timings were
   not measured again. The module's statements per page are checked by `dev/e2e/count-queries.sh` (ROB6).
-- The ☐ rows in [TESTING.md](TESTING.md), including `setup:di:compile` on a store without Hyvä Checkout.
+- The ☐ rows in [TESTING.md](TESTING.md).
+- The admin forms apply no rules in the browser, so their own check still asks for a required field that a rule hides (the server
+  does not require it, VAL9).
+- Hyvä Checkout 3.x: run once on 3.0.2 (INS13): every browser spec passes, with `Hyva_CheckoutV1bc` enabled and disabled.
 - Customer attributes in the checkout: the open rows CCO in TESTING.md (one-page, multi-step and mobile were tested with guests and logged-in customers).
 - Manual checks: other Hyvä Checkout variants (multi-step, mobile), a second store view with another locale, card payments with
   3D Secure, real order emails and PDF files, keyboard and screen reader use.

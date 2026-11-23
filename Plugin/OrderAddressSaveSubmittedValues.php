@@ -9,6 +9,7 @@ namespace MageOS\CustomerCustomAttributes\Plugin;
 
 use MageOS\CustomerCustomAttributes\Model\AddressAttributeProvider;
 use MageOS\CustomerCustomAttributes\Model\AddressValueValidator;
+use MageOS\CustomerCustomAttributes\Model\Dependency\VisibilityService;
 use MageOS\CustomerCustomAttributes\Model\OptionLabels;
 use MageOS\CustomerCustomAttributes\Model\ResourceModel\OrderAddressValueStorage;
 use MageOS\CustomerCustomAttributes\Service\SnapshotRowBuilder;
@@ -24,7 +25,8 @@ use Magento\Sales\Model\Order\Address;
  * order address data. Core skips the save of an address whose table columns did not change, so no save event fires;
  * this plugin on the repository's save() updates the snapshot rows of the submitted attributes instead. An empty value
  * removes the row; the label of an existing row is kept; rows of attributes that are not in the form (e.g. deleted
- * ones) stay untouched.
+ * ones) stay untouched. As in the checkout, an attribute hidden by a dependency rule or by the order's customer group is not
+ * required and its value is removed.
  */
 class OrderAddressSaveSubmittedValues
 {
@@ -35,7 +37,8 @@ class OrderAddressSaveSubmittedValues
         private readonly OptionLabels $optionLabels,
         private readonly ValueNormalizer $normalizer,
         private readonly DateFilter $dateFilter,
-        private readonly AddressValueValidator $validator
+        private readonly AddressValueValidator $validator,
+        private readonly VisibilityService $visibility
     ) {
     }
 
@@ -53,7 +56,12 @@ class OrderAddressSaveSubmittedValues
         if ($submitted === []) {
             return;
         }
-        $messages = $this->validator->validate($submitted, $entity->getOrder()?->getStoreId(), array_keys($submitted));
+        $hidden = $this->hiddenCodes($entity, $submitted);
+        $messages = $this->validator->validate(
+            array_diff_key($submitted, array_flip($hidden)),
+            $entity->getOrder()?->getStoreId(),
+            array_values(array_diff(array_keys($submitted), $hidden))
+        );
         if ($messages !== []) {
             throw new LocalizedException(__(implode(' ', $messages)));
         }
@@ -87,6 +95,9 @@ class OrderAddressSaveSubmittedValues
         $storeId = $address->getOrder()?->getStoreId();
         $rows = [];
         $remove = [];
+        foreach ($this->hiddenCodes($address, $submitted) as $hidden) {
+            $submitted[$hidden] = null;
+        }
         foreach ($submitted as $code => $value) {
             if ($value === null || $value === '') {
                 if (isset($existing[$code])) {
@@ -100,7 +111,7 @@ class OrderAddressSaveSubmittedValues
                 $existing[$code]['attribute_label'] ?? $attribute->getStoreLabel($storeId),
                 $existing[$code]['input_type'] ?? (string) $attribute->getFrontendInput(),
                 $value,
-                $this->optionLabels->forAttribute($attribute)
+                $this->optionLabels->forAttribute($attribute, $storeId)
             );
             $address->unsetData($code);
         }
@@ -110,6 +121,26 @@ class OrderAddressSaveSubmittedValues
 
         $this->storage->save($addressId, $rows);
         $this->storage->remove($addressId, $remove);
+    }
+
+    /**
+     * The submitted attributes that a dependency rule or the order's customer group hides, for the values the address will have
+     * (the stored snapshot with the submitted values on top).
+     *
+     * @param array<string, string|null> $submitted
+     * @return string[]
+     */
+    private function hiddenCodes(Address $address, array $submitted): array
+    {
+        $addressId = (int) $address->getId();
+        $values = [];
+        foreach ($this->storage->load([$addressId])[$addressId] ?? [] as $row) {
+            $values[(string) $row['attribute_code']] = $row['value'] ?? null;
+        }
+        $values = array_replace($values, $submitted);
+        $groupId = $address->getOrder()?->getCustomerGroupId();
+        $visible = $this->visibility->getVisibleCodes('address', array_keys($values), $values, $groupId !== null ? (int) $groupId : null);
+        return array_values(array_diff(array_keys($submitted), $visible));
     }
 
     /**

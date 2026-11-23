@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace MageOS\CustomerCustomAttributes\Model;
 
+use MageOS\CustomerCustomAttributes\Service\RequiredAddressFormCheck;
 use MageOS\CustomerCustomAttributes\Model\Dependency\VisibilityService;
 use MageOS\CustomerCustomAttributes\Service\ValueNormalizer;
 use Magento\Customer\Api\Data\AddressInterface;
@@ -27,7 +28,8 @@ class SavedAddressRequirements
     }
 
     /**
-     * @return list<array{code: string, label: string}> the missing attributes, in attribute order
+     * @return list<array{code: string, label: string, editable: bool}> the missing attributes, in attribute order; "editable" when the
+     *         address book form shows the attribute (otherwise only a new address typed at the checkout can have a value)
      */
     public function getMissing(AddressInterface $address, ?int $groupId, int|string|null $storeId = null): array
     {
@@ -49,7 +51,11 @@ class SavedAddressRequirements
                 && $attribute->getIsRequired()
                 && ($values[$code] === null || $values[$code] === '')
             ) {
-                $missing[] = ['code' => $code, 'label' => (string) $attribute->getStoreLabel($storeId)];
+                $missing[] = [
+                    'code' => $code,
+                    'label' => (string) $attribute->getStoreLabel($storeId),
+                    'editable' => in_array(RequiredAddressFormCheck::ADDRESS_BOOK_FORM, array_map('strval', (array) $attribute->getUsedInForms()), true),
+                ];
             }
         }
         return $missing;

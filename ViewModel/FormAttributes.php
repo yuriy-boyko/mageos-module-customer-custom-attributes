@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace MageOS\CustomerCustomAttributes\ViewModel;
 
+use MageOS\CustomerCustomAttributes\Service\VisibilityResolver;
 use MageOS\CustomerCustomAttributes\Model\AddressAttributeProvider;
 use MageOS\CustomerCustomAttributes\Model\CustomerAttributeProvider;
 use MageOS\CustomerCustomAttributes\Model\Dependency\RuleProvider;
@@ -165,7 +166,8 @@ class FormAttributes implements ArgumentInterface
         return [
             'codes' => array_column($fields, 'code'),
             'rules' => $this->ruleProvider->getRules($entity),
-            'restrictions' => (object) $this->ruleProvider->getGroupRestrictions($entity),
+            // only what applies to this customer group, not the list of groups
+            'restrictions' => (object) VisibilityResolver::restrictionsForGroup($this->ruleProvider->getGroupRestrictions($entity), $groupId),
             'groupId' => $groupId,
         ];
     }

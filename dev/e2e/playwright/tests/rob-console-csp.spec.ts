@@ -1,8 +1,11 @@
 import type { Page } from '@playwright/test';
 import {
-    addAdminOrderProduct, adminOpen, customerEmail, customerTab, expect, gridFilter, ITA, ITA_PRODUCT, openCheckoutAsGuest, openCustomerEdit, openGrid, setSavedAddress,
+    addAdminOrderProduct, adminOpen, customerEmail, customerTab, expect, gridFilter, ITA, ITA_PRODUCT, requireSecondWebsite, openCheckoutAsGuest, openCustomerEdit, openGrid, setSavedAddress,
     startAdminOrder, deleteSavedAddresses, dropQuotes, setAccountValues, test,
 } from './helpers';
+
+/** The origin of the main website. */
+const MAIN = new URL(process.env.E2E_BASE_URL as string).origin;
 
 /**
  * ROB2: no browser console errors and no failed requests of the shop itself on the pages the module touches (checkout, registration,
@@ -64,7 +67,7 @@ async function visit(page: Page, url: string, watch: Watch, label: string): Prom
 const clean = (watch: Watch) => expect(watch.issues, 'console errors, failed requests, CSP and markup problems').toEqual([]);
 
 test('ROB2 + ROB5: guest pages of the main website', { tag: ['@quick', '@ROB2', '@ROB5', '@CCO18'] }, async ({ page }) => {
-    const watch = new Watch(page, ['https://app.magento249.test']);
+    const watch = new Watch(page, [MAIN]);
     await visit(page, '/customer/account/create/', watch, 'registration');
     await visit(page, '/customer/account/login/', watch, 'login');
     await openCheckoutAsGuest(page);
@@ -76,7 +79,7 @@ test('ROB2 + ROB5: guest pages of the main website', { tag: ['@quick', '@ROB2', 
 });
 
 test('ROB2 + ROB5: logged-in customer pages', { tag: ['@ROB2', '@ROB5'] }, async ({ customerPage: page }) => {
-    const watch = new Watch(page, ['https://app.magento249.test']);
+    const watch = new Watch(page, [MAIN]);
     setAccountValues(customerEmail(), { e2e_c_text: 'rob' }); // also fills the required customer attributes
     deleteSavedAddresses(customerEmail());
     // with a saved address: the address book lists it with the module's lines, the edit form shows the values
@@ -100,6 +103,7 @@ test('ROB2 + ROB5: logged-in customer pages', { tag: ['@ROB2', '@ROB5'] }, async
 });
 
 test('ROB2 + ROB5: Italy website pages', { tag: ['@ROB2', '@ROB5'] }, async ({ page }) => {
+    requireSecondWebsite();
     const watch = new Watch(page, [ITA]);
     await visit(page, `${ITA}/customer/account/create/`, watch, 'registration (Italy)');
     await openCheckoutAsGuest(page, ITA_PRODUCT);
@@ -110,7 +114,7 @@ test('ROB2 + ROB5: Italy website pages', { tag: ['@ROB2', '@ROB5'] }, async ({ p
 });
 
 test('ROB2 + ROB5: admin screens of the module', { tag: ['@ROB2', '@ROB5'] }, async ({ adminPage: page }) => {
-    const watch = new Watch(page, ['https://app.magento249.test']);
+    const watch = new Watch(page, [MAIN]);
     await openGrid(page, 'customer');
     await openGrid(page, 'address');
     await gridFilter(page, { attribute_code: 'e2e_a_sel' });

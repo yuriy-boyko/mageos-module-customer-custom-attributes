@@ -55,4 +55,13 @@ class RequiredAddressFormCheckTest extends TestCase
     {
         self::assertTrue($this->check->isRequiredAnywhere(true, [1 => ['is_required' => null]]));
     }
+
+    public function testOnlyInCheckout(): void
+    {
+        $check = new RequiredAddressFormCheck();
+        self::assertTrue($check->onlyInCheckout(true, ['adminhtml_customer_address', 'mageos_hyva_checkout']));
+        self::assertFalse($check->onlyInCheckout(true, ['mageos_hyva_checkout', 'customer_address_edit']), 'the address book can fill it');
+        self::assertFalse($check->onlyInCheckout(false, ['mageos_hyva_checkout']), 'optional');
+        self::assertFalse($check->onlyInCheckout(true, ['customer_address_edit']), 'not in the checkout');
+    }
 }

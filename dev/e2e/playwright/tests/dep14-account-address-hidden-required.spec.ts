@@ -1,4 +1,4 @@
-import { expect, test } from './helpers';
+import { accountValues, customerEmail, deleteSavedAddresses, expect, test } from './helpers';
 import type { Page } from '@playwright/test';
 
 /**
@@ -64,4 +64,28 @@ test('an address with a shown required attribute left empty is not saved', { tag
     await page.getByRole('button', { name: /save address/i }).click();
     await expect(page).toHaveURL(/customer\/address(\/index)?\/?$/);
     await expect(page.getByText('2 Shown Required Street').first()).toBeVisible();
+});
+
+test('DEP17: a value posted for a field hidden by a rule is not saved', { tag: ['@DEP17'] }, async ({ customerPage: page }) => {
+    deleteSavedAddresses(customerEmail());
+    try {
+        await fillAddressForm(page, '3 Posted Anyway Street');
+        const dependent = page.locator('[name="e2e_a_rdep"]');
+        await expect(dependent).toBeDisabled();
+        // a hand-made request: the form as the browser would send it, plus a value for the hidden field
+        const status = await dependent.evaluate(async (element: HTMLInputElement) => {
+            const form = element.form as HTMLFormElement;
+            const data = new FormData(form);
+            data.set('e2e_a_rdep', 'posted anyway');
+            const response = await fetch(form.action, { method: 'POST', body: data, credentials: 'same-origin' });
+            return response.status;
+        });
+        expect(status).toBeLessThan(400);
+        const saved = Object.values(accountValues(customerEmail()).addresses);
+        expect(saved).toHaveLength(1);
+        expect(saved[0].e2e_a_req).toBe('required value');
+        expect(saved[0].e2e_a_rdep ?? '', 'the hidden value is not stored').toBe('');
+    } finally {
+        deleteSavedAddresses(customerEmail());
+    }
 });

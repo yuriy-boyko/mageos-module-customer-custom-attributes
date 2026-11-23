@@ -84,4 +84,24 @@ class AddressTextBuilderTest extends TestCase
     {
         self::assertSame('Note: x', $this->builder->build('text', [['label' => ' Note ', 'value' => " x \n"]]));
     }
+
+    public function testFormatForKnownCodes(): void
+    {
+        self::assertSame('html', AddressTextBuilder::formatFor('html', true));
+        self::assertSame('pdf', AddressTextBuilder::formatFor('pdf', true));
+        self::assertSame('oneline', AddressTextBuilder::formatFor('oneline', true));
+        self::assertSame('text', AddressTextBuilder::formatFor('text', false));
+    }
+
+    public function testAnEscapedFormatWithItsOwnCodeGetsEscapedHtml(): void
+    {
+        // the address formats of Hyvä Checkout are HTML templates with their own codes
+        $format = AddressTextBuilder::formatFor('hyva_checkout_shipping', true);
+        self::assertSame('html', $format);
+        self::assertSame(
+            '<br />Note: &lt;i&gt;x&lt;/i&gt;<br />Notes: one<br />two',
+            $this->builder->build($format, [['label' => 'Note', 'value' => '<i>x</i>'], ['label' => 'Notes', 'value' => "one\ntwo"]], 'Ada<br />United States')
+        );
+        self::assertSame('custom_text', AddressTextBuilder::formatFor('custom_text', false), 'an unescaped format stays text');
+    }
 }

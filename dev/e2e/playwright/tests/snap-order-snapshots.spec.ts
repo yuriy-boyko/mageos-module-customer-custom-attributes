@@ -94,6 +94,8 @@ test('SNAP7: deleting the quote deletes the module rows of the quote and its add
     expect(before.quote_exists).toBe(true);
     expect(before.address_values, 'the address rows exist before').toBeGreaterThan(0);
 
+    // leave the checkout first: a payment widget still on the page would reload for an empty cart and throw (not the module's error)
+    await page.goto('about:blank');
     benchCommand('E2E_FIXTURE_CMD', ['drop-quotes', `#${quoteId}`]);
     const after = JSON.parse(benchCommand('E2E_ASSERT_CMD', ['quote-rows', `${quoteId}:${before.address_ids.join(',')}`]));
     expect(after).toMatchObject({ quote_exists: false, values: 0, address_values: 0 });

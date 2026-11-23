@@ -42,7 +42,10 @@ class AddressRendererCustomAttributes
             if ($entries === []) {
                 return $result;
             }
-            return $result . $this->textBuilder->build((string) $subject->getType()->getCode(), $entries, $result);
+            $type = $subject->getType();
+            // An escaped (HTML) format with its own code, such as Hyvä Checkout's hyva_checkout_shipping, gets escaped html lines.
+            $format = AddressTextBuilder::formatFor((string) $type->getCode(), (bool) $type->getEscapeHtml());
+            return $result . $this->textBuilder->build($format, $entries, $result);
         } catch (\Throwable $e) {
             $this->logger->warning('[MageOS_CustomerCustomAttributes] could not add custom attributes to the address text: ' . $e->getMessage());
             return $result;

@@ -34,7 +34,7 @@ async function placeOrder(page: Page): Promise<string> {
     return incrementId;
 }
 
-test('DSP5 and DSP6: html, text, pdf and oneline formats: escaped html, labels and dates', { tag: ['@DSP5', '@DSP6'] }, async ({ adminPage: page }) => {
+test('DSP5 and DSP6: html, text, pdf and oneline formats: escaped html, labels and dates', { tag: ['@DSP5', '@DSP6', '@DSP10'] }, async ({ adminPage: page }) => {
     const incrementId = await placeOrder(page);
     const formats = JSON.parse(benchCommand('E2E_ASSERT_CMD', ['render-address', incrementId])) as Record<'html' | 'text' | 'pdf' | 'oneline', string>;
 
@@ -56,6 +56,14 @@ test('DSP5 and DSP6: html, text, pdf and oneline formats: escaped html, labels a
     expect(formats.oneline, 'oneline is one line').not.toContain('\n');
     expect(formats.pdf, 'pdf lines end with |').toMatch(/E2E Address Select: South\|/);
     expect(formats.text).not.toContain('<br');
+
+    // Hyvä Checkout's address summary has its own escaped HTML format: the lines are escaped and separated like the html ones
+    const hyva = (formats as Record<string, string>).hyva_checkout_billing;
+    if (hyva !== undefined) {
+        expect(hyva).toContain('Tom &amp; &quot;Jerry&quot; &lt;b&gt;bold&lt;/b&gt; &lt;script&gt;');
+        expect(hyva).not.toContain('<script>');
+        expect(hyva).toMatch(/<br ?\/?>E2E Address Select: South/);
+    }
 });
 
 test('DSP2: customer order page, admin order, invoice and shipment show the lines after the standard ones', { tag: ['@quick', '@DSP2'] }, async ({ adminPage, customerPage }) => {

@@ -92,6 +92,7 @@ plural_label,plural_label
 "Sort order must be a whole number, zero or greater.","Sort order must be a whole number, zero or greater."
 "The admin value of every option is required.","The admin value of every option is required."
 "Add at least one option.","Add at least one option."
+"The options do not belong to this attribute. Reload the page and try again.","The options do not belong to this attribute. Reload the page and try again."
 "The admin value of each option must be unique.","The admin value of each option must be unique."
 "The attribute ""%1"" is required and in the address book form, but not in the Hyvä Checkout address forms. Magento checks every required attribute of the address book form at the checkout, so no order can be placed until you add the attribute to ""Hyvä Checkout Address Forms"" or make it optional.","The attribute ""%1"" is required and in the address book form, but not in the Hyvä Checkout address forms. Magento checks every required attribute of the address book form at the checkout, so no order can be placed until you add the attribute to ""Hyvä Checkout Address Forms"" or make it optional."
 "Billing Address","Billing Address"
@@ -123,3 +124,7 @@ Remove,Remove
 For,For
 Rules,Rules
 "No relations yet.","No relations yet."
+"The attribute ""%1"" is required and in the Hyvä Checkout address forms, but not in the address book form. A saved address without a value for it cannot be completed in the customer account: the customer has to type a new address at the checkout. Add it to ""Address Book (Customer Account)"" so that customers can complete their saved addresses.","The attribute ""%1"" is required and in the Hyvä Checkout address forms, but not in the address book form. A saved address without a value for it cannot be completed in the customer account: the customer has to type a new address at the checkout. Add it to ""Address Book (Customer Account)"" so that customers can complete their saved addresses."
+"Choose ""New Address"" and type the address again to fill it in.","Choose ""New Address"" and type the address again to fill it in."
+"Your saved %1 address needs the field %2. Please choose ""New Address"" and type the address again, or choose another address.","Your saved %1 address needs the field %2. Please choose ""New Address"" and type the address again, or choose another address."
+"Your saved %1 address has some required fields missing. Please choose ""New Address"" and type the address again, or choose another address.","Your saved %1 address has some required fields missing. Please choose ""New Address"" and type the address again, or choose another address."

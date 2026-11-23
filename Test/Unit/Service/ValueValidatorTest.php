@@ -22,6 +22,12 @@ class ValueValidatorTest extends TestCase
     /**
      * @return list<string> message templates
      */
+    public function testDateWithATrailingLineBreakIsRefused(): void
+    {
+        self::assertSame([ValueValidator::MSG_DATE_FORMAT], $this->messages($this->validator->validate('L', 'date', false, [], "2026-01-02\n")));
+        self::assertSame([], $this->validator->validate('L', 'date', false, [], '2026-01-02'));
+    }
+
     private function messages(array $errors): array
     {
         return array_column($errors, 'message');
@@ -70,6 +76,10 @@ class ValueValidatorTest extends TestCase
             'alpha bad' => ['alpha', 'Ab1', ValueValidator::MSG_ALPHA],
             'alphanumeric ok' => ['alphanumeric', 'Ab1', null],
             'alphanumeric bad' => ['alphanumeric', 'Ab 1', ValueValidator::MSG_ALPHANUMERIC],
+            // "$" alone also matches before a final line break: the patterns use the D modifier
+            'numeric with a trailing line break' => ['numeric', "123\n", ValueValidator::MSG_NUMERIC],
+            'alpha with a trailing line break' => ['alpha', "Abc\n", ValueValidator::MSG_ALPHA],
+            'alphanumeric with a trailing line break' => ['alphanumeric', "Ab1\n", ValueValidator::MSG_ALPHANUMERIC],
             'email ok' => ['email', 'a@b.co', null],
             'email bad' => ['email', 'notanemail', ValueValidator::MSG_EMAIL],
             'url ok' => ['url', 'https://example.com/x', null],

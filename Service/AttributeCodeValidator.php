@@ -35,4 +35,22 @@ class AttributeCodeValidator
         }
         return null;
     }
+
+    /**
+     * The codes that would become one of these columns with the prefix: the quote and the order carry the customer's values as
+     * customer_<code>, so a customer attribute "note" would read and write the column customer_note.
+     *
+     * @param string[] $columns
+     * @return string[]
+     */
+    public static function prefixedColumnCodes(array $columns, string $prefix): array
+    {
+        $codes = [];
+        foreach ($columns as $column) {
+            if ($prefix !== '' && str_starts_with($column, $prefix) && strlen($column) > strlen($prefix)) {
+                $codes[] = substr($column, strlen($prefix));
+            }
+        }
+        return $codes;
+    }
 }

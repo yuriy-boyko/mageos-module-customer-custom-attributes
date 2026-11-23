@@ -20,6 +20,10 @@ declare(strict_types=1);
  *   php dev/e2e/assertions.php query-log reset|count       empties Magento's query log (var/debug/db.log) or counts its statements (JSON: all, the module's,
  *                                                          the module's by statement). A statement is the module's when module code is in its call stack.
  *                                                          Used by count-queries.sh; this command does not start Magento, so it adds nothing to the log.
+ *   php dev/e2e/assertions.php resolve cases               the cases of rule-cases.json with the visible codes Service\VisibilityResolver
+ *                                                          gives and the restrictions the browser gets (JSON; DEP19)
+ *   php dev/e2e/assertions.php browser-script account|checkout   the inline rule script of form/visibility.phtml or hyva-checkout/visibility.phtml,
+ *                                                          with __CONFIG__ where the template puts its JSON (DEP19)
  *
  * `customer` before and after a checkout, compared with `diff`, proves the account was not changed:
  *
@@ -37,7 +41,7 @@ if (PHP_SAPI !== 'cli') {
 
 $command = $argv[1] ?? '';
 $argument = $argv[2] ?? '';
-if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers', 'address-api', 'quote-rows', 'render-address', 'orders-of', 'mail', 'mail-delete', 'query-log'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
+if (!in_array($command, ['check', 'order', 'customer', 'quote', 'attribute', 'queries', 'perf', 'providers', 'address-api', 'quote-rows', 'render-address', 'orders-of', 'mail', 'mail-delete', 'query-log', 'resolve', 'browser-script'], true) || (!in_array($command, ['check', 'queries', 'perf', 'providers'], true) && $argument === '')) {
     fwrite(STDERR, "Usage: php dev/e2e/assertions.php check | order <increment_id> | customer <email> | quote <email> | attribute <customer|address> <code>\n");
     exit(2);
 }
@@ -46,6 +50,41 @@ $root = rtrim((string) (getenv('MAGENTO_ROOT') ?: getcwd()), '/');
 if (!is_file($root . '/app/bootstrap.php')) {
     fwrite(STDERR, "Run from the Magento root or set MAGENTO_ROOT (app/bootstrap.php not found in $root).\n");
     exit(2);
+}
+
+if ($command === 'resolve' || $command === 'browser-script') {
+    // DEP19, before the bootstrap: pure PHP on the module's own files
+    $module = dirname(__DIR__, 2);
+    if ($command === 'resolve') {
+        spl_autoload_register(static function (string $class) use ($module): void {
+            $prefix = 'MageOS\\CustomerCustomAttributes\\Service\\';
+            if (str_starts_with($class, $prefix) && is_file($file = $module . '/Service/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php')) {
+                require $file;
+            }
+        });
+        $resolver = new \MageOS\CustomerCustomAttributes\Service\VisibilityResolver();
+        $cases = json_decode((string) file_get_contents(__DIR__ . '/rule-cases.json'), true)['cases'];
+        foreach ($cases as &$case) {
+            $restrictions = array_map(static fn ($ids) => array_map('intval', (array) $ids), (array) $case['restrictions']);
+            $case['php'] = $resolver->resolve(array_keys($case['fields']), $case['values'], $case['rules'], $restrictions, (int) $case['groupId']);
+            $case['browserRestrictions'] = (object) \MageOS\CustomerCustomAttributes\Service\VisibilityResolver::restrictionsForGroup($restrictions, (int) $case['groupId']);
+        }
+        unset($case);
+        echo json_encode($cases, JSON_UNESCAPED_UNICODE) . "\n";
+        exit(0);
+    }
+    $file = ['account' => 'form/visibility.phtml', 'checkout' => 'hyva-checkout/visibility.phtml'][$argument] ?? null;
+    if ($file === null) {
+        fwrite(STDERR, "Usage: browser-script account|checkout\n");
+        exit(2);
+    }
+    $template = (string) file_get_contents($module . '/view/frontend/templates/' . $file);
+    if (preg_match('#<script>(.*)</script>#s', $template, $match) !== 1) {
+        fwrite(STDERR, "no script in $file\n");
+        exit(1);
+    }
+    echo preg_replace('#<\?=\s*/\*\s*@noEscape\s*\*/\s*json_encode\(\$config[^?]*\?>#', '__CONFIG__', $match[1]);
+    exit(0);
 }
 
 if ($command === 'query-log') {
@@ -241,6 +280,10 @@ if ($command === 'render-address') {
     foreach (['html', 'text', 'pdf', 'oneline'] as $format) {
         $result[$format] = (string) $renderer->format($order->getBillingAddress(), $format);
     }
+    // an escaped HTML format with its own code (Hyvä Checkout's address summary), when the store has it
+    if ($objectManager->get(\Magento\Customer\Model\Address\Config::class)->getFormatByCode('hyva_checkout_billing')->getCode() === 'hyva_checkout_billing') {
+        $result['hyva_checkout_billing'] = (string) $renderer->format($order->getBillingAddress(), 'hyva_checkout_billing');
+    }
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
     exit(0);
 }
@@ -319,7 +362,13 @@ if ($command === 'address-api') {
     foreach (['billing' => $order->getBillingAddress(), 'shipping' => $order->getShippingAddress()] as $type => $address) {
         $fromRepository[$type] = $address === null ? null : $codes($addresses->get((int) $address->getEntityId())->getExtensionAttributes()?->getCustomAttributeValues());
     }
-    echo json_encode(['order_get' => $summary($order), 'order_list' => $listed === null ? null : $summary($listed), 'address_repository' => $fromRepository], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    // the order address repository's getList(): one plugin method serves both repositories (it used to fail with a TypeError)
+    $addressCriteria = $objectManager->create(\Magento\Framework\Api\SearchCriteriaBuilder::class)->addFilter('parent_id', (int) $argument)->create();
+    $addressList = [];
+    foreach ($addresses->getList($addressCriteria)->getItems() as $item) {
+        $addressList[(string) $item->getAddressType()] = $codes($item->getExtensionAttributes()?->getCustomAttributeValues());
+    }
+    echo json_encode(['order_get' => $summary($order), 'order_list' => $listed === null ? null : $summary($listed), 'address_repository' => $fromRepository, 'address_list' => $addressList], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
     exit(0);
 }
 
@@ -430,6 +479,7 @@ if ($command === 'attribute') {
             LEFT JOIN {{eav_attribute_option_value}} v ON v.option_id = o.option_id AND v.store_id = 0 WHERE o.attribute_id = ? ORDER BY o.sort_order, o.option_id'), [$id]) as $option) {
         $labels = $db->fetchPairs($sql('SELECT store_id, value FROM {{eav_attribute_option_value}} WHERE option_id = ? ORDER BY store_id'), [$option['option_id']]);
         $options[] = [
+            'id' => (int) $option['option_id'],
             'label' => (string) $option['value'],
             'sort_order' => (int) $option['sort_order'],
             'is_default' => in_array((string) $option['option_id'], $defaults, true),

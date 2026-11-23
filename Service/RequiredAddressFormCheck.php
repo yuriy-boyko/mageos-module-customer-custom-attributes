@@ -16,7 +16,7 @@ namespace MageOS\CustomerCustomAttributes\Service;
  */
 class RequiredAddressFormCheck
 {
-    private const ADDRESS_BOOK_FORM = 'customer_address_edit';
+    public const ADDRESS_BOOK_FORM = 'customer_address_edit';
 
     /**
      * @param bool $required the attribute is required (for the whole store or for at least one website)
@@ -42,5 +42,18 @@ class RequiredAddressFormCheck
             }
         }
         return $requiredForStore;
+    }
+
+    /**
+     * A required attribute that is in the Hyvä Checkout address forms but not in the address book form: a saved address without a
+     * value for it cannot be completed in the customer account, only by typing a new address at the checkout.
+     *
+     * @param string[] $forms
+     */
+    public function onlyInCheckout(bool $required, array $forms): bool
+    {
+        return $required
+            && in_array(EntityDefinitions::FORM_HYVA_CHECKOUT, $forms, true)
+            && !in_array(self::ADDRESS_BOOK_FORM, $forms, true);
     }
 }

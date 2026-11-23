@@ -95,4 +95,16 @@ class VisibilityResolverTest extends TestCase
             $this->resolver->dropHidden(['a' => 'x', 'b' => 'y', 'c' => null], ['a'])
         );
     }
+
+    public function testRestrictionsForGroupTellOnlyWhatAppliesToTheGroup(): void
+    {
+        $restrictions = ['wholesale_id' => [2, 3], 'vip' => [4], 'open' => []];
+        self::assertSame(['wholesale_id' => [], 'vip' => [-1], 'open' => []], VisibilityResolver::restrictionsForGroup($restrictions, 2));
+        self::assertSame(['wholesale_id' => [-1], 'vip' => [-1], 'open' => []], VisibilityResolver::restrictionsForGroup($restrictions, null));
+        // the browser rule: allowed when the list is empty or contains the group
+        $groupId = 2;
+        foreach (VisibilityResolver::restrictionsForGroup($restrictions, $groupId) as $code => $groups) {
+            self::assertSame($code !== 'vip', $groups === [] || in_array($groupId, $groups, true), $code);
+        }
+    }
 }

@@ -54,7 +54,7 @@ class OrderAddressSaveAfter implements ObserverInterface
                 $attribute->getStoreLabel($storeId),
                 (string) $attribute->getFrontendInput(),
                 (string) $value,
-                $this->optionLabels->forAttribute($attribute)
+                $this->optionLabels->forAttribute($attribute, $storeId)
             );
         }
 

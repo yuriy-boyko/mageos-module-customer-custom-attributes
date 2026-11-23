@@ -26,7 +26,8 @@ The Hyvä Checkout enforces a strict Content Security Policy. Inline scripts of 
   required but cannot be filled: tick "Hyvä Checkout Address Forms" for it or make it optional (the attribute's edit page warns about this,
   see [Address attributes](05-address-attributes.md)).
 - *Your saved shipping address needs the field "X"*: a saved address has no value for a required attribute; follow the link to edit
-  the address, or choose another address.
+  the address, or choose another address. When the field is not in the address book form there is no link: choose "New Address" and
+  type the address again, or add the attribute to "Address Book (Customer Account)".
 - A message naming an attribute and a rule (length, email, date range, unknown option): the value breaks the attribute's rules.
   Hidden attributes are never required.
 

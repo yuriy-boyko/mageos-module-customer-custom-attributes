@@ -20,17 +20,22 @@ use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\Module\Manager as ModuleManager;
 
 /**
  * Event sales_model_service_quote_submit_before: reads the customer's attribute values at the moment the order is placed
  * and puts them on the new order as snapshot rows (saved by OrderSaveAfter). Values typed into the admin order create
  * form win over the stored customer values. Attributes shown in the checkout (ticked for "Hyvä Checkout") take their value
  * from what the customer typed there (kept on the quote, guests included) and never from the customer account; in the
- * storefront their required flag and rules are enforced here. Other attributes have no value for guests.
+ * storefront their required flag and rules are enforced here, as long as the companion module that renders their sections is
+ * enabled (without it the customer could not fill them in). Other attributes have no value for guests.
  */
 class QuoteSubmitBefore implements ObserverInterface
 {
     public const DATA_KEY = 'mageos_cca_customer_values';
+
+    /** the companion module that renders the customer attribute sections of the checkout */
+    private const SECTIONS_MODULE = 'MageOS_CustomerCustomAttributesHyvaCheckout';
 
     public function __construct(
         private readonly CustomerAttributeProvider $attributeProvider,
@@ -40,7 +45,8 @@ class QuoteSubmitBefore implements ObserverInterface
         private readonly OptionLabels $optionLabels,
         private readonly VisibilityService $visibility,
         private readonly CustomerCheckoutAttributes $checkoutAttributes,
-        private readonly State $appState
+        private readonly State $appState,
+        private readonly ModuleManager $moduleManager
     ) {
     }
 
@@ -54,7 +60,7 @@ class QuoteSubmitBefore implements ObserverInterface
         if ($attributes === [] || ($customerId <= 0 && $checkoutCodes === [])) {
             return;
         }
-        if ($checkoutCodes !== [] && $this->isStorefront()) {
+        if ($checkoutCodes !== [] && $this->isStorefront() && $this->moduleManager->isEnabled(self::SECTIONS_MODULE)) {
             $messages = $this->checkoutAttributes->validate($quote);
             if ($messages !== []) {
                 throw new LocalizedException(__(implode(' ', array_unique($messages))));
@@ -99,7 +105,7 @@ class QuoteSubmitBefore implements ObserverInterface
                 $attribute->getStoreLabel($order->getStoreId()),
                 (string) $attribute->getFrontendInput(),
                 $value,
-                $this->optionLabels->forAttribute($attribute)
+                $this->optionLabels->forAttribute($attribute, $order->getStoreId())
             );
         }
         $order->setData(self::DATA_KEY, $rows);

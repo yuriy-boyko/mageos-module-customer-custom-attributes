@@ -39,20 +39,22 @@ How it behaves:
   prefilled field are not written back. This makes an attribute that is ticked only for the checkout (and the admin order form)
   behave like an *order attribute*: the value exists on the order only.
 - **Prefill** runs when the checkout page loads and fills only fields that have no value yet. A guest who logs in during the
-  checkout keeps what was typed; empty fields are prefilled. A field the customer clears is prefilled again at the next page load.
+  checkout keeps what was typed (when the customer already has an active cart: for the fields that cart has no value for); empty
+  fields are prefilled. A field the customer clears is prefilled again at the next page load.
   Without prefill the default value is used, and a required attribute must be typed on every order.
 - **Rules apply.** Customer group restrictions, dependency rules and website settings work like in the account forms. Dependent
   fields show and hide instantly, also when the parent field is in another section or on another step; a hidden value is dropped
   and a hidden required field does not block the order. See [Dependencies and groups](06-dependencies.md).
 - **Required values** are checked before the order is placed: the order is blocked with a message such as *"CCA Customer Text" is a
   required value.* Orders placed through the REST API are not forced to supply them (the cart endpoints have no field for customer
-  attributes).
+  attributes), and neither are orders while the companion module `mage-os/module-customer-custom-attributes-hyva-checkout`, which
+  renders the sections, is disabled.
 - A virtual-only cart has no shipping step: sections placed at a shipping position (above or below the shipping address or the
   shipping methods) are not shown and their attributes are not required there. Use a payment position or the order summary for
   attributes that must also be collected for virtual products.
 - If a guest types values and then logs in: when the customer has no active cart, the guest's cart (with the typed values) becomes the
-  customer's cart; when the customer already has an active cart, the items are merged into it and that cart's values stay (the guest
-  cart's typed values go with the guest cart).
+  customer's cart; when the customer already has an active cart, the items are merged into it, that cart's values stay, and the guest's
+  typed values fill the attributes that cart has no value for.
 - Attributes not ticked for the checkout keep working as before: their value is read from the customer when a logged-in customer
   places an order.
 

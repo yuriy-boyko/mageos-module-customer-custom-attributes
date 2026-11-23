@@ -52,3 +52,7 @@ jobs:
         run: |
           cd magento
           vendor/bin/phpstan analyse -c vendor/mage-os/module-customer-custom-attributes/phpstan.neon.dist --no-progress --memory-limit=4G
+      - name: Adapter tests (plugins and observers, with Magento's classes)
+        run: |
+          cd magento
+          vendor/bin/phpunit -c vendor/mage-os/module-customer-custom-attributes/phpunit.magento.xml.dist

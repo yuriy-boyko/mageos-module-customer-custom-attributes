@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace MageOS\CustomerCustomAttributes\ViewModel;
 
+use MageOS\CustomerCustomAttributes\Service\VisibilityResolver;
 use MageOS\CustomerCustomAttributes\Model\AddressValueValidator;
 use MageOS\CustomerCustomAttributes\Model\Checkout\CustomerCheckoutAttributes;
 use MageOS\CustomerCustomAttributes\Model\Dependency\RuleProvider;
@@ -40,16 +41,18 @@ class HyvaCheckoutVisibility implements ArgumentInterface
      */
     public function getConfig(): array
     {
+        $groupId = (int) $this->checkoutSession->getQuote()->getCustomerGroupId();
+        // only what applies to this customer group, not the list of groups
         return [
             'codes' => $this->validator->getCheckoutCodes(),
             'rules' => $this->ruleProvider->getRules('address'),
-            'restrictions' => (object) $this->ruleProvider->getGroupRestrictions('address'),
-            'groupId' => (int) $this->checkoutSession->getQuote()->getCustomerGroupId(),
+            'restrictions' => (object) VisibilityResolver::restrictionsForGroup($this->ruleProvider->getGroupRestrictions('address'), $groupId),
+            'groupId' => $groupId,
             // The customer attributes shown in their own checkout sections (same rules, other entity)
             'customer' => [
                 'codes' => $this->customerAttributes->getCodes(),
                 'rules' => $this->ruleProvider->getRules('customer'),
-                'restrictions' => (object) $this->ruleProvider->getGroupRestrictions('customer'),
+                'restrictions' => (object) VisibilityResolver::restrictionsForGroup($this->ruleProvider->getGroupRestrictions('customer'), $groupId),
             ],
         ];
     }
@@ -57,7 +60,7 @@ class HyvaCheckoutVisibility implements ArgumentInterface
     /**
      * The saved addresses of the logged-in customer that lack a required attribute, for the notice next to the address list.
      *
-     * @return array{missing: object, editUrl: string, text: string, textMany: string, link: string}
+     * @return array{missing: object, editUrl: string, text: string, textMany: string, textNew: string, link: string}
      */
     public function getSavedAddressNotice(): array
     {
@@ -82,6 +85,8 @@ class HyvaCheckoutVisibility implements ArgumentInterface
             'text' => (string) __('Your saved address needs the field %1.', '__FIELDS__'),
             'textMany' => (string) __('Your saved address has some required fields missing.'),
             'link' => (string) __('Click here to edit it'),
+            // a missing field that the address book form does not show: only a new address typed here can have it
+            'textNew' => (string) __('Choose "New Address" and type the address again to fill it in.'),
         ];
     }
 }

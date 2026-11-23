@@ -19,7 +19,8 @@ declare(strict_types=1);
  *   E2E_SKU                a simple in-stock product, default 24-MB04
  *   E2E_INSECURE=1         accept a self-signed certificate
  *   E2E_HOST_HEADER        send this Host header (to reach the store by another address, e.g. from inside a container)
- *   E2E_ITA_HOST           host name of the second website (default ita.magento249.test); the REST7 cases are skipped when its store code `ita` does not answer
+ *   E2E_ITA_HOST           host name of the second website (default: the host of E2E_SECOND_BASE_URL); the REST7 cases are skipped
+ *                          when it is empty or its store code `ita` does not answer
  *
  * Every case prints ok or FAIL; the exit code is 1 when one failed. Orders it places stay in the store until `fixtures.php purge` (run-all.sh does it) removes them
  * (e-mail api.e2e@example.com). The store must not have other required address attributes (the cases send values for the fixture attributes only).
@@ -42,7 +43,7 @@ $customerPassword = (string) getenv('E2E_CUSTOMER_PASSWORD');
 $sku = (string) (getenv('E2E_SKU') ?: '24-MB04');
 $insecure = getenv('E2E_INSECURE') === '1';
 $hostHeader = (string) getenv('E2E_HOST_HEADER');
-$itaHost = (string) (getenv('E2E_ITA_HOST') ?: 'ita.magento249.test');
+$itaHost = (string) (getenv('E2E_ITA_HOST') ?: (parse_url((string) getenv('E2E_SECOND_BASE_URL'), PHP_URL_HOST) ?: ''));
 /** Runs a fixtures.php command in this container (the REST7 cases set per-website overrides and put them back). */
 $bench = static function (string ...$args): string {
     return (string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/fixtures.php') . ' ' . implode(' ', array_map('escapeshellarg', $args)) . ' 2>&1');
@@ -244,6 +245,15 @@ if ($orderId > 0) {
     $check('[API1] order get: billing and the shipping assignment carry the module values', is_array($contracts) && $expectBoth($contracts['order_get']['billing'] ?? null) && $expectBoth($contracts['order_get']['shipping_assignment'] ?? null), json_encode($contracts['order_get'] ?? null));
     $check('[API1] order list: the same values', is_array($contracts) && $expectBoth($contracts['order_list']['billing'] ?? null) && $expectBoth($contracts['order_list']['shipping_assignment'] ?? null), json_encode($contracts['order_list'] ?? null));
     $check('[API1] order address repository: billing and shipping address carry the values', is_array($contracts) && $expectBoth($contracts['address_repository']['billing'] ?? null) && $expectBoth($contracts['address_repository']['shipping'] ?? null), json_encode($contracts['address_repository'] ?? null));
+    $check('[API1] order address repository getList(): the addresses carry the values', is_array($contracts) && $expectBoth($contracts['address_list']['billing'] ?? null) && $expectBoth($contracts['address_list']['shipping'] ?? null), json_encode($contracts['address_list'] ?? null));
+
+    // an order address read through REST can be sent back as it was read (the value objects have setters); the snapshot stays
+    [$status, $read] = $api('GET', "/orders/$orderId", null, $admin);
+    $billing = is_array($read) ? ($read['billing_address'] ?? null) : null;
+    [$status, $body] = is_array($billing) ? $api('PUT', "/orders/$orderId", ['entity' => $billing], $admin) : [0, null];
+    $check('[API3] an order address sent back as it was read is accepted', $status === 200, $status . ' ' . substr((string) json_encode($body), 0, 200));
+    $after = $readOrder($orderId);
+    $check('[API3] the snapshot is unchanged after the write-back', ($after['billing']['e2e_a_text']['value'] ?? '') === 'api note', json_encode($after['billing']['e2e_a_text'] ?? null));
 
     [$status, $list] = $api('GET', '/orders?searchCriteria[filterGroups][0][filters][0][field]=entity_id&searchCriteria[filterGroups][0][filters][0][value]=' . $orderId, null, $admin);
     $listed = $byCode($list['items'][0]['billing_address']['extension_attributes']['custom_attribute_values'] ?? []);
@@ -254,7 +264,8 @@ $result = $guestOrder($required + ['e2e_a_noform' => 'sent by api']);
 $check('[REG5] an order with a value for an attribute that is in no storefront form is placed', $result['order_id'] > 0, $result['step'] . ': ' . $result['message']);
 if ($result['order_id'] > 0) {
     $order = $readOrder($result['order_id']);
-    $check('[REG5] the value of an attribute that is in no storefront form is on both addresses', ($order['billing']['e2e_a_noform']['value'] ?? '') === 'sent by api' && ($order['shipping']['e2e_a_noform']['value'] ?? '') === 'sent by api', json_encode([$order['billing']['e2e_a_noform'] ?? null, $order['shipping']['e2e_a_noform'] ?? null]));
+    // only the attributes of the checkout address forms are kept from a storefront order: the value is dropped
+    $check('[REG5] the value of an attribute that is in no storefront form is dropped from both addresses', !isset($order['billing']['e2e_a_noform']) && !isset($order['shipping']['e2e_a_noform']) && ($order['billing']['e2e_a_req']['value'] ?? '') !== '', json_encode([$order['billing']['e2e_a_noform'] ?? null, $order['shipping']['e2e_a_noform'] ?? null]));
 }
 
 echo "== Rules\n";
@@ -418,7 +429,7 @@ if ($customerPassword === '') {
 }
 
 echo "== Second website (REST7)\n";
-[$status, $italy] = $api('GET', '/directory/countries/IT', null, null, $itaHost, 'ita');
+[$status, $italy] = $itaHost === '' ? [0, []] : $api('GET', '/directory/countries/IT', null, null, $itaHost, 'ita');
 $regionId = 0;
 foreach ((array) ($italy['available_regions'] ?? []) as $region) {
     if (($region['code'] ?? '') === 'RM') {
@@ -426,7 +437,9 @@ foreach ((array) ($italy['available_regions'] ?? []) as $region) {
     }
 }
 if ($status !== 200 || $regionId === 0) {
-    echo "skip  (the Italy website does not answer on $itaHost, store code ita)\n";
+    echo $itaHost === ''
+        ? "skip  (no second website: E2E_SECOND_BASE_URL is not set)\n"
+        : "skip  (the Italy website does not answer on $itaHost, store code ita)\n";
 } else {
     $italian = static function (array $custom) use ($address, $regionId): array {
         return ['region' => 'Roma', 'region_code' => 'RM', 'region_id' => $regionId, 'country_id' => 'IT', 'postcode' => '00100', 'city' => 'Roma'] + $address($custom);

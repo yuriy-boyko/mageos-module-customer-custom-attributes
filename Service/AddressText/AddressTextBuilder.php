@@ -21,6 +21,18 @@ class AddressTextBuilder
     public const FORMAT_ONELINE = 'oneline';
 
     /**
+     * The output format for an address format: its own code for pdf and oneline, html for the html code and for every other
+     * format that escapes HTML (an HTML template with its own code, such as the address formats of Hyvä Checkout), text otherwise.
+     */
+    public static function formatFor(string $code, bool $escapeHtml): string
+    {
+        if (in_array($code, [self::FORMAT_HTML, self::FORMAT_PDF, self::FORMAT_ONELINE], true)) {
+            return $code;
+        }
+        return $escapeHtml ? self::FORMAT_HTML : $code;
+    }
+
+    /**
      * @param array<int, array{label: string, value: string}> $entries
      * @param string $existing the address text already rendered, used to join the new lines cleanly
      * @return string text to append to $existing, empty when there is nothing to add

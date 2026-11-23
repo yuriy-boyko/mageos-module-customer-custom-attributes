@@ -87,15 +87,42 @@ if (!$addressLogic && !$customerLogic) {
         return visible;
     }
 
+    // Empties the inputs of a hidden field. The fields are bound to Magewire with a deferred model, so the change is announced with
+    // input and change events: otherwise Magewire would still send the typed value with the next update.
     function clear(elements) {
+        var changed = [];
         Array.prototype.forEach.call(elements, function (element) {
             if (element.type === 'radio' || element.type === 'checkbox') {
-                element.checked = element.type === 'radio' && element.value === '';
+                var checked = element.type === 'radio' && element.value === '';
+                if (element.checked !== checked) { element.checked = checked; changed.push(element); }
             } else if (element.tagName === 'SELECT') {
-                if (element.selectedIndex !== -1 && element.value !== '') { element.selectedIndex = element.multiple ? -1 : 0; }
+                if (element.selectedIndex !== -1 && element.value !== '') { element.selectedIndex = element.multiple ? -1 : 0; changed.push(element); }
             } else if (element.value !== '') {
                 element.value = '';
+                changed.push(element);
             }
+        });
+        changed.forEach(function (element) {
+            element.dispatchEvent(new Event('input', {bubbles: true}));
+            element.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+    }
+
+    // Shows or hides a field wrapper. The class and style are written only when the state changes: a write with the same value
+    // still counts as a change of the page, and the observer below would run this script again without end.
+    function setVisible(wrapper, show, elements) {
+        var hidden = wrapper.classList.contains('hidden') || wrapper.style.display === 'none';
+        if (show && hidden) {
+            wrapper.classList.remove('hidden');
+            wrapper.style.display = '';
+        } else if (!show && !hidden) {
+            wrapper.classList.add('hidden');
+            wrapper.style.display = 'none';
+        }
+        if (!show) { clear(elements); }
+        // A required attribute is not required while a rule hides it (the server renders it without "required" then)
+        Array.prototype.forEach.call(elements, function (element) {
+            if (element.hasAttribute('data-mageos-cca-required') && element.required !== show) { element.required = show; }
         });
     }
 
@@ -108,14 +135,7 @@ if (!$addressLogic && !$customerLogic) {
                 var elements = controls(formId, code);
                 var wrapper = elements.length && elements[0].closest('.field-wrapper');
                 if (!wrapper) { return; }
-                if (visible[code]) {
-                    wrapper.classList.remove('hidden');
-                    wrapper.style.display = '';
-                } else {
-                    wrapper.classList.add('hidden');
-                    wrapper.style.display = 'none';
-                    clear(elements);
-                }
+                setVisible(wrapper, !!visible[code], elements);
             });
         });
     }
@@ -186,14 +206,7 @@ if (!$addressLogic && !$customerLogic) {
             var elements = customerControls(code);
             var wrapper = elements.length && elements[0].closest('.mageos-cca-field');
             if (!wrapper) { return; }
-            if (visible[code]) {
-                wrapper.classList.remove('hidden');
-                wrapper.style.display = '';
-            } else {
-                wrapper.classList.add('hidden');
-                wrapper.style.display = 'none';
-                clear(elements);
-            }
+            setVisible(wrapper, !!visible[code], elements);
         });
     }
     function applyAll() { apply(); applyCustomer(); }
@@ -207,9 +220,11 @@ if (!$addressLogic && !$customerLogic) {
             if (event.target && event.target.closest && event.target.closest('[data-mageos-cca-customer]')) { applyCustomer(); }
         });
     });
-    // Magewire replaces parts of the forms after each update.
-    new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true, attributes: true, attributeFilter: ['class']});
+    // Magewire replaces parts of the forms after each update (added and removed nodes; class changes are not watched, since this
+    // script makes them itself).
+    new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
     applyAll();
 })();
 </script>
-<?php $hyvaCsp->registerInlineScript() ?>
+<?php // $hyvaCsp exists from Hyvä theme module 1.3.11; older stores run the script without registering it
+if (isset($hyvaCsp)) { $hyvaCsp->registerInlineScript(); } ?>

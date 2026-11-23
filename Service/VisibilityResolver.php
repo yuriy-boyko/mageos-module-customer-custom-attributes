@@ -98,4 +98,21 @@ class VisibilityResolver
         }
         return in_array($option, explode(ValueNormalizer::MULTI_VALUE_SEPARATOR, $value), true);
     }
+
+    /**
+     * The group restrictions as the browser gets them: an empty list for an attribute the group may see, [-1] (no group) for one
+     * it may not. The page so tells the script what applies to this customer without listing the other groups.
+     *
+     * @param array<string, int[]> $groupRestrictions code => allowed customer group ids (no entry or an empty list: all groups)
+     * @return array<string, int[]>
+     */
+    public static function restrictionsForGroup(array $groupRestrictions, ?int $groupId): array
+    {
+        $result = [];
+        foreach ($groupRestrictions as $code => $groups) {
+            $groups = array_map('intval', (array) $groups);
+            $result[$code] = $groups === [] || ($groupId !== null && in_array($groupId, $groups, true)) ? [] : [-1];
+        }
+        return $result;
+    }
 }

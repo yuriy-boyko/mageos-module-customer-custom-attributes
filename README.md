@@ -124,7 +124,7 @@ Hyvä Theme only; Luma is not supported. Layout files use the `hyva_` prefix so 
 | `mageos_cca_quote_address_value` | checkout | quote address + attribute id | FK to `quote_address` and `eav_attribute`, cascade |
 | `mageos_cca_relation`, `mageos_cca_relation_detail` | default | relation, parent attribute + option + dependent attribute | dependency rules, FK cascade to the attributes |
 | `mageos_cca_attribute_group` | default | attribute + customer group | group restriction, FK cascade |
-| `mageos_cca_quote_value` | checkout | quote + attribute id | customer attributes (reserved, not used by storefront code yet) |
+| `mageos_cca_quote_value` | checkout | quote + attribute id | customer attribute values typed in the checkout sections |
 | `mageos_cca_order_address_value` | sales | order address + attribute code | snapshot, FK to `sales_order_address` only |
 | `mageos_cca_order_value` | sales | order + attribute code | snapshot, customer attributes |
 
@@ -169,5 +169,4 @@ Set `PHP_OPTS` to pass extra flags to the PHP syntax check.
 
 Written by Yuriy Boyko, <info@yuriy-boyko.com>.
 
-Licensed under the Open Software License 3.0 (see [LICENSE.txt](LICENSE.txt)); `composer.json` also lists AFL-3.0 like
-Magento core modules.
+Licensed under the Open Software License 3.0 (see [LICENSE.txt](LICENSE.txt)).

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Admin order create: a required attribute hidden by a dependency rule or the customer group is not required -->
+    <type name="Magento\Customer\Model\Metadata\Form\AbstractData">
+        <plugin name="mageos_cca_metadata_hidden_required" type="MageOS\CustomerCustomAttributes\Plugin\MetadataFormRequiredForHiddenAttribute"/>
+    </type>
+</config>

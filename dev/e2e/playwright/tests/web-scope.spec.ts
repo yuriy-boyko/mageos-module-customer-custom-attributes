@@ -1,16 +1,17 @@
 import type { Page } from '@playwright/test';
 import {
     accountValues, attributeRow, benchCommand, chooseShippingAndPayment, createWebsiteCustomer, customerEmail, deleteSavedAddresses, expect, field, fillCheckout,
-    gridFilter, gridMassAction, ITA, ITA_PRODUCT, loginOn, openAdminOrder, openCheckoutAsGuest, openGrid, orderViewAddresses, placeOrder, placedOrderSnapshot,
+    gridFilter, gridMassAction, ITA, ITA_PRODUCT, loginOn, requireSecondWebsite, openAdminOrder, openCheckoutAsGuest, openGrid, orderViewAddresses, placeOrder, placedOrderSnapshot,
     requireFixtures, setSavedAddress, test, uniqueEmail, websiteOverride,
 } from './helpers';
 
 /**
- * WEB: per-website scope. The Italy website (id 2, https://ita.magento249.test, EUR, Italian address forms) and the main website
+ * WEB: per-website scope. The Italy website (id 2, E2E_SECOND_BASE_URL, EUR, Italian address forms) and the main website
  * (id 1) share the attributes; each can override Enabled, Required and the default value of an attribute. The tests set the overrides
  * through the bench (the Websites tab of the admin is covered by the attribute specs) and look at the storefront of both websites.
  * Fixture attributes: address e2e_a_text (text), e2e_a_area (text area), e2e_a_bool (yes/no); customer e2e_c_account (account forms only).
  */
+requireSecondWebsite();
 const TEXT = 'e2e_a_text';
 const ITALY = { postcode: '00100', city: 'Roma', telephone: '0612345678' };
 

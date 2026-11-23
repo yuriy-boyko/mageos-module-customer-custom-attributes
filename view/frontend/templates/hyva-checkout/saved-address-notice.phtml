@@ -67,16 +67,26 @@ if (empty((array) $config['missing'])) {
             var control = listControl(type);
             var problems = control ? config.missing[control.id] : null;
             if (!control || !problems) {
-                if (notices[type]) { notices[type].style.display = 'none'; }
+                if (notices[type] && notices[type].style.display !== 'none') { notices[type].style.display = 'none'; }
                 return;
             }
             var element = notice(type, control.anchor);
-            // One missing field is named; several get a generic text.
-            element.firstChild.textContent = problems.length === 1
+            // One missing field is named; several get a generic text. Written only when it changes: the observer below sees every
+            // write, and role="alert" makes a screen reader announce the text again.
+            var text = problems.length === 1
                 ? config.text.replace('__FIELDS__', '"' + problems[0].label + '"')
                 : config.textMany;
-            element.querySelector('a').href = config.editUrl.replace('__ID__', control.id);
-            element.style.display = '';
+            // The link opens the address book form, which can fill only the fields it shows; for the others the customer types a
+            // new address here.
+            var editable = problems.some(function (problem) { return problem.editable; });
+            if (!problems.every(function (problem) { return problem.editable; })) { text += ' ' + config.textNew; }
+            if (element.firstChild.textContent !== text) { element.firstChild.textContent = text; }
+            var href = config.editUrl.replace('__ID__', control.id);
+            var link = element.querySelector('a');
+            if (link.getAttribute('href') !== href) { link.setAttribute('href', href); }
+            var linkDisplay = editable ? '' : 'none';
+            if (link.style.display !== linkDisplay) { link.style.display = linkDisplay; }
+            if (element.style.display !== '') { element.style.display = ''; }
         });
     }
 
@@ -87,4 +97,5 @@ if (empty((array) $config['missing'])) {
     update();
 })();
 </script>
-<?php $hyvaCsp->registerInlineScript() ?>
+<?php // $hyvaCsp exists from Hyvä theme module 1.3.11; older stores run the script without registering it
+if (isset($hyvaCsp)) { $hyvaCsp->registerInlineScript(); } ?>

@@ -87,4 +87,17 @@ class EntityDefinitionsTest extends TestCase
         self::assertArrayHasKey('mageos_hyva_checkout', $forms);
         self::assertArrayNotHasKey('mageos_address_text', $forms);
     }
+
+    public function testStoredFormsOfOtherModulesAreKept(): void
+    {
+        // checkout_register and other_module_form are not offered by this module: a save must not drop them
+        self::assertSame(
+            ['adminhtml_customer_address', 'customer_address_edit', 'checkout_register', 'other_module_form'],
+            $this->definitions->resolveForms(
+                'address',
+                ['customer_address_edit'],
+                ['adminhtml_customer_address', 'checkout_register', 'customer_register_address', 'other_module_form']
+            )
+        );
+    }
 }

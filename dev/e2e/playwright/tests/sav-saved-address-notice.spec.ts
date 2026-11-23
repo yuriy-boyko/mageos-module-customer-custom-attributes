@@ -82,6 +82,26 @@ test('SAV1-SAV3: the notice names the field and links to the address; the order 
     expect(snapshot.shipping.e2e_a_warn).toMatchObject({ value: 'now filled' });
 });
 
+test('SAV9: a required field the address book form does not show: the notice has no link and says to type a new address', { tag: ['@SAV9'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+    setSavedAddress(customerEmail(), INCOMPLETE);
+    // required, in the checkout but not in the address book form (the afterEach puts every form back)
+    benchCommand('E2E_FIXTURE_CMD', ['set-attribute', 'e2e_a_warn', 'required=1', 'forms=customer_register_address,mageos_hyva_checkout,mageos_address_text']);
+    await openCheckout(page, magewire);
+
+    const notice = page.locator(NOTICE).first();
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText('Your saved address needs the field "E2E Address Warn".');
+    await expect(notice).toContainText('Choose "New Address" and type the address again to fill it in.');
+    await expect(notice.locator('a'), 'no link to a form that cannot fill the field').toBeHidden();
+
+    await typeCustomerRequired(page, magewire);
+    await chooseShippingAndPayment(page, magewire);
+    await placeOrder(page);
+    const alert = page.locator('[role="alert"]:not(.mageos-cca-address-notice)').filter({ hasText: /E2E Address Warn/ }).first();
+    await expect(alert).toBeVisible({ timeout: 15_000 });
+    expect((await alert.innerText()).replace(/\s+/g, ' ')).toContain('Your saved shipping address needs the field "E2E Address Warn". Please choose "New Address" and type the address again, or choose another address.');
+});
+
 test('SAV4: the notice follows the selected address', { tag: ['@SAV4'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
     setSavedAddress(customerEmail(), COMPLETE);
     setSavedAddress(customerEmail(), INCOMPLETE, true);

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Yuriy Boyko <info@yuriy-boyko.com>
+ * Licensed under the Open Software License version 3.0
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Values of hidden attributes posted with the storefront account forms are not saved -->
+    <type name="Magento\Customer\Api\CustomerRepositoryInterface">
+        <plugin name="mageos_cca_storefront_form_hidden_values" type="MageOS\CustomerCustomAttributes\Plugin\StorefrontFormHiddenValues"/>
+    </type>
+    <type name="Magento\Customer\Api\AddressRepositoryInterface">
+        <plugin name="mageos_cca_storefront_form_hidden_values" type="MageOS\CustomerCustomAttributes\Plugin\StorefrontFormHiddenValues"/>
+    </type>
+</config>

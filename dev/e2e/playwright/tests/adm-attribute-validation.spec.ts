@@ -1,4 +1,4 @@
-import { attributeRow, adminOpen, expect, fillAttributeMain, gridFilter, openGrid, openNewAttribute, saveAttribute, test } from './helpers';
+import { deleteCreated, attributeRow, adminOpen, expect, fillAttributeMain, gridFilter, openGrid, openNewAttribute, saveAttribute, test } from './helpers';
 
 /**
  * ADM11 (browser side): what the shop owner sees when a new attribute is refused. Every case stays on the "new" page and creates nothing.
@@ -56,6 +56,25 @@ const cases: Case[] = [
         message: /at least one option|option/i,
     },
 ];
+
+// the quote and the order carry customer values as customer_<code>: these codes would read and write core columns
+const RESERVED_COLUMNS = ['note', 'comment', 'is_guest'];
+test.afterAll(() => {
+    // a build that wrongly accepts the code leaves an attribute behind: removed by the test's label
+    for (const code of RESERVED_COLUMNS) {
+        deleteCreated(code);
+    }
+});
+for (const code of RESERVED_COLUMNS) {
+    test(`customer: "${code}" (a customer_${code} column of the quote and the order) is refused as reserved`, { tag: ['@ADM11'] }, async ({ adminPage: page }) => {
+        await openNewAttribute(page, 'customer');
+        await fillAttributeMain(page, { label: 'ADM reserved column', code, input: 'text' });
+        await saveAttribute(page);
+        await expect(page).toHaveURL(/mageos_cca\/attribute\/new/);
+        await expect(page.locator('body')).toContainText(/reserved/i);
+        expect(attributeRow('customer', code).exists).toBe(false);
+    });
+}
 
 for (const entity of ['customer', 'address'] as const) {
     for (const c of cases) {

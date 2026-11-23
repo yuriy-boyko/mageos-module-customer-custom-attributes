@@ -53,7 +53,19 @@ class CustomerManagementSavedAddressMessage
             } catch (NoSuchEntityException) {
                 continue;
             }
-            if ($missing !== []) {
+            if ($missing !== [] && !array_reduce($missing, static fn (bool $all, array $field): bool => $all && $field['editable'], true)) {
+                // A field the address book form does not show can only be filled by typing the address again.
+                $messages[$type] = count($missing) === 1
+                    ? (string) __(
+                        'Your saved %1 address needs the field %2. Please choose "New Address" and type the address again, or choose another address.',
+                        $type,
+                        '"' . $missing[0]['label'] . '"'
+                    )
+                    : (string) __(
+                        'Your saved %1 address has some required fields missing. Please choose "New Address" and type the address again, or choose another address.',
+                        $type
+                    );
+            } elseif ($missing !== []) {
                 // One missing field is named; several get a generic text.
                 $messages[$type] = count($missing) === 1
                     ? (string) __(

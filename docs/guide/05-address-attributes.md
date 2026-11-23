@@ -9,7 +9,8 @@ Pick the forms in **Show in Forms** ([Managing attributes](03-managing-attribute
 - **Hyvä Checkout Address Forms:** the shipping and billing address forms. Values are saved on the quote address, copied to the
   order address and, when the customer saves the address to the address book, to the customer address. A saved address selected in
   the checkout loads its values into the quote. A saved address that has no value for an attribute clears values left from a
-  previously selected address.
+  previously selected address. Only attributes in this form (and enabled for the website) are kept on the quote and the order: the
+  value a saved address has for an attribute that is only in the address book or the admin is not carried to the order.
 - **Address Book (Customer Account):** the Add/Edit Address form in the account, with the saved values and native browser
   validation derived from the attribute's rules. A server-side validation message keeps everything the customer typed.
 - **Registration Address Form:** the address part of the registration form.
@@ -54,9 +55,13 @@ When an attribute becomes required after customers saved addresses, those addres
 
 - **Checkout notice:** next to the address list the Hyvä Checkout shows *"Your saved address needs the field X. Click here to edit
   it"* with a link to the account address form. When several fields are missing the text is generic ("Your saved address has some
-  required fields missing"). Billing and shipping are checked independently.
+  required fields missing"). Billing and shipping are checked independently. The link is shown only when the address book form
+  ("Address Book (Customer Account)") has the missing field; for a field that is only in the checkout the notice says instead:
+  *Choose "New Address" and type the address again to fill it in.* The attribute's edit page warns about such an attribute: add it to
+  the address book form so that customers can complete their saved addresses.
 - **Order message:** if the customer places the order anyway, the message names the address and, for one missing field, the field:
   *Your saved shipping address needs the field "X". Please edit the address in My Account > Address Book, or choose another address.*
+  For a field that is only in the checkout it asks to choose "New Address" and type the address again.
 
 Attributes that are hidden by a rule or a customer group are neither reported nor required. There is no automatic back-fill of
 existing addresses.
