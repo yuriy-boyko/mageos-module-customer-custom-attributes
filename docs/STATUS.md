@@ -26,7 +26,7 @@ listed one by one in [TESTING.md](TESTING.md); the code map is in [ARCHITECTURE.
 - **Saved address missing a required attribute:** checkout notice with an edit link, clear place-order message.
 - **API:** `custom_attributes` on cart addresses and `customers/me`; extension attributes `custom_attribute_values` (order addresses)
   and `customer_attribute_values` (orders).
-- **Release tooling:** `dev/check.sh` (171 unit tests of `Service/`), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
+- **Release tooling:** `dev/check.sh` (172 unit tests of `Service/`), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
   Magento install and in CI), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
   `.github/workflows/ci.yml`, `Setup/Uninstall` (drops the tables and form assignments; attributes stay).
 

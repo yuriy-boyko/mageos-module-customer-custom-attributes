@@ -82,6 +82,31 @@ use the default values. The tab appears once the attribute has been saved.
 
 ![Websites tab with the per-website overrides](images/attribute-websites.png)
 
+## Attributes created by a developer (install or data patch)
+
+The grid, the checkout and the order snapshot only know attributes with **`is_user_defined = 1`**. A patch that adds an attribute must
+set `'user_defined' => true`; without it (the default is `false`) the module ignores the attribute: it is not in the grid, cannot be
+placed in the checkout and leaves no snapshot on the order.
+
+An attribute that has a `source` model of its own (anything other than `Magento\Eav\Model\Entity\Attribute\Source\Table`) works as
+a dropdown or multiple select, with these rules:
+
+- The options come from the source's `getAllOptions()`. The checkout, the saved address, the order snapshot and the dependency rules
+  all read them from there.
+- In the admin the **options are read-only**: the edit page lists value and label and says where they come from. The option table is
+  not shown, "Add at least one option" is not asked for, and nothing is written to `eav_attribute_option`. Everything else can be
+  edited as usual (labels, required, forms, positions, groups, websites, validation).
+- The value stored is the `value` of the option, as text. Keep the values stable: a value that is renamed or removed later no longer
+  matches the quotes and saved addresses that hold it (orders keep their label).
+- **Translating the option labels is the patch owner's job.** The admin cannot edit them. The source must build each label with
+  `__('...')` and the module that holds the source must ship the translations (`i18n/<locale>.csv`). The attribute's own label is
+  different: it is stored per store view and is translated in the "Manage Labels" tab (or with `store_labels` in the patch).
+- Labels are translated when the source builds its list. Do not cache the list across stores or languages: a source that keeps it for
+  the whole request shows the labels of the first store or language it was asked in.
+- The patch decides the `backend_type`. It must fit the values: strings in an `int` column are not saved by Magento's EAV storage.
+- A dropdown whose source has no empty option cannot be cleared by the shopper. Add an empty option (or make the attribute required)
+  if that matters.
+
 ## Validation messages in the admin
 
 Saving checks, before anything is stored: a label is present, the code format and length, a duplicate code, reserved codes, a
@@ -90,7 +115,7 @@ by AJAX when you click Save.
 
 ## Editing and deleting
 
-- Labels, options, validation, forms, groups, websites and the enabled flag can be changed at any time.
+- Labels, options (not those of a developer's source model), validation, forms, groups, websites and the enabled flag can be changed at any time.
 - Deleting an attribute removes its definition and the values on customers, addresses and quotes. **Orders keep their snapshot**
   (label and value) because the order tables have no link to the attribute.
 

@@ -106,6 +106,7 @@ php ... fixtures.php set-customer <email> <code=value>...  # set account values 
 php ... fixtures.php drop-quotes <email>             # give a customer no active cart
 php ... fixtures.php purge        # delete the orders and quotes of test e-mails (containing e2e, ending @example.com)
 php ... fixtures.php create-attributes address --label=Text --input=select --options=A,B <code>   (also --forms=a,b); delete-option works on these too
+php ... fixtures.php create-attributes address --input=select --source=Vendor\\Class <code>   (a dropdown with a source model of its own: no option rows, like a data patch; SRC tests)
 php ... fixtures.php ensure-stock    # raise the salable stock of the test products when it is below 300 (run-all.sh does it before every run, after seeding)
 bin/magento cache:flush
 ```

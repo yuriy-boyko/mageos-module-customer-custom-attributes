@@ -10,6 +10,11 @@
 | A dependent field | its parent is in the same form, see the relation warning on the relation page |
 | Account form, new attribute created by a script | assign the attribute to an attribute set and flush the EAV cache; attributes created in the admin are assigned automatically |
 
+## An attribute added by a patch is missing in the grid and the checkout
+
+The patch did not set `'user_defined' => true`, so the module does not see it. See "Attributes created by a developer" in
+[Managing attributes](03-managing-attributes.md).
+
 ## Fields look unstyled
 
 Run `bin/magento hyva:config:generate` and rebuild the Tailwind CSS of the theme (`npm ci && npm run build` in the theme's

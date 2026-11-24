@@ -568,6 +568,7 @@ export type AttributeRow = {
     store_labels: Record<string, string>;
     input: string;
     backend_type: string;
+    source_model: string;
     required: boolean;
     user_defined: boolean;
     default_value: string | null;
@@ -587,8 +588,8 @@ export function attributeRow(entity: AdminEntity, code: string): AttributeRow {
 
 /** Deletes an attribute a test created through the admin (only codes starting with e2e_); nothing happens when it is gone. */
 /** Creates plain optional text attributes (codes starting with e2e_) without the browser; delete them with `deleteCreated`. */
-export function createAttributes(entity: AdminEntity, codes: string[], forms?: string[], checkoutPosition?: string): void {
-    benchCommand('E2E_FIXTURE_CMD', ['create-attributes', entity, ...(forms ? [`--forms=${forms.join(',')}`] : []), ...(checkoutPosition ? [`--position=${checkoutPosition}`] : []), ...codes]);
+export function createAttributes(entity: AdminEntity, codes: string[], forms?: string[], checkoutPosition?: string, extra: string[] = []): void {
+    benchCommand('E2E_FIXTURE_CMD', ['create-attributes', entity, ...extra, ...(forms ? [`--forms=${forms.join(',')}`] : []), ...(checkoutPosition ? [`--position=${checkoutPosition}`] : []), ...codes]);
 }
 
 export function deleteCreated(code: string): void {

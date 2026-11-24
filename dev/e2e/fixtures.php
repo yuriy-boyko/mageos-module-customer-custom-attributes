@@ -14,7 +14,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
- *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
+ *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] [--source=Class] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
  *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
  *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
  *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_, or it has the label "ADM reserved column" of the ADM11 reserved-code test; any entity), no error when absent
@@ -322,6 +322,7 @@ if ($command === 'create-attributes') {
     $label = null;
     $input = 'text';
     $options = [];
+    $source = '';
     $codes = [];
     foreach (array_slice($argv, 3) as $argument) {
         if (str_starts_with($argument, '--forms=')) {
@@ -334,6 +335,8 @@ if ($command === 'create-attributes') {
             $input = substr($argument, 8);
         } elseif (str_starts_with($argument, '--options=')) {
             $options = array_values(array_filter(explode(',', substr($argument, 10))));
+        } elseif (str_starts_with($argument, '--source=')) {
+            $source = substr($argument, 9); // a source model of its own, like a developer's data patch gives: the options come from its class
         } else {
             $codes[] = $argument;
         }
@@ -343,9 +346,19 @@ if ($command === 'create-attributes') {
             fwrite(STDERR, "Only codes starting with e2e_ are created: $code\n");
             exit(2);
         }
+        // the admin form refuses a dropdown without options, so a source model is put in place after the save, and the option rows go
         $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => $label ?? 'ADM ' . $code, 'input' => $input, 'forms' => $forms]
-            + ($options !== [] ? ['options' => $options] : [])
+            + ($options !== [] || $source !== '' ? ['options' => $options !== [] ? $options : ['placeholder']] : [])
             + ($position !== null ? ['checkout' => ['position' => $position, 'sort' => 5, 'prefill' => false]] : []));
+        if ($source !== '') {
+            $attribute = $findAttribute($entity, $code);
+            $attribute->setSourceModel($source)->save();
+            $objectManager->get(ResourceConnection::class)->getConnection()->delete(
+                $objectManager->get(ResourceConnection::class)->getTableName('eav_attribute_option'),
+                ['attribute_id = ?' => (int) $attribute->getId()]
+            );
+            $eavConfig->clear();
+        }
         echo "created  $code\n";
     }
     exit(0);

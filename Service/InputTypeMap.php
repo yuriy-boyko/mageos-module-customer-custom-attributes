@@ -101,6 +101,19 @@ class InputTypeMap
         return $inputType === 'select' || $inputType === 'multiselect';
     }
 
+    /**
+     * True for a dropdown or multiple select whose options come from a source model written by a developer (an install or data patch),
+     * not from the option table the admin form manages. Its options are read-only in the admin.
+     */
+    public function hasDeveloperOptions(?string $inputType, ?string $sourceModel): bool
+    {
+        if (!$this->usesOptions($inputType)) {
+            return false;
+        }
+        $sourceModel = ltrim(trim((string) $sourceModel), '\\');
+        return $sourceModel !== '' && strcasecmp($sourceModel, 'Magento\\Eav\\Model\\Entity\\Attribute\\Source\\Table') !== 0;
+    }
+
     public function supportsTextRules(?string $inputType): bool
     {
         return $inputType === 'text' || $inputType === 'textarea';

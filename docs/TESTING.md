@@ -224,6 +224,14 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | ADM18 | Form assignment written by core or another module, then the attribute saved | kept | ✅ automated: playwright/tests/adm18-save-guards.spec.ts |
 | ADM19 | Option ids of another attribute posted with the attribute form | refused, the other attribute unchanged | ✅ automated: playwright/tests/adm18-save-guards.spec.ts |
 
+### SRC. Options from a developer's source model
+Attributes made by a data patch with a source model of their own (here Magento's Yes/No source, whose "No" is the value 0).
+
+| ID | Test | Expected | Status |
+|---|---|---|---|
+| SRC1 | Edit page of a dropdown with a developer source, and of a normal dropdown | the developer one lists value and label read-only (no option table), saves without options, keeps its source model and writes no option rows; the normal one keeps its option table | ✅ automated: playwright/tests/src-developer-source.spec.ts; adapter tests Test/Magento/Model/Attribute/FormProcessorDeveloperOptionsTest.php and Test/Magento/Block/Adminhtml/Attribute/Edit/OptionsTest.php (escaping, fallback to the standard block) |
+| SRC2 | Required dropdown of a developer source in the checkout, "No" (0) chosen | the value 0 is on the quote, the order and the snapshot, with its label | ✅ automated: playwright/tests/src-developer-source.spec.ts |
+
 ### ACL. Permissions
 | ID | Test | Expected | Status |
 |---|---|---|---|

@@ -9,6 +9,10 @@ For what the module does, see the [user guide](docs/guide/README.md).
 
 Initial version.
 
+### Added before the first release
+- Attributes with a developer's source model (a data patch with `user_defined` set): the options are shown read-only on the edit page, and
+  saving no longer asks for options in the option table. See the guide, "Attributes created by a developer".
+
 ### Fixed before the first release
 - Companion (Hyvä Checkout 3.x): see its CHANGELOG; this module needed no change for 3.0.2.
 - The order confirmation e-mail sent by the request that places the order now has the custom address lines (the address object of that request

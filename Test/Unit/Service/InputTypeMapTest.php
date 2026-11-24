@@ -62,4 +62,17 @@ class InputTypeMapTest extends TestCase
         self::assertTrue($this->map->supportsTextRules("textarea"));
         self::assertFalse($this->map->supportsTextRules("date"));
     }
+
+    public function testDeveloperOptions(): void
+    {
+        $table = 'Magento\\Eav\\Model\\Entity\\Attribute\\Source\\Table';
+        self::assertTrue($this->map->hasDeveloperOptions('select', 'Vendor\\Module\\Model\\Source\\Level'));
+        self::assertTrue($this->map->hasDeveloperOptions('multiselect', '\\Vendor\\Module\\Model\\Source\\Level'));
+        self::assertFalse($this->map->hasDeveloperOptions('select', $table), 'the option table is managed in the admin');
+        self::assertFalse($this->map->hasDeveloperOptions('select', '\\' . $table));
+        self::assertFalse($this->map->hasDeveloperOptions('select', null));
+        self::assertFalse($this->map->hasDeveloperOptions('select', ''));
+        self::assertFalse($this->map->hasDeveloperOptions('text', 'Vendor\\Module\\Model\\Source\\Level'));
+        self::assertFalse($this->map->hasDeveloperOptions('boolean', 'Magento\\Eav\\Model\\Entity\\Attribute\\Source\\Boolean'));
+    }
 }

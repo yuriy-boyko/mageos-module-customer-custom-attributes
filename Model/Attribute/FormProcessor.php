@@ -73,7 +73,10 @@ class FormProcessor
             $data['frontend_class'] = $rules['frontend_class'];
             $data['default_value'] = $this->prepareDefaultValue($inputType, $post);
 
-            if ($this->inputTypes->usesOptions($inputType)) {
+            // An attribute with a developer's source model keeps its options: nothing is validated or saved for them.
+            if ($this->inputTypes->usesOptions($inputType)
+                && !($existing !== null && $this->inputTypes->hasDeveloperOptions($inputType, (string) $existing->getSourceModel()))
+            ) {
                 $options = is_array($post['option'] ?? null) ? $post['option'] : [];
                 $this->validateOptions($options, $errors);
                 $ownIds = $existing !== null && $existing->getId()

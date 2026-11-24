@@ -63,7 +63,7 @@ class Edit extends Container
         if ($attribute && $attribute->getId()) {
             $label = $attribute->getFrontendLabel();
             $label = is_array($label) ? (string) reset($label) : (string) $label;
-            return __('Edit %1 "%2"', $this->entityContext->getLabel(), $this->escapeHtml($label));
+            return __('Edit %1 "%2"', $this->entityContext->getLabel(), $this->_escaper->escapeHtml($label));
         }
         return __('New %1', $this->entityContext->getLabel());
     }

@@ -460,7 +460,7 @@ if ($command === 'attribute') {
     $code = (string) ($argv[3] ?? '');
     $typeCode = $argument === 'address' ? 'customer_address' : 'customer';
     $row = $db->fetchRow(
-        $sql('SELECT a.attribute_id, a.frontend_label, a.frontend_input, a.backend_type, a.is_required, a.is_user_defined, a.default_value,
+        $sql('SELECT a.attribute_id, a.frontend_label, a.frontend_input, a.backend_type, a.source_model, a.is_required, a.is_user_defined, a.default_value,
                      e.is_visible, e.sort_order, e.validate_rules
               FROM {{eav_attribute}} a
               JOIN {{eav_entity_type}} t ON t.entity_type_id = a.entity_type_id AND t.entity_type_code = ?
@@ -497,6 +497,7 @@ if ($command === 'attribute') {
         'store_labels' => $db->fetchPairs($sql('SELECT store_id, value FROM {{eav_attribute_label}} WHERE attribute_id = ? ORDER BY store_id'), [$id]),
         'input' => (string) $row['frontend_input'],
         'backend_type' => (string) $row['backend_type'],
+        'source_model' => (string) $row['source_model'],
         'required' => (bool) $row['is_required'],
         'user_defined' => (bool) $row['is_user_defined'],
         'default_value' => $row['default_value'],
