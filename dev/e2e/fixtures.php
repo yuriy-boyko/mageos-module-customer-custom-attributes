@@ -14,7 +14,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
- *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] [--source=Class] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
+ *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] [--source=Class] [--snapshot=0] [--admin-only] [--show-in-email] [--save-to-account] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
  *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
  *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
  *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_, or it has the label "ADM reserved column" of the ADM11 reserved-code test; any entity), no error when absent
@@ -27,6 +27,8 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php bulk-attributes <n>   create n address attributes e2e_bulk_01... (every third a dropdown with 3 options) in all storefront address forms (ROB3); bulk-addresses <email> <n> gives a customer n saved addresses with values for them; bulk-clean deletes them and the addresses
  *   php dev/e2e/fixtures.php add-form <code> <form>   assign an attribute a test created (code starts with e2e_) to a form this module does not offer, like another module would (ADM18)
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
+ *   php dev/e2e/fixtures.php create-raw-attribute <customer|address> <code>   a user defined text attribute made like a data patch does (no form processor, so no reserved code check), label "ADM reserved column"; delete-created removes it (SEC2)
+ *   php dev/e2e/fixtures.php quote-snapshot <quote id> [area]   run the order snapshot code (QuoteSubmitBefore) on a stored quote without placing an order, in the area given (default adminhtml, e.g. webapi_rest for a cart API call): the customer values it would put on the order (JSON)
  *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
  *
  * Run it from the Magento root (or set MAGENTO_ROOT). The test customer's password is read from the environment variable
@@ -56,7 +58,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form', 'create-raw-attribute', 'quote-snapshot'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -323,6 +325,10 @@ if ($command === 'create-attributes') {
     $input = 'text';
     $options = [];
     $source = '';
+    $snapshot = null;
+    $adminOnly = false;
+    $showInEmail = false;
+    $saveToAccount = false;
     $codes = [];
     foreach (array_slice($argv, 3) as $argument) {
         if (str_starts_with($argument, '--forms=')) {
@@ -335,6 +341,14 @@ if ($command === 'create-attributes') {
             $input = substr($argument, 8);
         } elseif (str_starts_with($argument, '--options=')) {
             $options = array_values(array_filter(explode(',', substr($argument, 10))));
+        } elseif ($argument === '--show-in-email') {
+            $showInEmail = true; // "Show in Order Email"
+        } elseif ($argument === '--save-to-account') {
+            $saveToAccount = true; // "Also Save to Customer Account" (needs --position and the checkout form)
+        } elseif ($argument === '--admin-only') {
+            $adminOnly = true; // "Customer Cannot Change This Value"
+        } elseif (str_starts_with($argument, '--snapshot=')) {
+            $snapshot = substr($argument, 11); // 0: the attribute is not saved on orders ("Save on Orders" off)
         } elseif (str_starts_with($argument, '--source=')) {
             $source = substr($argument, 9); // a source model of its own, like a developer's data patch gives: the options come from its class
         } else {
@@ -349,7 +363,9 @@ if ($command === 'create-attributes') {
         // the admin form refuses a dropdown without options, so a source model is put in place after the save, and the option rows go
         $seedAttribute(['entity' => $entity, 'code' => $code, 'label' => $label ?? 'ADM ' . $code, 'input' => $input, 'forms' => $forms]
             + ($options !== [] || $source !== '' ? ['options' => $options !== [] ? $options : ['placeholder']] : [])
-            + ($position !== null ? ['checkout' => ['position' => $position, 'sort' => 5, 'prefill' => false]] : []));
+            + ($position !== null ? ['checkout' => ['position' => $position, 'sort' => 5, 'prefill' => false]] : [])
+            + (($snapshot !== null || $adminOnly || $showInEmail || $saveToAccount) ? ['rules' => ($snapshot !== null ? ['save_on_order' => $snapshot] : [])
+                + ($adminOnly ? ['admin_only' => '1'] : []) + ($showInEmail ? ['show_in_email' => '1'] : []) + ($saveToAccount ? ['checkout_save_to_account' => '1'] : [])] : []));
         if ($source !== '') {
             $attribute = $findAttribute($entity, $code);
             $attribute->setSourceModel($source)->save();
@@ -361,6 +377,64 @@ if ($command === 'create-attributes') {
         }
         echo "created  $code\n";
     }
+    exit(0);
+}
+
+if ($command === 'create-raw-attribute') {
+    $entity = (string) ($argv[2] ?? '');
+    $code = (string) ($argv[3] ?? '');
+    if (!isset($entityTypeCodes[$entity]) || preg_match('/^[a-z][a-z0-9_]{0,50}$/', $code) !== 1) {
+        fwrite(STDERR, "Usage: create-raw-attribute <customer|address> <code>\n");
+        exit(2);
+    }
+    if ($findAttribute($entity, $code) !== null) {
+        fwrite(STDERR, "$code already exists.\n");
+        exit(1);
+    }
+    $type = $eavConfig->getEntityType($entityTypeCodes[$entity]);
+    $setId = (int) $type->getDefaultAttributeSetId();
+    $attribute = $objectManager->create(Attribute::class);
+    $attribute->setData([
+        'attribute_code' => $code,
+        'entity_type_id' => $type->getId(),
+        'frontend_input' => 'text',
+        'backend_type' => 'varchar',
+        'frontend_label' => 'ADM reserved column',
+        'is_user_defined' => 1,
+        'is_system' => 0,
+        'is_required' => 0,
+        'is_visible' => 1,
+        'sort_order' => 100,
+        'attribute_set_id' => $setId,
+        'attribute_group_id' => $objectManager->create(\Magento\Eav\Model\Entity\Attribute\Set::class)->getDefaultGroupId($setId),
+        'used_in_forms' => [$entity === 'customer' ? 'adminhtml_customer' : 'adminhtml_customer_address'],
+    ])->save();
+    $eavConfig->clear();
+    echo "created  $code (raw)\n";
+    exit(0);
+}
+
+if ($command === 'quote-snapshot') {
+    $quote = $objectManager->create(\Magento\Quote\Model\Quote::class)->load((int) ($argv[2] ?? 0));
+    if (!$quote->getId()) {
+        fwrite(STDERR, "Quote not found.\n");
+        exit(1);
+    }
+    $order = new \Magento\Framework\DataObject(['store_id' => $quote->getStoreId()]);
+    $snapshot = static fn () => $objectManager->get(\MageOS\CustomerCustomAttributes\Observer\QuoteSubmitBefore::class)->execute(
+        new \Magento\Framework\Event\Observer(['event' => new \Magento\Framework\Event(['order' => $order, 'quote' => $quote])])
+    );
+    $area = (string) ($argv[3] ?? '');
+    if ($area !== '' && $area !== 'adminhtml') {
+        $objectManager->get(State::class)->emulateAreaCode($area, $snapshot);
+    } else {
+        $snapshot();
+    }
+    $values = [];
+    foreach ((array) $order->getData(\MageOS\CustomerCustomAttributes\Observer\QuoteSubmitBefore::DATA_KEY) as $row) {
+        $values[$row['attribute_code']] = $row['value'];
+    }
+    echo json_encode(['values' => $values, 'customer_note' => $quote->getCustomerNote()], JSON_THROW_ON_ERROR), "\n";
     exit(0);
 }
 
@@ -542,6 +616,10 @@ if ($command === 'set-customer') {
     $given = [];
     foreach (array_slice($argv, 3) as $pair) {
         [$code, $value] = array_pad(explode('=', $pair, 2), 2, '');
+        if (!isset($definitions[$code]) && preg_match('/^e2e_c_/', $code) === 1 && ($created = $findAttribute('customer', $code)) !== null) {
+            // an attribute a test created (create-attributes): text unless it is a dropdown
+            $definitions[$code] = ['code' => $code, 'entity' => 'customer', 'input' => (string) $created->getFrontendInput()];
+        }
         if (!isset($definitions[$code])) {
             fwrite(STDERR, "$code is not a fixture customer attribute.\n");
             exit(2);

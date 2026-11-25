@@ -58,8 +58,40 @@ How it behaves:
 - Attributes not ticked for the checkout keep working as before: their value is read from the customer when a logged-in customer
   places an order.
 
+## Values only the admin may change
+
+Set **Customer Cannot Change This Value** to Yes (Storefront Properties) for internal values such as a price level or an ERP id.
+Core Magento accepts every user-defined attribute that a customer sends, in the registration and account forms and in the API
+(`PUT /V1/customers/me`, GraphQL, `POST /V1/customers`). For such an attribute:
+
+- the field is never printed in the registration and account forms;
+- a value sent anyway is ignored: the stored value is kept (a new customer gets none). This covers the storefront registration and
+  account edit posts and the API with a customer token or without a token;
+- the admin, integrations (admin and integration tokens), imports, the command line and setup scripts can still change it;
+- it cannot be required in the registration or account forms (the customer could never satisfy it); the attribute screen refuses that
+  combination.
+
+The setting applies to customer attributes only. It cannot be combined with "Also Save to Customer Account" or "Show in Order Email".
+
 ## What an order gets
 
 When an order is placed, a snapshot of the customer attribute values is stored with the order: code, label, input type, value
-and the displayed value. It is shown in the admin order view under **Account Information** and returned by the order API as the
+and the displayed value. Every customer attribute that has a value gets a row. Switch **Save on Orders** (Storefront Properties) to No
+for internal values that do not belong to the order history: no row is saved for the attribute, and it does not appear in the admin
+order view. The setting does not change the checks: an attribute that is required in the checkout is still required. Rows of orders
+already placed are not removed (delete them with SQL if needed, see [Orders and stored data](07-orders-and-data.md)). A reorder in
+the admin does not carry values of an attribute that is off. It is shown in the admin order view under **Account Information** and returned by the order API as the
 extension attribute `customer_attribute_values`. See [Orders and stored data](07-orders-and-data.md).
+
+## Values typed in the checkout and the account
+
+By default a value typed in the checkout stays on the order. Set **Also Save to Customer Account** (Storefront Properties, for attributes
+shown in the checkout) to Yes to copy it to the account when a logged-in customer places the order. An empty field never erases the stored
+value. Guests are not covered. A failed save is logged and never stops the order.
+
+## Show in Order Email
+
+Set **Show in Order Email** to Yes (needs Save on Orders; not for "Customer Cannot Change This Value") to list the customer's value in an
+**Additional Information** section of the new order email, below the payment and shipping method. The section is added to the standard
+template automatically. A custom template without the payment and shipping method cells needs the variable placed by hand:
+`{{var mageos_additional_information_html|raw}}`. Only the new order email is changed.

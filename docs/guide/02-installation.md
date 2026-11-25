@@ -51,9 +51,11 @@ bin/magento setup:upgrade
 
 The attributes and the values on customers and addresses stay in the database but are no longer shown.
 
-> **Warning:** `setup:upgrade` after disabling the module **drops the module's tables** (Magento's declarative schema removes tables of
-> disabled modules). Order snapshots, quote values, relations and group restrictions are lost, and re-enabling the module creates
-> the tables empty. Back up the `mageos_cca_*` tables first if you need them. A required address attribute that is still assigned
+> **Warning:** `setup:upgrade` after disabling the module **drops the tables of the quote values, the relations and the group
+> restrictions** (Magento's declarative schema removes the tables of disabled modules that are in the module's schema whitelist).
+> Re-enabling the module creates them empty. **The two order snapshot tables are kept**, with all their rows, because they hold the values
+> the orders were placed with; re-enabling the module reads them again. Back up the other `mageos_cca_*` tables first if you need
+> them. A required address attribute that is still assigned
 > to a core address form also blocks the checkout while the module is disabled, because core drops custom address values: make it
 > optional or remove it from the forms first.
 

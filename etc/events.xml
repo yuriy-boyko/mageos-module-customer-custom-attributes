@@ -34,6 +34,14 @@
         <observer name="mageos_cca_validate_quote_addresses" instance="MageOS\CustomerCustomAttributes\Observer\ValidateQuoteAddresses"/>
         <observer name="mageos_cca_customer_values_to_order" instance="MageOS\CustomerCustomAttributes\Observer\QuoteSubmitBefore"/>
     </event>
+    <!-- Customer attributes typed in the checkout and set to "Also Save to Customer Account" -->
+    <event name="sales_model_service_quote_submit_success">
+        <observer name="mageos_cca_save_checkout_values_to_account" instance="MageOS\CustomerCustomAttributes\Observer\SaveCheckoutValuesToAccount"/>
+    </event>
+    <!-- New order email: the "Additional Information" section -->
+    <event name="email_order_set_template_vars_before">
+        <observer name="mageos_cca_order_email_additional_information" instance="MageOS\CustomerCustomAttributes\Observer\AddAdditionalInformationToOrderEmail"/>
+    </event>
     <event name="sales_order_save_after">
         <observer name="mageos_cca_order_save" instance="MageOS\CustomerCustomAttributes\Observer\OrderSaveAfter"/>
     </event>

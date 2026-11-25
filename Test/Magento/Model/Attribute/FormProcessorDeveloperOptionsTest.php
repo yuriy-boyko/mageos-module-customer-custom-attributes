@@ -10,8 +10,10 @@ namespace MageOS\CustomerCustomAttributes\Test\Magento\Model\Attribute;
 use MageOS\CustomerCustomAttributes\Model\Attribute\EntityContext;
 use MageOS\CustomerCustomAttributes\Model\Attribute\FormProcessor;
 use MageOS\CustomerCustomAttributes\Model\Attribute\ReservedCodeProvider;
+use MageOS\CustomerCustomAttributes\Service\AdminOnlyAccess;
 use MageOS\CustomerCustomAttributes\Service\AttributeCodeValidator;
 use MageOS\CustomerCustomAttributes\Service\InputTypeMap;
+use MageOS\CustomerCustomAttributes\Service\SettingConflicts;
 use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Customer\Model\Attribute;
 use Magento\Eav\Model\Config as EavConfig;
@@ -47,7 +49,9 @@ class FormProcessorDeveloperOptionsTest extends TestCase
             $this->createStub(EavConfig::class),
             $this->createStub(SetFactory::class),
             $filter,
-            $optionFactory
+            $optionFactory,
+            new AdminOnlyAccess(),
+            new SettingConflicts()
         );
     }
 

@@ -54,7 +54,7 @@ require(['jquery', 'uiRegistry'], function ($, registry) {
     // always listed and look inactive (the settings are kept) while "Hyvä Checkout" is not selected.
     function toggleCheckoutFields() {
         var active = ($('#used_in_forms').val() || []).indexOf('mageos_hyva_checkout') !== -1;
-        $('#checkout_position, #checkout_sort, #checkout_prefill').each(function () {
+        $('#checkout_position, #checkout_sort, #checkout_prefill, #checkout_save_to_account').each(function () {
             $(this).closest('.field').css('opacity', active ? '' : '0.5');
         });
     }

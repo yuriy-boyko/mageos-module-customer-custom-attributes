@@ -40,8 +40,10 @@ REST orders.
 `GET` and `PUT /V1/customers/me` read and update customer and address attributes as `custom_attributes`, like any attribute. The
 metadata endpoints list them with their input types, so `custom_attributes` follow the standard format. This is core behaviour and
 covers every user-defined attribute, also one shown in the admin forms only: a customer can set such a value through this endpoint.
-Keep values that only the merchant may set (an approval flag, a credit limit) out of customer and address attributes, or check them
-where they are used.
+For a customer attribute that only the merchant may set (a price level, an ERP id), switch on **Customer Cannot Change This Value**:
+the value sent with a customer token or without a token (`PUT /V1/customers/me`, `POST /V1/customers`, GraphQL `updateCustomer` and
+`createCustomer`) is ignored, and admin and integration tokens still write it. Address attributes have no such setting: keep values
+that only the merchant may set out of address attributes, or check them where they are used.
 
 ## Reading orders
 

@@ -38,6 +38,18 @@ class ValidateRulesBuilder
     public const CHECKOUT_SORT_KEY = 'mageos_checkout_sort';
     public const CHECKOUT_PREFILL_KEY = 'mageos_checkout_prefill';
 
+    /** Key in the validate rules of a customer attribute: stored as 0 when its value is not saved on orders (a missing key means it is). */
+    public const ORDER_SNAPSHOT_KEY = 'mageos_order_snapshot';
+
+    /** Key in the validate rules of a customer attribute: 1 when only the admin and the shop's code may change its value (see AdminOnlyAccess). */
+    public const ADMIN_ONLY_KEY = 'mageos_admin_only';
+
+    /** Key in the validate rules of a customer attribute shown in the checkout: 1 when the typed value is also saved to the customer account. */
+    public const SAVE_TO_ACCOUNT_KEY = 'mageos_checkout_save_to_account';
+
+    /** Key in the validate rules of a customer attribute: 1 when its value is shown in the "Additional Information" section of the order email. */
+    public const EMAIL_KEY = 'mageos_email';
+
     public const DISPLAY_RADIO = 'radio';
     public const DISPLAY_CHECKBOX = 'checkbox';
 
@@ -100,6 +112,17 @@ class ValidateRulesBuilder
             }
         }
 
+        if (array_key_exists('save_on_order', $data) && (string) $data['save_on_order'] === '0') {
+            $rules[self::ORDER_SNAPSHOT_KEY] = 0;
+        }
+
+        if (!empty($data['admin_only'])) {
+            $rules[self::ADMIN_ONLY_KEY] = 1;
+        }
+        if (!empty($data['show_in_email'])) {
+            $rules[self::EMAIL_KEY] = 1;
+        }
+
         $position = (string) ($data['checkout_position'] ?? '');
         if ($position !== '') {
             if (!CheckoutPositions::isValid($position)) {
@@ -115,10 +138,40 @@ class ValidateRulesBuilder
                 if (!empty($data['checkout_prefill'])) {
                     $rules[self::CHECKOUT_PREFILL_KEY] = 1;
                 }
+                if (!empty($data['checkout_save_to_account'])) {
+                    $rules[self::SAVE_TO_ACCOUNT_KEY] = 1;
+                }
             }
         }
 
         return ['rules' => $rules, 'frontend_class' => $frontendClass, 'errors' => $errors];
+    }
+
+    /**
+     * Whether the value of a customer attribute is saved on the orders: yes unless the attribute was switched off, so attributes
+     * saved before the setting existed keep their behaviour.
+     *
+     * @param array<string, mixed> $rules
+     */
+    public function savesOnOrder(array $rules): bool
+    {
+        return !array_key_exists(self::ORDER_SNAPSHOT_KEY, $rules) || !empty($rules[self::ORDER_SNAPSHOT_KEY]);
+    }
+
+    /**
+     * @param array<string, mixed> $rules
+     */
+    public function savesToAccount(array $rules): bool
+    {
+        return !empty($rules[self::SAVE_TO_ACCOUNT_KEY]);
+    }
+
+    /**
+     * @param array<string, mixed> $rules
+     */
+    public function showsInEmail(array $rules): bool
+    {
+        return !empty($rules[self::EMAIL_KEY]);
     }
 
     /**

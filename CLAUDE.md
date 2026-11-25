@@ -15,7 +15,8 @@ companion package `mage-os/module-customer-custom-attributes-hyva-checkout`.
 - PHP 8.3+, `declare(strict_types=1)`, constructor promotion with `readonly`, namespace `MageOS\CustomerCustomAttributes`.
 - Author / credits: Yuriy Boyko <info@yuriy-boyko.com>. Licence OSL-3.0. Keep the file-header comment.
 - No runtime schema changes: every table is declared in `etc/db_schema.xml`. Regenerate the whitelist after schema changes
-  (`bin/magento setup:db-declaration:generate-whitelist --module-name=MageOS_CustomerCustomAttributes`).
+  (`bin/magento setup:db-declaration:generate-whitelist --module-name=MageOS_CustomerCustomAttributes`), then remove the two order
+  snapshot tables from it again (`SchemaWhitelistTest`, see ARCHITECTURE.md): a whitelisted table is dropped when the module is disabled.
 - Order tables keep a snapshot and have no foreign key to `eav_attribute`: an order must render from its own rows only.
 - Logic goes into pure PHP classes in `Service/` (no Magento imports) with unit tests in `Test/Unit/`; Magento adapters stay thin.
 - Never import, extend or implement `Hyva\Checkout\*` classes in this module's PHP; they belong to the companion module. A plugin on

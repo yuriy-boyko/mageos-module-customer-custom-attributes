@@ -128,3 +128,26 @@ Rules,Rules
 "Choose ""New Address"" and type the address again to fill it in.","Choose ""New Address"" and type the address again to fill it in."
 "Your saved %1 address needs the field %2. Please choose ""New Address"" and type the address again, or choose another address.","Your saved %1 address needs the field %2. Please choose ""New Address"" and type the address again, or choose another address."
 "Your saved %1 address has some required fields missing. Please choose ""New Address"" and type the address again, or choose another address.","Your saved %1 address has some required fields missing. Please choose ""New Address"" and type the address again, or choose another address."
+"Additional Information","Additional Information"
+"Show in Order Email","Show in Order Email"
+"Also Save to Customer Account","Also Save to Customer Account"
+"Customer Cannot Change This Value","Customer Cannot Change This Value"
+"Save on Orders","Save on Orders"
+"Shown in","Shown in"
+"Admin only","Admin only"
+"+%1 other","+%1 other"
+An attribute the customer cannot change cannot be required in the registration or account forms.,An attribute the customer cannot change cannot be required in the registration or account forms.
+"Fill an empty field with the logged-in customer's saved value. Values typed in the checkout are kept on the order only, unless ""Also Save to Customer Account"" is on.","Fill an empty field with the logged-in customer's saved value. Values typed in the checkout are kept on the order only, unless ""Also Save to Customer Account"" is on."
+"For internal values (a price level, an ERP id). A value sent by the customer is ignored: in the registration and account forms, in the API with a customer token or without a token. The field is never shown to the customer. The admin, integrations and imports can still change it. It cannot be required in the registration or account forms.","For internal values (a price level, an ERP id). A value sent by the customer is ignored: in the registration and account forms, in the API with a customer token or without a token. The field is never shown to the customer. The admin, integrations and imports can still change it. It cannot be required in the registration or account forms."
+"Keep the customer's value on every order (one row per order and value, shown in the admin order view). Switch it off for internal values that do not belong to the order history. Rows of orders already placed are not removed. A required attribute in the checkout is still checked.","Keep the customer's value on every order (one row per order and value, shown in the admin order view). Switch it off for internal values that do not belong to the order history. Rows of orders already placed are not removed. A required attribute in the checkout is still checked."
+Label,Label
+Options,Options
+"Show the customer's value in the ""Additional Information"" section of the new order email, below the payment and shipping method. Needs Save on Orders. Not for internal values: it cannot be combined with ""Customer Cannot Change This Value"".","Show the customer's value in the ""Additional Information"" section of the new order email, below the payment and shipping method. Needs Save on Orders. Not for internal values: it cannot be combined with ""Customer Cannot Change This Value""."
+"The code of these attributes is reserved (it is also a field of the customer, the cart or the order): %1. Their value can be mixed up with that field. Create the attribute again with another code.","The code of these attributes is reserved (it is also a field of the customer, the cart or the order): %1. Their value can be mixed up with that field. Create the attribute again with another code."
+These options come from a source model written by a developer (%1) and cannot be changed here.,These options come from a source model written by a developer (%1) and cannot be changed here.
+Value,Value
+"When a logged-in customer places an order, copy the value typed in the checkout to the customer account. An empty value never erases the stored one. Not for guests. Cannot be combined with ""Customer Cannot Change This Value"".","When a logged-in customer places an order, copy the value typed in the checkout to the customer account. An empty value never erases the stored one. Not for guests. Cannot be combined with ""Customer Cannot Change This Value""."
+An attribute the customer cannot change cannot be saved to the customer account from the checkout.,An attribute the customer cannot change cannot be saved to the customer account from the checkout.
+Also Save to Customer Account needs the attribute in Hyvä Checkout (Show in Forms).,Also Save to Customer Account needs the attribute in Hyvä Checkout (Show in Forms).
+An attribute the customer cannot change is an internal value: it cannot be shown in the order email.,An attribute the customer cannot change is an internal value: it cannot be shown in the order email.
+Show in Order Email needs Save on Orders: the email shows the values saved on the order.,Show in Order Email needs Save on Orders: the email shows the values saved on the order.

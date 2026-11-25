@@ -7,10 +7,12 @@ declare(strict_types=1);
 
 namespace MageOS\CustomerCustomAttributes\Model\Attribute;
 
+use MageOS\CustomerCustomAttributes\Service\AdminOnlyAccess;
 use MageOS\CustomerCustomAttributes\Service\AttributeCodeValidator;
 use MageOS\CustomerCustomAttributes\Service\EntityDefinitions;
 use MageOS\CustomerCustomAttributes\Service\InputTypeMap;
 use MageOS\CustomerCustomAttributes\Service\OptionKeyGuard;
+use MageOS\CustomerCustomAttributes\Service\SettingConflicts;
 use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Customer\Model\Attribute;
 use Magento\Eav\Model\Config as EavConfig;
@@ -32,7 +34,9 @@ class FormProcessor
         private readonly EavConfig $eavConfig,
         private readonly SetFactory $attributeSetFactory,
         private readonly FilterManager $filterManager,
-        private readonly OptionCollectionFactory $optionCollectionFactory
+        private readonly OptionCollectionFactory $optionCollectionFactory,
+        private readonly AdminOnlyAccess $adminOnly,
+        private readonly SettingConflicts $conflicts
     ) {
     }
 
@@ -65,6 +69,23 @@ class FormProcessor
             (array) ($post['used_in_forms'] ?? []),
             $existing !== null ? array_values((array) $existing->getUsedInForms()) : []
         );
+
+        if ($context->getKey() === EntityDefinitions::CUSTOMER
+            && $this->adminOnly->conflictsWithRequired(!empty($post['admin_only']), (bool) $data['is_required'], $data['used_in_forms'])
+        ) {
+            $errors[] = (string) __('An attribute the customer cannot change cannot be required in the registration or account forms.');
+        }
+        if ($context->getKey() === EntityDefinitions::CUSTOMER) {
+            foreach ($this->conflicts->messages(
+                !empty($post['admin_only']),
+                !empty($post['checkout_save_to_account']),
+                !empty($post['show_in_email']),
+                (string) ($post['save_on_order'] ?? '1') !== '0',
+                $data['used_in_forms']
+            ) as $message) {
+                $errors[] = (string) __($message);
+            }
+        }
 
         if ($this->inputTypes->isSupported($inputType)) {
             $rules = $this->rulesBuilder->build($inputType, $post);

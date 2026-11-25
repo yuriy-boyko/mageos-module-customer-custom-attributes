@@ -11,6 +11,16 @@
     <preference for="Magento\Quote\Model\Quote\Address\CustomAttributeListInterface"
                 type="MageOS\CustomerCustomAttributes\Model\Quote\Address\CustomAttributeList"/>
 
+    <!-- Customer attributes only the admin may change: the values a customer (or a visitor) sends are not saved -->
+    <type name="Magento\Customer\Api\CustomerRepositoryInterface">
+        <plugin name="mageos_cca_customer_admin_only_values" type="MageOS\CustomerCustomAttributes\Plugin\CustomerAdminOnlyValues"/>
+    </type>
+
+    <!-- The new order email gets the "Additional Information" section -->
+    <type name="Magento\Email\Model\Template">
+        <plugin name="mageos_cca_order_email_template" type="MageOS\CustomerCustomAttributes\Plugin\OrderEmailTemplate"/>
+    </type>
+
     <!-- Link 2: store the quote address values on every save of the quote address -->
     <type name="Magento\Quote\Model\ResourceModel\Quote\Address">
         <plugin name="mageos_cca_quote_address_save_values" type="MageOS\CustomerCustomAttributes\Plugin\QuoteAddressSaveValues"/>

@@ -15,6 +15,13 @@
 The patch did not set `'user_defined' => true`, so the module does not see it. See "Attributes created by a developer" in
 [Managing attributes](03-managing-attributes.md).
 
+## The grid warns that an attribute code is reserved
+
+The attribute was made outside the admin (a data patch) with a code that is also a field of the customer, the cart or the order, for
+example `note`. The admin form refuses such codes. Outside the admin order create page the module does not read the quote's field for it, so
+the value of the customer account is used. In the admin order create page the field and the attribute still share the key, so create the
+attribute again with another code and copy its values.
+
 ## Fields look unstyled
 
 Run `bin/magento hyva:config:generate` and rebuild the Tailwind CSS of the theme (`npm ci && npm run build` in the theme's
@@ -53,8 +60,9 @@ Prefill runs at every page load and fills empty fields. Switch "Prefill from Cus
 
 ## Data is gone after disabling the module
 
-`setup:upgrade` drops the tables of a disabled module, so order snapshots, relations and quote values are lost. Back up the
-`mageos_cca_*` tables before disabling, see [Installation](02-installation.md#disable).
+`setup:upgrade` drops the tables of a disabled module that are in its schema whitelist: the relations, the group restrictions and the
+quote values are lost. The order snapshot tables are not dropped. Back up the other `mageos_cca_*` tables before disabling, see
+[Installation](02-installation.md#disable).
 
 ## Changing code or input type
 

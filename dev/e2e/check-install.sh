@@ -4,7 +4,7 @@
 #   dev/e2e/check-install.sh [--skip-phpstan]
 #
 # (INS2 and INS3, the tables and foreign keys, are checked by `assertions.php check` in every run-all.sh run.)
-# 1. `setup:db-declaration:generate-whitelist` writes etc/db_schema_whitelist.json of the module: the file is copied first, compared with
+# 1. `setup:db-declaration:generate-whitelist` writes etc/db_schema_whitelist.json of the module (the two order snapshot tables are kept out of the module's file): the file is copied first, compared with
 #    what was generated and put back byte for byte (also after an error or Ctrl-C).
 # 2. `setup:db:status` must say that all modules are up to date: a second `setup:upgrade` would change nothing.
 # 3. PHPStan at the level of phpstan.neon.dist (level 5) must report no errors.
@@ -35,8 +35,17 @@ bad() { echo "FAIL  $*"; failed=$((failed + 1)); }
 
 echo "== Declarative schema"
 if e2e_magento setup:db-declaration:generate-whitelist --module-name=MageOS_CustomerCustomAttributes >"$work/whitelist.log" 2>&1; then
-    if cmp -s "$work/whitelist.backup" "$whitelist"; then
-        ok "[INS4] the generated whitelist equals etc/db_schema_whitelist.json"
+    # The generated file lists every table. The two order snapshot tables are taken out of the module's file on purpose: a table in the
+    # whitelist is dropped by setup:upgrade when its module is disabled, and these tables hold the values the orders were placed with.
+    if python3 - "$work/whitelist.backup" "$whitelist" <<'PY'
+import json, sys
+kept = json.load(open(sys.argv[1]))
+generated = json.load(open(sys.argv[2]))
+snapshots = ('mageos_cca_order_value', 'mageos_cca_order_address_value')
+sys.exit(0 if all(t in generated and t not in kept for t in snapshots) and kept == {k: v for k, v in generated.items() if k not in snapshots} else 1)
+PY
+    then
+        ok "[INS4] the generated whitelist equals etc/db_schema_whitelist.json, except the two order snapshot tables, which are kept out of it on purpose"
     else
         bad "[INS4] the generated whitelist differs from etc/db_schema_whitelist.json: diff $work/whitelist.backup $whitelist"
         cp -p "$whitelist" "$work/whitelist.generated"

@@ -296,7 +296,7 @@ export async function fillCheckout(page: Page, magewire: Magewire, overrides: Re
     };
     const regionName = region;
     const regionSelect = page.locator('select[name="region"]').first();
-    if (await regionSelect.count()) {
+    if (await regionSelect.count() && await regionSelect.isVisible()) {
         // an exact label ("Texas") or the start of one ("Roma")
         const labels = await regionSelect.locator('option').allInnerTexts();
         const wanted = labels.find((label) => label.trim() === regionName) ?? labels.find((label) => label.trim().startsWith(regionName));
@@ -305,7 +305,8 @@ export async function fillCheckout(page: Page, magewire: Magewire, overrides: Re
     }
     for (const [name, value] of Object.entries(values)) {
         const input = field(page, name);
-        if ((await input.count()) === 0) {
+        // a logged-in customer with a saved address has the address form hidden
+        if ((await input.count()) === 0 || !(await input.isVisible())) {
             continue;
         }
         await input.fill(value);

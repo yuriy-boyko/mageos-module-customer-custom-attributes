@@ -10,6 +10,12 @@ When an order is placed the module stores what the customer entered **as it was 
 The order tables have **no link to the attribute**. Renaming an attribute, changing an option, changing the input type or deleting
 the attribute never changes an existing order. Deleting an order deletes its snapshot rows.
 
+The order snapshot tables are the only copy of these values, so they are **kept when the module is disabled**: `setup:upgrade` does not
+drop them (they are declared in `db_schema.xml` but are not in the schema whitelist; only `module:uninstall -r` removes them).
+A schema change of these two tables therefore needs a schema patch, because declarative schema does not alter tables that are not in
+the whitelist. Customer attributes can be left out of the snapshot with **Save on Orders** (see
+[Customer attributes](04-customer-attributes.md)).
+
 ## Where values show up
 
 | Place | What is shown |

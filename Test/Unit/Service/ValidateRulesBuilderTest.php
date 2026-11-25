@@ -169,4 +169,55 @@ class ValidateRulesBuilderTest extends TestCase
         );
         self::assertSame("payment_above", $this->builder->getCheckoutSettings(["mageos_checkout_position" => "bogus"])["position"]);
     }
+
+    public function testSaveOnOrderOffIsStoredAsZero(): void
+    {
+        foreach (["text", "select", "date"] as $type) {
+            $result = $this->builder->build($type, ["save_on_order" => "0"]);
+            self::assertSame(0, $result["rules"][ValidateRulesBuilder::ORDER_SNAPSHOT_KEY], $type);
+        }
+    }
+
+    public function testSaveOnOrderOnOrMissingStoresNothing(): void
+    {
+        self::assertArrayNotHasKey(ValidateRulesBuilder::ORDER_SNAPSHOT_KEY, $this->builder->build("text", ["save_on_order" => "1"])["rules"]);
+        self::assertArrayNotHasKey(ValidateRulesBuilder::ORDER_SNAPSHOT_KEY, $this->builder->build("text", [])["rules"], "a form without the field (address attributes) keeps the default");
+    }
+
+    public function testAnAttributeSavesOnOrdersUnlessSwitchedOff(): void
+    {
+        self::assertTrue($this->builder->savesOnOrder([]), "saved before the setting existed");
+        self::assertTrue($this->builder->savesOnOrder(["input_validation" => "email"]));
+        self::assertTrue($this->builder->savesOnOrder([ValidateRulesBuilder::ORDER_SNAPSHOT_KEY => 1]));
+        self::assertFalse($this->builder->savesOnOrder([ValidateRulesBuilder::ORDER_SNAPSHOT_KEY => 0]));
+        self::assertFalse($this->builder->savesOnOrder([ValidateRulesBuilder::ORDER_SNAPSHOT_KEY => "0"]), "after a JSON round trip");
+    }
+
+    public function testAdminOnlyIsStoredAsOneAndOtherwiseNothing(): void
+    {
+        self::assertSame(1, $this->builder->build("text", ["admin_only" => "1"])["rules"][ValidateRulesBuilder::ADMIN_ONLY_KEY]);
+        self::assertArrayNotHasKey(ValidateRulesBuilder::ADMIN_ONLY_KEY, $this->builder->build("text", ["admin_only" => "0"])["rules"]);
+        self::assertArrayNotHasKey(ValidateRulesBuilder::ADMIN_ONLY_KEY, $this->builder->build("select", [])["rules"]);
+    }
+
+    public function testShowInEmailIsStoredAsOneAndOtherwiseNothing(): void
+    {
+        self::assertSame(1, $this->builder->build("text", ["show_in_email" => "1"])["rules"][ValidateRulesBuilder::EMAIL_KEY]);
+        self::assertArrayNotHasKey(ValidateRulesBuilder::EMAIL_KEY, $this->builder->build("text", ["show_in_email" => "0"])["rules"]);
+        self::assertTrue($this->builder->showsInEmail([ValidateRulesBuilder::EMAIL_KEY => 1]));
+        self::assertTrue($this->builder->showsInEmail([ValidateRulesBuilder::EMAIL_KEY => "1"]));
+        self::assertFalse($this->builder->showsInEmail([]));
+    }
+
+    public function testSaveToAccountIsStoredOnlyWithACheckoutPosition(): void
+    {
+        $with = $this->builder->build("text", ["checkout_position" => "payment_above", "checkout_save_to_account" => "1"]);
+        self::assertSame(1, $with["rules"][ValidateRulesBuilder::SAVE_TO_ACCOUNT_KEY]);
+        self::assertTrue($this->builder->savesToAccount($with["rules"]));
+
+        $without = $this->builder->build("text", ["checkout_save_to_account" => "1"]);
+        self::assertArrayNotHasKey(ValidateRulesBuilder::SAVE_TO_ACCOUNT_KEY, $without["rules"], "not in the checkout: nothing to save");
+        self::assertFalse($this->builder->savesToAccount([]));
+        self::assertFalse($this->builder->savesToAccount([ValidateRulesBuilder::SAVE_TO_ACCOUNT_KEY => 0]));
+    }
 }

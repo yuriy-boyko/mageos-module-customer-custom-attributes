@@ -5,8 +5,13 @@ Open **Stores → Attributes → Customer Attributes** or **Customer Address Att
 
 ## The grid
 
-Lists the user-defined attributes with code, default label, input type, required, enabled and sort order. You can filter and sort
-by each column.
+Lists the user-defined attributes with code, default label, input type, required, enabled, **shown in** and sort order. You can filter
+and sort by the other columns. **Shown in** lists the storefront forms of the attribute: the account forms, where the customer types
+the value (registration, account edit, address book, registration address), are in bold; the checkout and address text follow. "+N other"
+counts forms that other modules assigned, and "Admin only" means the attribute is in no storefront form. Check it after taking over
+attributes from another module: an attribute that should stay internal must not be in bold. The grid also warns about attributes whose
+code is reserved (a field of the customer, the cart or the order, such as `note`): the admin form refuses these codes, but a data patch
+can create them, and the value of such an attribute can be mixed up with that field. Create the attribute again with another code.
 
 ![The Customer Attributes grid](images/attribute-grid.png)
 

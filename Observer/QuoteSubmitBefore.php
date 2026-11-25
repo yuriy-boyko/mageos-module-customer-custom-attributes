@@ -12,6 +12,7 @@ use MageOS\CustomerCustomAttributes\Model\CustomerAttributeProvider;
 use MageOS\CustomerCustomAttributes\Model\Dependency\VisibilityService;
 use MageOS\CustomerCustomAttributes\Model\OptionLabels;
 use MageOS\CustomerCustomAttributes\Service\SnapshotRowBuilder;
+use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use MageOS\CustomerCustomAttributes\Service\ValueNormalizer;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Framework\App\Area;
@@ -28,7 +29,9 @@ use Magento\Framework\Module\Manager as ModuleManager;
  * form win over the stored customer values. Attributes shown in the checkout (ticked for "Hyvä Checkout") take their value
  * from what the customer typed there (kept on the quote, guests included) and never from the customer account; in the
  * storefront their required flag and rules are enforced here, as long as the companion module that renders their sections is
- * enabled (without it the customer could not fill them in). Other attributes have no value for guests.
+ * enabled (without it the customer could not fill them in). Other attributes have no value for guests. The quote's customer_<code>
+ * data is read in the admin area only. An attribute whose
+ * "Save on Orders" setting is off leaves no row.
  */
 class QuoteSubmitBefore implements ObserverInterface
 {
@@ -46,7 +49,8 @@ class QuoteSubmitBefore implements ObserverInterface
         private readonly VisibilityService $visibility,
         private readonly CustomerCheckoutAttributes $checkoutAttributes,
         private readonly State $appState,
-        private readonly ModuleManager $moduleManager
+        private readonly ModuleManager $moduleManager,
+        private readonly ValidateRulesBuilder $rulesBuilder
     ) {
     }
 
@@ -75,12 +79,18 @@ class QuoteSubmitBefore implements ObserverInterface
             }
         }
         $checkoutValues = $checkoutCodes === [] ? [] : $this->checkoutAttributes->getOrderValues($quote);
+        $isAdmin = $this->isAdmin();
 
         $values = [];
         foreach ($attributes as $code => $attribute) {
-            // The admin order create form puts the submitted account values on the quote as customer_<code>.
+            // An attribute switched off for orders leaves no row (its required flag was checked above).
+            if (!$this->rulesBuilder->savesOnOrder((array) $attribute->getValidateRules())) {
+                continue;
+            }
+            // The admin order create form puts the submitted account values on the quote as customer_<code>. Only there: in any other
+            // area the key can be a field of the quote the customer sets himself (customer_note through the cart API).
             $quoteKey = 'customer_' . $code;
-            if ($quote->hasData($quoteKey)) {
+            if ($isAdmin && $quote->hasData($quoteKey)) {
                 $raw = $quote->getData($quoteKey);
             } elseif (in_array($code, $checkoutCodes, true)) {
                 $raw = $checkoutValues[$code] ?? null;
@@ -109,6 +119,15 @@ class QuoteSubmitBefore implements ObserverInterface
             );
         }
         $order->setData(self::DATA_KEY, $rows);
+    }
+
+    private function isAdmin(): bool
+    {
+        try {
+            return $this->appState->getAreaCode() === Area::AREA_ADMINHTML;
+        } catch (LocalizedException) {
+            return false;
+        }
     }
 
     private function isStorefront(): bool

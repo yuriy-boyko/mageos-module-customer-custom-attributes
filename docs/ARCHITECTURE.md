@@ -11,7 +11,12 @@ For contributors and AI coding tools. Read this before changing code; [TESTING.m
    `mageos_hyva_checkout` and `mageos_address_text`.
 2. **Quote and order values live in fixed-schema tables**, one row per parent and attribute, declared in `etc/db_schema.xml`.
    Nothing alters a table at runtime. After a schema change regenerate the whitelist:
-   `bin/magento setup:db-declaration:generate-whitelist --module-name=MageOS_CustomerCustomAttributes`.
+   `bin/magento setup:db-declaration:generate-whitelist --module-name=MageOS_CustomerCustomAttributes`, then **remove the two order
+   snapshot tables again** (`mageos_cca_order_value`, `mageos_cca_order_address_value`) from `etc/db_schema_whitelist.json`.
+   Declarative schema drops the whitelisted tables of a disabled module on `setup:upgrade`; the snapshots are the only copy of what
+   an order was placed with, so they stay out of the whitelist (`SchemaWhitelistTest` fails when they are back). The price is that
+   declarative schema never alters or drops their existing columns, indexes or constraints: such a change needs a schema patch.
+   `Setup/Uninstall` still drops them (`module:uninstall -r` is the explicit way to remove the data).
 3. **Orders are snapshots.** Order tables store code, label, input type, value and value label and have **no foreign key to
    `eav_attribute`**: an order must render from its own rows even after the attribute was renamed, changed or deleted.
 4. **Pure logic in `Service/`** (no Magento imports, unit tested in `Test/Unit`); Magento adapters (plugins, observers,
@@ -137,7 +142,7 @@ Learned the hard way; check them before "simplifying":
 - Customer attributes shown in the checkout (ticked for "Hyvä Checkout" in Show in Forms) get their own sections, like order
   attributes: position (the seven positions in `Service/CheckoutPositions`), sort order and prefill are stored in the validate rules
   (`mageos_checkout_position`, `mageos_checkout_sort`, `mageos_checkout_prefill`). Values typed there live on the quote
-  (`mageos_cca_quote_value`) and the order snapshot only; the customer account is never written from the checkout. Prefill fills
+  (`mageos_cca_quote_value`) and the order snapshot only; the customer account is written from the checkout only for attributes with "Also Save to Customer Account" (`mageos_checkout_save_to_account`, `Observer/SaveCheckoutValuesToAccount` on `sales_model_service_quote_submit_success`, storefront area, logged-in customers; one `saveAttribute` per changed attribute, then a customer grid reindex; an empty value never erases; errors are logged and never stop the order; the decision is `Service/AccountSaveDecider`). Prefill fills
   only attributes without a value on the quote, on the first render of the page (a guest who logs in keeps what was typed); the
   default value is used when nothing is prefilled. Guests see the fields. The order snapshot of such an attribute reads the quote
   values, not the customer. Required values and rules are enforced in the storefront area at order placement
@@ -155,5 +160,18 @@ Learned the hard way; check them before "simplifying":
   (`Service/ValueLabelResolver`, `Model/AddressText/ValueFormatter`). Add unit tests first.
 - **New form code:** `Service/EntityDefinitions` (code ≤ 32 characters because of `customer_form_attribute.form_code`), the Front
   tab, and the reader of that form.
-- **New table:** `etc/db_schema.xml`, regenerate the whitelist, add it to `Setup/Uninstall`, document it here.
+- **New table:** `etc/db_schema.xml`, regenerate the whitelist (keep a table out of it only when losing it on `module:disable` would
+  be data loss, like the order snapshots), add it to `Setup/Uninstall`, document it here.
+- **New per-attribute setting of a customer attribute:** a constant and a key in `Service/ValidateRulesBuilder` (a missing key means the
+  old behaviour), the field in `Block/.../Tab/Front`, the decision in a pure `Service/` class, a unit test. Examples:
+  `mageos_order_snapshot` (`Observer/QuoteSubmitBefore`), `mageos_admin_only` (`Service/AdminOnlyAccess`, `Plugin/CustomerAdminOnlyValues`).
 - **New phrase:** wrap in `__()` and regenerate `i18n/en_US.csv`.
+
+## The "Additional Information" section of the new order email
+Setting `mageos_email` ("Show in Order Email"; needs Save on Orders, not admin-only: `Service/SettingConflicts`). The event
+`email_order_set_template_vars_before` (`Observer/AddAdditionalInformationToOrderEmail`, order email only) puts the template variable
+`mageos_additional_information_html` (`Service/AdditionalInformation`) into the email variables, built from the order's snapshot rows
+(`OrderSaveAfter` leaves the rows on the order object under `OrderLoadAfter::DATA_KEY`, so the email of a just placed order has them).
+`Plugin/OrderEmailTemplate` (around `Magento\Email\Model\Template::getProcessedTemplate`) inserts `{{var mageos_additional_information_html|raw}}`
+for that rendering only (`Service/EmailTemplateInserter`): after the last `method-info` cell, at the end of the order details table. A template
+that already contains the variable, or has no `method-info` cell (a custom template), is left alone: the merchant places the variable.

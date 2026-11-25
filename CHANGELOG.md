@@ -13,7 +13,26 @@ Initial version.
 - Attributes with a developer's source model (a data patch with `user_defined` set): the options are shown read-only on the edit page, and
   saving no longer asks for options in the option table. See the guide, "Attributes created by a developer".
 
+- **Shown in** column in the attribute grids: the storefront forms of every attribute (account forms in bold, "+N other" for forms of
+  other modules, "Admin only" for none).
+- **Save on Orders** (customer attributes, Storefront Properties, default Yes): switch it off for internal values that do not belong to
+  the order history. No snapshot row is saved and the admin order view does not list it; required checks still run.
+- **Customer Cannot Change This Value** (customer attributes, default No): the value of the attribute is ignored when a customer or a
+  visitor sends it (registration and account edit posts, REST and GraphQL with a customer token or without a token); the admin,
+  integrations, imports and the command line still write it. The field is never printed in the account forms, and the attribute
+  cannot be required there.
+- The two order snapshot tables are no longer in the schema whitelist: `setup:upgrade` with the module disabled keeps them, and only
+  `module:uninstall -r` removes them. A schema change of these two tables needs a schema patch.
+
+- **Also Save to Customer Account** (customer attributes shown in the checkout, default No): the value a logged-in customer types in the
+  checkout is copied to the account when the order is placed. An empty value never erases the stored one.
+- **Show in Order Email** (customer attributes, default No): an "Additional Information" section in the new order email, below the
+  payment and shipping method, with the values saved on the order. Template variable `mageos_additional_information_html` for custom templates.
+
 ### Fixed before the first release
+- An attribute whose code is also a `customer_*` field of the quote (`note` is the cart note) no longer takes the value a customer types in
+  that field through the cart API: the order snapshot reads the quote's `customer_<code>` data in the admin area only (the admin order
+  create form). The attribute grid warns about attributes with a reserved code, which a data patch can create and the admin form refuses.
 - Companion (Hyvä Checkout 3.x): see its CHANGELOG; this module needed no change for 3.0.2.
 - The order confirmation e-mail sent by the request that places the order now has the custom address lines (the address object of that request
   carries the snapshot rows as soon as they are saved).

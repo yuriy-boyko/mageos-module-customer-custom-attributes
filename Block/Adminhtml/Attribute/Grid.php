@@ -8,6 +8,9 @@ declare(strict_types=1);
 namespace MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute;
 
 use MageOS\CustomerCustomAttributes\Model\Attribute\EntityContext;
+use MageOS\CustomerCustomAttributes\Block\Adminhtml\Attribute\Grid\Renderer\Forms;
+use MageOS\CustomerCustomAttributes\Model\ResourceModel\AttributeFormStorage;
+use MageOS\CustomerCustomAttributes\Service\FormColumn;
 use MageOS\CustomerCustomAttributes\Service\InputTypeMap;
 use Magento\Backend\Block\Template\Context;
 use Magento\Backend\Block\Widget\Grid\Extended;
@@ -23,6 +26,8 @@ class Grid extends Extended
         BackendHelper $backendHelper,
         private readonly EntityContext $entityContext,
         private readonly InputTypeMap $inputTypes,
+        private readonly AttributeFormStorage $formStorage,
+        private readonly FormColumn $formColumn,
         array $data = []
     ) {
         parent::__construct($context, $backendHelper, $data);
@@ -45,6 +50,20 @@ class Grid extends Extended
         $collection->addFieldToFilter('main_table.is_user_defined', 1);
         $this->setCollection($collection);
         return parent::_prepareCollection();
+    }
+
+    /**
+     * The forms of the rows of this page, from one query: the "Shown in" column prints them.
+     */
+    protected function _afterLoadCollection()
+    {
+        $items = $this->getCollection()->getItems();
+        $forms = $this->formStorage->loadForAttributes(array_map(static fn ($item): int => (int) $item->getAttributeId(), $items));
+        $offered = $this->entityContext->getOptionalForms();
+        foreach ($items as $item) {
+            $item->setData('mageos_forms_view', $this->formColumn->describe($offered, $forms[(int) $item->getAttributeId()] ?? []));
+        }
+        return parent::_afterLoadCollection();
     }
 
     protected function _prepareColumns()
@@ -87,6 +106,13 @@ class Grid extends Extended
             'filter_index' => 'additional_table.is_visible',
             'type' => 'options',
             'options' => $yesNo,
+        ]);
+        $this->addColumn('mageos_forms', [
+            'header' => __('Shown in'),
+            'index' => 'attribute_id',
+            'renderer' => Forms::class,
+            'filter' => false,
+            'sortable' => false,
         ]);
         $this->addColumn('sort_order', [
             'header' => __('Sort Order'),

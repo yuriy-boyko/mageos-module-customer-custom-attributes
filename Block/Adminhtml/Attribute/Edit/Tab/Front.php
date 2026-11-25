@@ -14,6 +14,7 @@ use Magento\Backend\Block\Widget\Form\Generic;
 use MageOS\CustomerCustomAttributes\Model\ResourceModel\AttributeGroupStorage;
 use MageOS\CustomerCustomAttributes\Service\CheckoutPositions;
 use MageOS\CustomerCustomAttributes\Service\EntityDefinitions;
+use MageOS\CustomerCustomAttributes\Service\AdminOnlyAccess;
 use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Config\Model\Config\Source\YesnoFactory;
 use Magento\Customer\Model\ResourceModel\Group\CollectionFactory as GroupCollectionFactory;
@@ -34,6 +35,7 @@ class Front extends Generic
         private readonly AttributeGroupStorage $groupStorage,
         private readonly GroupCollectionFactory $groupCollectionFactory,
         private readonly ValidateRulesBuilder $rulesBuilder,
+        private readonly AdminOnlyAccess $adminOnly,
         array $data = []
     ) {
         parent::__construct($context, $registry, $formFactory, $data);
@@ -88,6 +90,31 @@ class Front extends Generic
         ]);
 
         if ($this->entityContext->getKey() === EntityDefinitions::CUSTOMER) {
+            $rules = (array) $attribute->getValidateRules();
+            $fieldset->addField('save_on_order', 'select', [
+                'name' => 'save_on_order',
+                'label' => __('Save on Orders'),
+                'title' => __('Save on Orders'),
+                'values' => $this->yesnoFactory->create()->toOptionArray(),
+                'value' => $attribute->getData('save_on_order') ?? (int) $this->rulesBuilder->savesOnOrder($rules),
+                'note' => __('Keep the customer\'s value on every order (one row per order and value, shown in the admin order view). Switch it off for internal values that do not belong to the order history. Rows of orders already placed are not removed. A required attribute in the checkout is still checked.'),
+            ]);
+            $fieldset->addField('admin_only', 'select', [
+                'name' => 'admin_only',
+                'label' => __('Customer Cannot Change This Value'),
+                'title' => __('Customer Cannot Change This Value'),
+                'values' => $this->yesnoFactory->create()->toOptionArray(),
+                'value' => $attribute->getData('admin_only') ?? (int) $this->adminOnly->isAdminOnly($rules),
+                'note' => __('For internal values (a price level, an ERP id). A value sent by the customer is ignored: in the registration and account forms, in the API with a customer token or without a token. The field is never shown to the customer. The admin, integrations and imports can still change it. It cannot be required in the registration or account forms.'),
+            ]);
+            $fieldset->addField('show_in_email', 'select', [
+                'name' => 'show_in_email',
+                'label' => __('Show in Order Email'),
+                'title' => __('Show in Order Email'),
+                'values' => $this->yesnoFactory->create()->toOptionArray(),
+                'value' => $attribute->getData('show_in_email') ?? (int) $this->rulesBuilder->showsInEmail($rules),
+                'note' => __('Show the customer\'s value in the "Additional Information" section of the new order email, below the payment and shipping method. Needs Save on Orders. Not for internal values: it cannot be combined with "Customer Cannot Change This Value".'),
+            ]);
             $this->addCheckoutFields($fieldset, $attribute);
         }
 
@@ -141,7 +168,15 @@ class Front extends Generic
             'title' => __('Prefill from Customer'),
             'values' => $this->yesnoFactory->create()->toOptionArray(),
             'value' => $attribute->getData('checkout_prefill') ?? (int) $settings['prefill'],
-            'note' => __('Fill an empty field with the logged-in customer\'s saved value. Values typed in the checkout are kept on the order only; the customer account is not changed.'),
+            'note' => __('Fill an empty field with the logged-in customer\'s saved value. Values typed in the checkout are kept on the order only, unless "Also Save to Customer Account" is on.'),
+        ]);
+        $fieldset->addField('checkout_save_to_account', 'select', [
+            'name' => 'checkout_save_to_account',
+            'label' => __('Also Save to Customer Account'),
+            'title' => __('Also Save to Customer Account'),
+            'values' => $this->yesnoFactory->create()->toOptionArray(),
+            'value' => $attribute->getData('checkout_save_to_account') ?? (int) $this->rulesBuilder->savesToAccount((array) $attribute->getValidateRules()),
+            'note' => __('When a logged-in customer places an order, copy the value typed in the checkout to the customer account. An empty value never erases the stored one. Not for guests. Cannot be combined with "Customer Cannot Change This Value".'),
         ]);
     }
 }

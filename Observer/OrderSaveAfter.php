@@ -29,5 +29,7 @@ class OrderSaveAfter implements ObserverInterface
         }
         $this->storage->save((int) $order->getId(), $rows);
         $order->unsetData(QuoteSubmitBefore::DATA_KEY);
+        // the order now carries its rows like a loaded one: the new order email is rendered from this same object
+        $order->setData(OrderLoadAfter::DATA_KEY, $rows);
     }
 }

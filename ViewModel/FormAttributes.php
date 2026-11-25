@@ -11,6 +11,7 @@ use MageOS\CustomerCustomAttributes\Service\VisibilityResolver;
 use MageOS\CustomerCustomAttributes\Model\AddressAttributeProvider;
 use MageOS\CustomerCustomAttributes\Model\CustomerAttributeProvider;
 use MageOS\CustomerCustomAttributes\Model\Dependency\RuleProvider;
+use MageOS\CustomerCustomAttributes\Service\AdminOnlyAccess;
 use MageOS\CustomerCustomAttributes\Service\FieldAttributeBuilder;
 use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use MageOS\CustomerCustomAttributes\Service\ValueNormalizer;
@@ -39,7 +40,8 @@ class FormAttributes implements ArgumentInterface
         private readonly RuleProvider $ruleProvider,
         private readonly CustomerSession $customerSession,
         private readonly ScopeConfigInterface $scopeConfig,
-        private readonly ValidateRulesBuilder $rulesBuilder
+        private readonly ValidateRulesBuilder $rulesBuilder,
+        private readonly AdminOnlyAccess $adminOnly
     ) {
     }
 
@@ -89,6 +91,9 @@ class FormAttributes implements ArgumentInterface
             $attribute = $userDefined[$code];
             $input = (string) $attribute->getFrontendInput();
             $rules = (array) $attribute->getValidateRules();
+            if ($this->adminOnly->isAdminOnly($rules)) {
+                continue; // only the admin changes its value: never printed for the customer
+            }
             $required = (bool) $attribute->getIsRequired();
 
             $attributes = $this->attributeBuilder->build($input, $required, $rules);

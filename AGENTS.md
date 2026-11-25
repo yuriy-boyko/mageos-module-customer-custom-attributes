@@ -11,8 +11,9 @@ Magento and Hyvä behaviours the code depends on), [docs/TESTING.md](docs/TESTIN
 - PHP 8.3+, `declare(strict_types=1)`, constructor promotion with `readonly`, namespace `MageOS\CustomerCustomAttributes`, keep the
   licence header comment of the existing files.
 - Logic goes into pure classes in `Service/` with a unit test in `Test/Unit/`; Magento adapters stay thin.
-- Schema only through `etc/db_schema.xml`; regenerate `etc/db_schema_whitelist.json` after every change. Order tables are snapshots
-  with no foreign key to `eav_attribute`.
+- Schema only through `etc/db_schema.xml`; regenerate `etc/db_schema_whitelist.json` after every change, then remove the two order
+  snapshot tables from it again (`SchemaWhitelistTest`, see ARCHITECTURE.md). Order tables are snapshots with no foreign key to
+  `eav_attribute`.
 - Never import, extend or implement `Hyva\Checkout\*` classes in this module's PHP (they belong to the companion module
   `mage-os/module-customer-custom-attributes-hyva-checkout`), or `setup:di:compile` breaks on stores without Hyvä Checkout. A plugin
   on a Hyvä class declared in `etc/di.xml` is fine, as long as the plugin class does not type-hint Hyvä classes (see ARCHITECTURE.md).

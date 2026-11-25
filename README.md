@@ -113,7 +113,8 @@ Hyvä Theme only; Luma is not supported. Layout files use the `hyva_` prefix so 
 - **Quote and order values** are stored in fixed-schema value tables (one row per parent and attribute), declared in
   `etc/db_schema.xml`. No column is ever added or dropped at runtime.
 - **Orders keep a snapshot** (code, label, input type, value, displayed value) with no foreign key to
-  `eav_attribute`. Changing or deleting an attribute later never changes an existing order.
+  `eav_attribute`. Changing or deleting an attribute later never changes an existing order. The snapshot tables are kept when the
+  module is disabled (they are not in the schema whitelist); a customer attribute can be left out of the snapshot ("Save on Orders"). Optional per attribute: copy checkout values to the customer account ("Also Save to Customer Account") and list values in the new order email ("Show in Order Email").
 - Core's quote address drops unknown custom attributes; this module registers the address attributes through
   `Magento\Quote\Model\Quote\Address\CustomAttributeListInterface` so Hyvä Checkout's `populateWithArray` keeps them.
 

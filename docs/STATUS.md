@@ -26,7 +26,7 @@ listed one by one in [TESTING.md](TESTING.md); the code map is in [ARCHITECTURE.
 - **Saved address missing a required attribute:** checkout notice with an edit link, clear place-order message.
 - **API:** `custom_attributes` on cart addresses and `customers/me`; extension attributes `custom_attribute_values` (order addresses)
   and `customer_attribute_values` (orders).
-- **Release tooling:** `dev/check.sh` (172 unit tests of `Service/`), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
+- **Release tooling:** `dev/check.sh` (221 unit tests of `Service/` and the schema whitelist), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
   Magento install and in CI), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
   `.github/workflows/ci.yml`, `Setup/Uninstall` (drops the tables and form assignments; attributes stay).
 
@@ -53,7 +53,25 @@ when a required attribute was hidden by a dependency rule (DEP14), and the same 
 - Manual checks: other Hyvä Checkout variants (multi-step, mobile), a second store view with another locale, card payments with
   3D Secure, real order emails and PDF files, keyboard and screen reader use.
 
+- **Save to account and order email:** "Also Save to Customer Account" (logged-in checkout, per attribute) and "Show in Order Email" (new order email only, section "Additional Information", variable `mageos_additional_information_html`; automatic only on templates with the payment and shipping method cells). Verified: unit, adapter, ACC1 and EML1 browser tests.
+
 ## Not built (by decision)
-Multiline, file and image types, GraphQL, an "update my account" button for values typed in the checkout, per-option control of dependent options,
+Multiline, file and image types, GraphQL, per-option control of dependent options,
 import/export of attribute definitions, grid columns or filters for the values, an admin warning and back-fill tool for attributes
 that become required after addresses exist.
+
+## Future improvements
+- **Customer attribute settings not built yet:** "Show in the admin order view" (a saved row can be hidden in the admin only by not saving
+  it, "Save on Orders"); "Customer Cannot Change This Value" for address attributes (customer attributes only); a command that
+  removes the rows of an attribute that was switched off for orders.
+- **Required in the checkout only.** A customer attribute has one "required" flag. The checkout validation, the field in the checkout
+  and the admin customer form all read it, and `adminhtml_customer` is a mandatory form of every customer attribute. A shop that
+  needs a value to place an order, but has existing customers without one, cannot make the attribute required: the admin could no
+  longer save those customers. Today the admin fills the value in first.
+  Planned: a per-attribute setting "Required in the checkout" (key `mageos_checkout_required` in the validate rules, next to the other
+  checkout settings; a missing key means off, so nothing changes for existing installs). `CustomerCheckoutAttributes::validate()` and
+  the field attributes would use "required or required in the checkout"; `is_required` stays 0, so the account and admin forms
+  stay optional. Rule: a visible field must have a value on the quote when the order is placed (a prefilled value counts). Tests: unit
+  (flag on, empty, hidden, virtual cart), adapter (field attributes), browser (guest and logged-in checkout refuse the order; the
+  admin customer save still works without the value).
+
