@@ -41,9 +41,11 @@ class QuoteSubmitBeforeTest extends TestCase
      * @param string[] $checkoutCodes attributes shown in the checkout
      * @param string[] $messages what the checkout validation reports
      * @param array<string, string> $quoteData data on the quote (the admin order create form puts customer_<code> there)
+     * @param array<string, string> $typed the values typed in the checkout sections (on the quote)
+     * @param bool $companionOn the companion module with the checkout sections is enabled
      * @return list<array<string, mixed>> the snapshot rows put on the order
      */
-    private function rows(array $rulesByCode, array $values, array $checkoutCodes = [], array $messages = [], string $area = Area::AREA_FRONTEND, array $quoteData = []): array
+    private function rows(array $rulesByCode, array $values, array $checkoutCodes = [], array $messages = [], string $area = Area::AREA_FRONTEND, array $quoteData = [], array $typed = [], bool $companionOn = true): array
     {
         $attributes = [];
         foreach ($rulesByCode as $code => $rules) {
@@ -72,12 +74,12 @@ class QuoteSubmitBeforeTest extends TestCase
         $visibility->method('dropHidden')->willReturnArgument(1);
         $checkout = $this->createStub(CustomerCheckoutAttributes::class);
         $checkout->method('getCodes')->willReturn($checkoutCodes);
-        $checkout->method('getOrderValues')->willReturn([]);
+        $checkout->method('getOrderValues')->willReturn($typed);
         $checkout->method('validate')->willReturn($messages);
         $state = $this->createStub(State::class);
         $state->method('getAreaCode')->willReturn($area);
         $modules = $this->createStub(ModuleManager::class);
-        $modules->method('isEnabled')->willReturn(true);
+        $modules->method('isEnabled')->willReturn($companionOn);
 
         $observer = new QuoteSubmitBefore(
             $provider,
@@ -169,5 +171,24 @@ class QuoteSubmitBeforeTest extends TestCase
 
             self::assertSame(['note' => 'account value'], $this->valuesOf($rows), $area);
         }
+    }
+
+    public function testAnAttributeOfTheCheckoutTakesTheTypedValueInTheStorefront(): void
+    {
+        $rows = $this->rows(['a' => [], 'b' => []], ['a' => 'account a', 'b' => 'account b'], ['a', 'b'], [], Area::AREA_FRONTEND, [], ['a' => 'typed']);
+
+        self::assertSame(['a' => 'typed'], $this->valuesOf($rows), 'the typed value wins; nothing typed for b stays empty');
+    }
+
+    public function testAnOrderWithoutTheCheckoutSectionsUsesTheAccountValue(): void
+    {
+        foreach ([Area::AREA_ADMINHTML, Area::AREA_WEBAPI_REST, 'graphql'] as $area) {
+            $rows = $this->rows(['a' => []], ['a' => 'account a'], ['a'], [], $area);
+
+            self::assertSame(['a' => 'account a'], $this->valuesOf($rows), $area . ': an order not placed in the checkout sections');
+        }
+
+        $rows = $this->rows(['a' => []], ['a' => 'account a'], ['a'], [], Area::AREA_FRONTEND, [], [], false);
+        self::assertSame(['a' => 'account a'], $this->valuesOf($rows), 'the companion module is disabled');
     }
 }

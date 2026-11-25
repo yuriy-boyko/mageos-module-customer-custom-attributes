@@ -14,11 +14,11 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php status      list what exists
  *   php dev/e2e/fixtures.php delete-option <code> <option label>   delete one option of a fixture attribute, like the admin does
  *   php dev/e2e/fixtures.php delete-attribute <code>              delete one fixture attribute, like the admin does
- *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] [--source=Class] [--snapshot=0] [--admin-only] [--show-in-email] [--save-to-account] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
+ *   php dev/e2e/fixtures.php create-attributes <customer|address> [--forms=a,b] [--position=payment_above] [--label=text] [--input=select --options=A,B] [--source=Class] [--snapshot=0] [--admin-only] [--show-in-email[=order,invoice,shipment,creditmemo]] [--save-to-account] <code>...   create plain optional text attributes (codes start with e2e_), label "ADM <code>", in these forms (default: the account / address book form); remove them with delete-created
  *   php dev/e2e/fixtures.php set-admin <username> <resource,...>   create or change a test admin (username starts with e2e_acl) whose role allows only these ACL resources (E2E_CUSTOMER_PASSWORD is its password); delete-admin <username> removes it
  *   php dev/e2e/fixtures.php secret-key <route/controller/action> <form key>   the admin URL secret key of an action for a session (what Magento puts into its links), to open a screen no link leads to
  *   php dev/e2e/fixtures.php delete-created <code>                delete an attribute a test created through the admin (its code starts with e2e_, or it has the label "ADM reserved column" of the ADM11 reserved-code test; any entity), no error when absent
- *   php dev/e2e/fixtures.php set-attribute <code> <required=0|1> <forms=a,b,...>  change whether a fixture attribute is required and the forms it is in
+ *   php dev/e2e/fixtures.php set-attribute <code> <required=0|1> <forms=a,b,...> <save_to_account=0|1>  change whether a fixture attribute is required and the forms it is in
  *   php dev/e2e/fixtures.php set-customer <email> <code=value>...  set custom attribute values on a customer (select: option label, several: a|b)
  *   php dev/e2e/fixtures.php set-address <email> [--add] <code=value>...   give a customer one saved address (`--add` adds a second one, not a default, and keeps the first) (default billing and shipping) with these custom address values (select: option label, several: a|b, date: YYYY-MM-DD); `--delete` instead of the pairs removes all saved addresses
  *   php dev/e2e/fixtures.php quote-address-saves   save a throw-away quote address four times (new values, identical, changed, identical) and print how many rows the value table was asked to write each time (JSON)
@@ -29,6 +29,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
  *   php dev/e2e/fixtures.php create-raw-attribute <customer|address> <code>   a user defined text attribute made like a data patch does (no form processor, so no reserved code check), label "ADM reserved column"; delete-created removes it (SEC2)
  *   php dev/e2e/fixtures.php quote-snapshot <quote id> [area]   run the order snapshot code (QuoteSubmitBefore) on a stored quote without placing an order, in the area given (default adminhtml, e.g. webapi_rest for a cart API call): the customer values it would put on the order (JSON)
+ *   php dev/e2e/fixtures.php set-email-section <0|1|default>   the setting "Add the Section Automatically" (Sales Emails) for all scopes: off, on, or the module's default (the row is removed)
  *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
  *
  * Run it from the Magento root (or set MAGENTO_ROOT). The test customer's password is read from the environment variable
@@ -58,7 +59,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form', 'create-raw-attribute', 'quote-snapshot'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form', 'create-raw-attribute', 'quote-snapshot', 'set-email-section'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -341,8 +342,8 @@ if ($command === 'create-attributes') {
             $input = substr($argument, 8);
         } elseif (str_starts_with($argument, '--options=')) {
             $options = array_values(array_filter(explode(',', substr($argument, 10))));
-        } elseif ($argument === '--show-in-email') {
-            $showInEmail = true; // "Show in Order Email"
+        } elseif ($argument === '--show-in-email' || str_starts_with($argument, '--show-in-email=')) {
+            $showInEmail = $argument === '--show-in-email' ? ['order', 'invoice', 'shipment', 'creditmemo'] : explode(',', substr($argument, 16)); // "Show in Emails"
         } elseif ($argument === '--save-to-account') {
             $saveToAccount = true; // "Also Save to Customer Account" (needs --position and the checkout form)
         } elseif ($argument === '--admin-only') {
@@ -365,7 +366,7 @@ if ($command === 'create-attributes') {
             + ($options !== [] || $source !== '' ? ['options' => $options !== [] ? $options : ['placeholder']] : [])
             + ($position !== null ? ['checkout' => ['position' => $position, 'sort' => 5, 'prefill' => false]] : [])
             + (($snapshot !== null || $adminOnly || $showInEmail || $saveToAccount) ? ['rules' => ($snapshot !== null ? ['save_on_order' => $snapshot] : [])
-                + ($adminOnly ? ['admin_only' => '1'] : []) + ($showInEmail ? ['show_in_email' => '1'] : []) + ($saveToAccount ? ['checkout_save_to_account' => '1'] : [])] : []));
+                + ($adminOnly ? ['admin_only' => '1'] : []) + ($showInEmail ? ['show_in_email' => $showInEmail] : []) + ($saveToAccount ? ['checkout_save_to_account' => '1'] : [])] : []));
         if ($source !== '') {
             $attribute = $findAttribute($entity, $code);
             $attribute->setSourceModel($source)->save();
@@ -584,6 +585,17 @@ if ($command === 'set-attribute') {
         // the forms the admin always adds are kept, like in the admin form
         $attribute->setData('used_in_forms', $objectManager->get(EntityContext::class)->resolveForms(array_filter(explode(',', $settings['forms']))));
     }
+    if (isset($settings['save_to_account'])) {
+        // "Also Save to Customer Account" of an attribute shown in the checkout: the key is removed when off
+        $rules = (array) $attribute->getValidateRules();
+        $key = \MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder::SAVE_TO_ACCOUNT_KEY;
+        if ($settings['save_to_account'] === '1') {
+            $rules[$key] = 1;
+        } else {
+            unset($rules[$key]);
+        }
+        $attribute->setData('validate_rules', $rules);
+    }
     $attribute->save();
     $eavConfig->clear();
     echo "set      $code: " . implode(' ', array_map(static fn ($k, $v) => "$k=$v", array_keys($settings), $settings)) . "\n";
@@ -776,6 +788,24 @@ if ($command === 'quote-address-saves') {
         $quote->delete();
     }
     echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    exit(0);
+}
+
+if ($command === 'set-email-section') {
+    $value = (string) ($argv[2] ?? '');
+    if (!in_array($value, ['0', '1', 'default'], true)) {
+        fwrite(STDERR, "Usage: set-email-section <0|1|default>\n");
+        exit(2);
+    }
+    $path = \MageOS\CustomerCustomAttributes\Observer\AddAdditionalInformationToEmails::CONFIG_PATH;
+    $writer = $objectManager->get(\Magento\Framework\App\Config\Storage\WriterInterface::class);
+    if ($value === 'default') {
+        $writer->delete($path);
+    } else {
+        $writer->save($path, $value);
+    }
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('config');
+    echo "ok\n";
     exit(0);
 }
 

@@ -80,6 +80,9 @@ class QuoteSubmitBefore implements ObserverInterface
         }
         $checkoutValues = $checkoutCodes === [] ? [] : $this->checkoutAttributes->getOrderValues($quote);
         $isAdmin = $this->isAdmin();
+        // Only the storefront checkout of the companion module puts values on the quote: there the typed value wins (an empty one stays
+        // empty). An admin-created order, an API order or a shop without the companion has none, so the account value is used.
+        $typedInCheckout = $this->isStorefront() && $this->moduleManager->isEnabled(self::SECTIONS_MODULE);
 
         $values = [];
         foreach ($attributes as $code => $attribute) {
@@ -92,7 +95,7 @@ class QuoteSubmitBefore implements ObserverInterface
             $quoteKey = 'customer_' . $code;
             if ($isAdmin && $quote->hasData($quoteKey)) {
                 $raw = $quote->getData($quoteKey);
-            } elseif (in_array($code, $checkoutCodes, true)) {
+            } elseif ($typedInCheckout && in_array($code, $checkoutCodes, true)) {
                 $raw = $checkoutValues[$code] ?? null;
             } elseif ($customer !== null) {
                 $raw = $customer->getCustomAttribute($code)?->getValue();

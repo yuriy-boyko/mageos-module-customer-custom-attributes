@@ -26,6 +26,7 @@ field (they are always shown, and greyed out while Hyvä Checkout is not ticked)
 | Position at Checkout Step | Above or Below Shipping Address, Above or Below Shipping Methods, Above or Below Payment Method, Order Summary |
 | Checkout Sort Order | order inside a position, lower first |
 | Prefill from Customer | fill an empty field with the logged-in customer's saved value |
+| Also Save to Customer Account | copy the value typed in the checkout to the account of a logged-in customer (see "Values typed in the checkout and the account" below) |
 
 ![The checkout with customer attributes above the shipping address, above the payment methods and below the shipping methods](images/checkout-sections.png)
 
@@ -34,10 +35,11 @@ How it behaves:
 - Each position is a small section of the checkout. In the multi-step and mobile checkout it appears on the step that contains the
   position (the payment positions on the payment step, the order summary on the summary step).
 - **Guests see the fields too.** The values are kept on the quote.
-- **The customer account is never changed from the checkout.** What the customer types is saved on the quote and then on the
+- **By default the customer account is not changed from the checkout.** What the customer types is saved on the quote and then on the
   order. An empty value in the account stays empty even if the customer filled the field at the checkout, and changes made to a
   prefilled field are not written back. This makes an attribute that is ticked only for the checkout (and the admin order form)
-  behave like an *order attribute*: the value exists on the order only.
+  behave like an *order attribute*: the value exists on the order only. Switch on **Also Save to Customer Account** for an attribute
+  to copy the typed value to the account of a logged-in customer when the order is placed.
 - **Prefill** runs when the checkout page loads and fills only fields that have no value yet. A guest who logs in during the
   checkout keeps what was typed (when the customer already has an active cart: for the fields that cart has no value for); empty
   fields are prefilled. A field the customer clears is prefilled again at the next page load.
@@ -71,7 +73,7 @@ Core Magento accepts every user-defined attribute that a customer sends, in the 
 - it cannot be required in the registration or account forms (the customer could never satisfy it); the attribute screen refuses that
   combination.
 
-The setting applies to customer attributes only. It cannot be combined with "Also Save to Customer Account" or "Show in Order Email".
+The setting applies to customer attributes only. It cannot be combined with "Also Save to Customer Account" or "Show in Emails".
 
 ## What an order gets
 
@@ -89,9 +91,16 @@ By default a value typed in the checkout stays on the order. Set **Also Save to 
 shown in the checkout) to Yes to copy it to the account when a logged-in customer places the order. An empty field never erases the stored
 value. Guests are not covered. A failed save is logged and never stops the order.
 
-## Show in Order Email
+## Show in Emails
 
-Set **Show in Order Email** to Yes (needs Save on Orders; not for "Customer Cannot Change This Value") to list the customer's value in an
-**Additional Information** section of the new order email, below the payment and shipping method. The section is added to the standard
-template automatically. A custom template without the payment and shipping method cells needs the variable placed by hand:
-`{{var mageos_additional_information_html|raw}}`. Only the new order email is changed.
+Select the emails in **Show in Emails** (Storefront Properties; hold Ctrl or Cmd to select several) to list the customer's value in an
+**Additional Information** section of those emails, below the payment and shipping method. The choices are New Order, Invoice, Shipment and
+Credit Memo (the comment and order update emails are not changed). Each email lists only the attributes selected for it, so the invoice can
+show one attribute and the shipment another. Select none to keep the attribute out of the emails (the default). It needs Save on Orders and
+cannot be combined with "Customer Cannot Change This Value".
+
+The setting **Add the Section Automatically** (Stores > Configuration > Sales > Sales Emails > Customer Attributes (Additional Information),
+store view scope, default Yes) decides whether the module puts the section into the standard templates. Set it to No to decide for yourself
+which templates get the section: the variable `{{var mageos_additional_information_html|raw}}` is filled in all four emails either way
+(with the attributes selected for that email), so place it in the templates you want (Marketing > Communications > Email Templates). A template that already has the variable is never
+changed, and a custom template without the payment and shipping method cells is left alone when the setting is Yes: place the variable there.

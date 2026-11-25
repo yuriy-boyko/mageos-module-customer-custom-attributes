@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace MageOS\CustomerCustomAttributes\Service;
 
 /**
- * The "Additional Information" section of the new order email: the customer attribute values saved on the order (the snapshot) of the
+ * The "Additional Information" section of the order emails (new order, invoice, shipment, credit memo): the customer attribute values saved on the order (the snapshot) of the
  * attributes shown in the email, as a table row for the order details table of the email. The labels and texts are those saved with the
  * order, so the section never needs the attribute again.
  *
@@ -18,6 +18,9 @@ class AdditionalInformation
 {
     /** the name of the template variable that holds the section: `{{var mageos_additional_information_html|raw}}` */
     public const VARIABLE = 'mageos_additional_information_html';
+
+    /** set to 1 with the variable when the merchant wants the section put into the template automatically (a setting) */
+    public const INSERT_VARIABLE = 'mageos_additional_information_insert';
 
     /**
      * @param array<int, array<string, mixed>> $snapshotRows rows of the order snapshot (attribute_code, attribute_label, input_type, value, value_label)

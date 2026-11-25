@@ -79,7 +79,7 @@ class FormProcessor
             foreach ($this->conflicts->messages(
                 !empty($post['admin_only']),
                 !empty($post['checkout_save_to_account']),
-                !empty($post['show_in_email']),
+                (new \MageOS\CustomerCustomAttributes\Service\EmailTypes())->normalize($post['show_in_email'] ?? null) !== [],
                 (string) ($post['save_on_order'] ?? '1') !== '0',
                 $data['used_in_forms']
             ) as $message) {

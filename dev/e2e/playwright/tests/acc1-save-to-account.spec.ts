@@ -72,3 +72,48 @@ test('ACC1: a field typed and cleared again leaves the account as it was', { tag
 
     expect(accountValues(email).customer_attributes[SAVED]).toBe('stored value');
 });
+
+test('ACC1: a value typed while the field was shown, then hidden by a dependency rule, is not saved', { tag: ['@ACC1'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
+    // e2e_c_dep is shown only while e2e_c_sel is Gold (the fixture relation)
+    benchCommand('E2E_FIXTURE_CMD', ['set-attribute', 'e2e_c_dep', 'save_to_account=1']);
+    try {
+        setAccountValues(email, { e2e_c_dep: 'stored dep', e2e_c_sel: '' });
+        dropQuotes(email);
+
+        // shown and typed: saved (the control for the case below)
+        await openCheckoutAsGuest(page);
+        await requireFixtures(page, ['e2e_c_dep']);
+        await fillCheckout(page, magewire);
+        await page.getByRole('radio', { name: 'Gold', exact: true }).check();
+        await magewire.idle();
+        await field(page, 'e2e_c_dep').fill('typed while shown');
+        await field(page, 'e2e_c_dep').press('Tab');
+        await magewire.idle();
+        await chooseShippingAndPayment(page, magewire);
+        await placeOrder(page);
+        await placedOrderSnapshot(page);
+        expect(accountValues(email).customer_attributes.e2e_c_dep, 'a shown value is saved').toBe('typed while shown');
+
+        // typed, then the parent goes back to None: the dependent field is hidden and its value is dropped
+        setAccountValues(email, { e2e_c_dep: 'stored dep', e2e_c_sel: '' });
+        dropQuotes(email);
+        await openCheckoutAsGuest(page);
+        await fillCheckout(page, magewire);
+        await page.getByRole('radio', { name: 'Gold', exact: true }).check();
+        await magewire.idle();
+        await field(page, 'e2e_c_dep').fill('typed then hidden');
+        await field(page, 'e2e_c_dep').press('Tab');
+        await magewire.idle();
+        await page.getByRole('radiogroup', { name: 'E2E Customer Select' }).getByRole('radio', { name: 'None', exact: true }).check();
+        await magewire.idle();
+        await expect(field(page, 'e2e_c_dep')).toBeHidden();
+        await chooseShippingAndPayment(page, magewire);
+        await placeOrder(page);
+        const { snapshot } = await placedOrderSnapshot(page);
+        expect(snapshot.customer.e2e_c_dep, 'a hidden value is not on the order').toBeUndefined();
+        expect(accountValues(email).customer_attributes.e2e_c_dep, 'a hidden value is not saved to the account').toBe('stored dep');
+    } finally {
+        benchCommand('E2E_FIXTURE_CMD', ['set-attribute', 'e2e_c_dep', 'save_to_account=0']);
+        setAccountValues(email, { e2e_c_dep: '', e2e_c_sel: '' });
+    }
+});

@@ -107,6 +107,11 @@ php ... fixtures.php drop-quotes <email>             # give a customer no active
 php ... fixtures.php purge        # delete the orders and quotes of test e-mails (containing e2e, ending @example.com)
 php ... fixtures.php create-attributes address --label=Text --input=select --options=A,B <code>   (also --forms=a,b); delete-option works on these too
 php ... fixtures.php create-attributes address --input=select --source=Vendor\\Class <code>   (a dropdown with a source model of its own: no option rows, like a data patch; SRC tests)
+php ... fixtures.php create-attributes customer [--show-in-email[=order,invoice,shipment,creditmemo]] [--save-to-account] [--admin-only] [--snapshot=0] [--position=payment_above] <code>   # the per-attribute settings of a customer attribute (EML, ACC, SEC, SNAP tests)
+php ... fixtures.php set-attribute <code> save_to_account=0|1   # "Also Save to Customer Account" of a fixture attribute (ACC1)
+php ... fixtures.php set-email-section 0|1|default   # the setting "Add the Section Automatically" (Sales Emails) for all scopes; `default` removes the row (EML2)
+php ... fixtures.php create-raw-attribute <customer|address> <code>   # an attribute made like a developer's data patch (no form processor)
+php ... fixtures.php quote-snapshot <quote id> [area]   # run the order snapshot code on a stored quote and print the customer values (SEC2)
 php ... fixtures.php ensure-stock    # raise the salable stock of the test products when it is below 300 (run-all.sh does it before every run, after seeding)
 bin/magento cache:flush
 ```

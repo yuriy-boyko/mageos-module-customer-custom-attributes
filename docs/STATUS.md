@@ -26,7 +26,7 @@ listed one by one in [TESTING.md](TESTING.md); the code map is in [ARCHITECTURE.
 - **Saved address missing a required attribute:** checkout notice with an edit link, clear place-order message.
 - **API:** `custom_attributes` on cart addresses and `customers/me`; extension attributes `custom_attribute_values` (order addresses)
   and `customer_attribute_values` (orders).
-- **Release tooling:** `dev/check.sh` (221 unit tests of `Service/` and the schema whitelist), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
+- **Release tooling:** `dev/check.sh` (229 unit tests of `Service/` and the schema whitelist), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
   Magento install and in CI), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
   `.github/workflows/ci.yml`, `Setup/Uninstall` (drops the tables and form assignments; attributes stay).
 
@@ -53,7 +53,7 @@ when a required attribute was hidden by a dependency rule (DEP14), and the same 
 - Manual checks: other Hyvä Checkout variants (multi-step, mobile), a second store view with another locale, card payments with
   3D Secure, real order emails and PDF files, keyboard and screen reader use.
 
-- **Save to account and order email:** "Also Save to Customer Account" (logged-in checkout, per attribute) and "Show in Order Email" (new order email only, section "Additional Information", variable `mageos_additional_information_html`; automatic only on templates with the payment and shipping method cells). Verified: unit, adapter, ACC1 and EML1 browser tests.
+- **Save to account and order email:** "Also Save to Customer Account" (logged-in checkout, per attribute) and "Show in Emails" (a multiselect per attribute: new order, invoice, shipment and credit memo emails, section "Additional Information", variable `mageos_additional_information_html` always filled; the setting "Add the Section Automatically" in Sales Emails, default Yes, puts it into the standard templates, which have the payment and shipping method cells). Verified: unit, adapter, ACC1, EML1 and EML2 browser tests.
 
 ## Not built (by decision)
 Multiline, file and image types, GraphQL, per-option control of dependent options,

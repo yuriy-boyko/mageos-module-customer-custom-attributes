@@ -21,6 +21,7 @@ the whitelist. Customer attributes can be left out of the snapshot with **Save o
 | Place | What is shown |
 |---|---|
 | Customer order page, order emails, PDFs | address custom values after the address lines (attributes with Address Text on) |
+| Order emails (new order, invoice, shipment, credit memo) | customer values in an "Additional Information" section below the payment and shipping method, for the attributes selected in "Show in Emails" (see [Customer attributes](04-customer-attributes.md)) |
 | Admin order view | address values after the billing and shipping address; customer values under **Account Information** |
 | Admin invoice and shipment views | address values after the address |
 | Order API | extension attributes, see [API](08-api.md) |
@@ -30,7 +31,8 @@ the whitelist. Customer attributes can be left out of the snapshot with **Save o
 ## Admin: creating and editing orders
 
 - **Order create:** customer attributes ticked for "Admin Order Create (Account Information)" appear in Account Information,
-  prefilled from the customer. Address attributes appear in the billing and shipping forms; choosing a saved customer address fills
+  prefilled from the customer. An attribute that is shown in the checkout but not in this form gets the value the customer has on the
+  account (the typed checkout values exist only in the storefront checkout). Address attributes appear in the billing and shipping forms; choosing a saved customer address fills
   them. The values typed in the form are stored on the order (they are not written to the customer unless "Add to address book" is
   used for addresses). The values are validated when the order is placed.
 - **Edit Order Address:** shows the order's values and updates the snapshot. Dates are parsed in the admin locale, a cleared value

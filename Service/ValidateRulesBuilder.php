@@ -119,8 +119,9 @@ class ValidateRulesBuilder
         if (!empty($data['admin_only'])) {
             $rules[self::ADMIN_ONLY_KEY] = 1;
         }
-        if (!empty($data['show_in_email'])) {
-            $rules[self::EMAIL_KEY] = 1;
+        $emails = (new EmailTypes())->normalize($data['show_in_email'] ?? null);
+        if ($emails !== []) {
+            $rules[self::EMAIL_KEY] = $emails;
         }
 
         $position = (string) ($data['checkout_position'] ?? '');
@@ -167,11 +168,24 @@ class ValidateRulesBuilder
     }
 
     /**
+     * The order emails the attribute is shown in ("Show in Emails"); a stored 1 of the earlier Yes/No flag means every email.
+     *
      * @param array<string, mixed> $rules
+     * @return string[] codes of {@see EmailTypes}
      */
-    public function showsInEmail(array $rules): bool
+    public function emailTypes(array $rules): array
     {
-        return !empty($rules[self::EMAIL_KEY]);
+        return (new EmailTypes())->normalize($rules[self::EMAIL_KEY] ?? null);
+    }
+
+    /**
+     * @param array<string, mixed> $rules
+     * @param string|null $type one email (a code of {@see EmailTypes}), any email when omitted
+     */
+    public function showsInEmail(array $rules, ?string $type = null): bool
+    {
+        $types = $this->emailTypes($rules);
+        return $type === null ? $types !== [] : in_array($type, $types, true);
     }
 
     /**

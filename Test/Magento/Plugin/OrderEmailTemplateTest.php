@@ -37,7 +37,7 @@ class OrderEmailTemplateTest extends TestCase
                 $seen = $template->getTemplateText();
                 return 'rendered';
             },
-            ['mageos_additional_information_html' => '<tr>section</tr>']
+            ['mageos_additional_information_html' => '<tr>section</tr>', 'mageos_additional_information_insert' => '1']
         );
 
         self::assertSame('rendered', $result);
@@ -54,7 +54,7 @@ class OrderEmailTemplateTest extends TestCase
                 static function (): string {
                     throw new \LogicException('template error');
                 },
-                ['mageos_additional_information_html' => '<tr>section</tr>']
+                ['mageos_additional_information_html' => '<tr>section</tr>', 'mageos_additional_information_insert' => '1']
             );
             self::fail('the error passes through');
         } catch (\LogicException) {
@@ -74,11 +74,28 @@ class OrderEmailTemplateTest extends TestCase
                     $seen = $template->getTemplateText();
                     return '';
                 },
-                ['mageos_additional_information_html' => '<tr>section</tr>']
+                ['mageos_additional_information_html' => '<tr>section</tr>', 'mageos_additional_information_insert' => '1']
             );
             self::assertSame($text, $seen);
             self::assertSame($text, $template->getTemplateText());
         }
+    }
+
+    public function testWithoutTheInsertFlagTheTemplateIsNotTouchedButTheVariableStays(): void
+    {
+        $template = $this->template();
+        $seen = null;
+        $variables = ['mageos_additional_information_html' => '<tr>section</tr>'];
+        (new OrderEmailTemplate(new EmailTemplateInserter()))->aroundGetProcessedTemplate(
+            $template,
+            function (array $given) use ($template, &$seen): string {
+                $seen = [$template->getTemplateText(), $given['mageos_additional_information_html']];
+                return '';
+            },
+            $variables
+        );
+
+        self::assertSame([self::TEXT, '<tr>section</tr>'], $seen);
     }
 
     public function testWithoutAValueTheTemplateIsNotTouched(): void

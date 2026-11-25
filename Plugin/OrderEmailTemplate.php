@@ -12,8 +12,8 @@ use MageOS\CustomerCustomAttributes\Service\EmailTemplateInserter;
 use Magento\Email\Model\Template;
 
 /**
- * Renders the new order email with the "Additional Information" section below the payment and shipping method: when the variable has a
- * value (AddAdditionalInformationToOrderEmail) and the template does not use it yet, the variable is put into the template text for this
+ * Renders an order email (new order, invoice, shipment, credit memo) with the "Additional Information" section below the payment and shipping method: when the variable has a
+ * value and the setting asks for it (AddAdditionalInformationToEmails) and the template does not use it yet, the variable is put into the template text for this
  * rendering only. The stored template is not changed.
  */
 class OrderEmailTemplate
@@ -27,7 +27,7 @@ class OrderEmailTemplate
      */
     public function aroundGetProcessedTemplate(Template $subject, callable $proceed, array $variables = []): string
     {
-        if (($variables[AdditionalInformation::VARIABLE] ?? '') === '') {
+        if (($variables[AdditionalInformation::VARIABLE] ?? '') === '' || ($variables[AdditionalInformation::INSERT_VARIABLE] ?? '') === '') {
             return $proceed($variables);
         }
         $original = (string) $subject->getTemplateText();

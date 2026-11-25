@@ -5,7 +5,7 @@ import {
 
 /**
  * EML1: the "Additional Information" section of the new order email (key mageos_email in the validate rules, default off), below the
- * payment and shipping method and above the items. Only the attributes set to "Show in Order Email" appear, with the values saved on the
+ * payment and shipping method and above the items. Only the attributes set to "Show in Emails" appear, with the values saved on the
  * order. The mails are read from the bench's mail catcher (see dsp7-emails-and-pdf.spec.ts).
  *  - the attribute screen stores the setting and refuses it with "Customer Cannot Change This Value" and with "Save on Orders" off;
  *  - a logged-in order: the email has the section with the attribute that is on and not the one that is off;
@@ -49,13 +49,13 @@ async function placeLoggedInOrder(page: import('@playwright/test').Page, magewir
     return placedOrderSnapshot(page);
 }
 
-test('EML1: the attribute screen stores "Show in Order Email" and refuses the combinations that cannot work', { tag: ['@EML1'] }, async ({ adminPage: page }) => {
+test('EML1: the attribute screen stores "Show in Emails" and refuses the combinations that cannot work', { tag: ['@EML1'] }, async ({ adminPage: page }) => {
     createAttributes('customer', [SHOWN], ACCOUNT_FORMS);
     expect(attributeRow('customer', SHOWN).rules).not.toHaveProperty('mageos_email');
 
     await openAttribute(page, 'customer', SHOWN);
     await attributeTab(page, 'Storefront Properties');
-    await page.locator('#show_in_email').selectOption('1');
+    await page.locator('#show_in_email').selectOption(['order', 'invoice']);
     await page.locator('#save_on_order').selectOption('0');
     await saveAttribute(page, true);
     expect(await adminMessages(page), 'needs Save on Orders').toContain('needs Save on Orders');
@@ -71,7 +71,7 @@ test('EML1: the attribute screen stores "Show in Order Email" and refuses the co
     await page.locator('#admin_only').selectOption('0');
     await saveAttribute(page, true);
     await expect(page.locator('.message-success')).toBeVisible();
-    expect(attributeRow('customer', SHOWN).rules).toMatchObject({ mageos_email: 1 });
+    expect(attributeRow('customer', SHOWN).rules).toMatchObject({ mageos_email: ['order', 'invoice'] });
 });
 
 test('EML1: the new order email has the section below the methods, with the attribute that is on only', { tag: ['@EML1'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
@@ -87,7 +87,12 @@ test('EML1: the new order email has the section below the methods, with the attr
     expect(html).toContain(`ADM ${SHOWN}: value for the customer &lt;b&gt;&amp;&lt;/b&gt;`);
     expect(html, 'an attribute that is off is not in the email').not.toContain('internal value');
     expect(html, 'below the payment and shipping method, above the items').toMatch(/Payment Method[\s\S]*Shipping Method[\s\S]*Additional Information[\s\S]*(Subtotal|Grand Total)/);
-    expect(mail.text === '' || mail.text.includes(`ADM ${SHOWN}`), 'the text part, when there is one').toBe(true);
+    // the plain-text part of the mail (a mail catcher shows both): the section is there as text, with the value as typed, and the internal value is not
+    expect(mail.text, 'the mail has a plain-text part').not.toBe('');
+    expect(mail.text, 'the text part has the section').toContain('Additional Information');
+    expect(mail.text, 'the text part has the value').toContain(`ADM ${SHOWN}: value for the customer <b>&</b>`);
+    expect(mail.text).not.toContain('internal value');
+    expect(mail.text.indexOf('Additional Information'), 'after the payment and shipping method').toBeGreaterThan(mail.text.indexOf('Shipping Method'));
 });
 
 test('EML1: without an attribute set to show in the email there is no section', { tag: ['@EML1'] }, async ({ customerPage: page, customerMagewire: magewire }) => {
@@ -145,4 +150,35 @@ test('EML1: a guest order has the value typed in the checkout in the email, and 
     } finally {
         benchCommand('E2E_ASSERT_CMD', ['mail-delete', guest]);
     }
+});
+
+test('EML1: "Show in Emails" is a multiselect with the four emails and keeps the selection after saving', { tag: ['@EML1'] }, async ({ adminPage: page }) => {
+    createAttributes('customer', [SHOWN], ACCOUNT_FORMS);
+    await openAttribute(page, 'customer', SHOWN);
+    await attributeTab(page, 'Storefront Properties');
+
+    const field = page.locator('#show_in_email');
+    await expect(field).toBeVisible();
+    expect(await field.evaluate((node) => (node as HTMLSelectElement).multiple), 'a multiselect').toBe(true);
+    expect(await field.locator('option').allInnerTexts()).toEqual(['New Order', 'Invoice', 'Shipment', 'Credit Memo']);
+    expect(await field.evaluate((node) => Array.from((node as HTMLSelectElement).selectedOptions).length), 'nothing selected by default').toBe(0);
+    await expect(page.locator('label[for="show_in_email"]')).toContainText('Show in Emails');
+
+    await field.selectOption(['invoice', 'creditmemo']);
+    if (process.env.E2E_SHOT) await field.scrollIntoViewIfNeeded();
+    if (process.env.E2E_SHOT) await page.screenshot({ path: process.env.E2E_SHOT });
+    await saveAttribute(page, true);
+    await expect(page.locator('.message-success')).toBeVisible();
+    expect(attributeRow('customer', SHOWN).rules).toMatchObject({ mageos_email: ['invoice', 'creditmemo'] });
+
+    // reopened: the saved emails are selected
+    await openAttribute(page, 'customer', SHOWN);
+    await attributeTab(page, 'Storefront Properties');
+    expect(await page.locator('#show_in_email').evaluate((node) => Array.from((node as HTMLSelectElement).selectedOptions).map((option) => option.value))).toEqual(['invoice', 'creditmemo']);
+
+    // none selected again: the setting is removed
+    await page.locator('#show_in_email').selectOption([]);
+    await saveAttribute(page, true);
+    await expect(page.locator('.message-success')).toBeVisible();
+    expect(attributeRow('customer', SHOWN).rules).not.toHaveProperty('mageos_email');
 });

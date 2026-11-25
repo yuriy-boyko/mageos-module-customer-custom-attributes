@@ -200,12 +200,31 @@ class ValidateRulesBuilderTest extends TestCase
         self::assertArrayNotHasKey(ValidateRulesBuilder::ADMIN_ONLY_KEY, $this->builder->build("select", [])["rules"]);
     }
 
-    public function testShowInEmailIsStoredAsOneAndOtherwiseNothing(): void
+    public function testShowInEmailsIsStoredAsTheListOfEmailsAndOtherwiseNothing(): void
     {
-        self::assertSame(1, $this->builder->build("text", ["show_in_email" => "1"])["rules"][ValidateRulesBuilder::EMAIL_KEY]);
-        self::assertArrayNotHasKey(ValidateRulesBuilder::EMAIL_KEY, $this->builder->build("text", ["show_in_email" => "0"])["rules"]);
-        self::assertTrue($this->builder->showsInEmail([ValidateRulesBuilder::EMAIL_KEY => 1]));
-        self::assertTrue($this->builder->showsInEmail([ValidateRulesBuilder::EMAIL_KEY => "1"]));
+        $rules = fn (array $post): array => $this->builder->build('text', $post)['rules'];
+
+        self::assertSame(['order', 'invoice'], $rules(['show_in_email' => ['invoice', 'order']])[ValidateRulesBuilder::EMAIL_KEY] ?? null, 'the order of the emails is the fixed one');
+        self::assertSame(['order'], $rules(['show_in_email' => ['order', 'bogus', 'order']])[ValidateRulesBuilder::EMAIL_KEY], 'unknown codes and duplicates are dropped');
+        self::assertSame(['order', 'invoice', 'shipment', 'creditmemo'], $rules(['show_in_email' => '1'])[ValidateRulesBuilder::EMAIL_KEY], 'the earlier Yes means every email');
+        foreach ([[], '0', '', ['bogus']] as $none) {
+            self::assertArrayNotHasKey(ValidateRulesBuilder::EMAIL_KEY, $rules(['show_in_email' => $none]));
+        }
+        self::assertArrayNotHasKey(ValidateRulesBuilder::EMAIL_KEY, $rules([]));
+    }
+
+    public function testTheEmailsOfAStoredValue(): void
+    {
+        $key = ValidateRulesBuilder::EMAIL_KEY;
+
+        self::assertSame(['shipment'], $this->builder->emailTypes([$key => ['shipment']]));
+        self::assertSame(['order', 'invoice', 'shipment', 'creditmemo'], $this->builder->emailTypes([$key => 1]), 'a stored 1 of the earlier flag');
+        self::assertSame([], $this->builder->emailTypes([]));
+        self::assertTrue($this->builder->showsInEmail([$key => ['invoice']]));
+        self::assertTrue($this->builder->showsInEmail([$key => ['invoice']], 'invoice'));
+        self::assertFalse($this->builder->showsInEmail([$key => ['invoice']], 'order'));
+        self::assertTrue($this->builder->showsInEmail([$key => 1], 'creditmemo'));
+        self::assertFalse($this->builder->showsInEmail([], 'order'));
         self::assertFalse($this->builder->showsInEmail([]));
     }
 

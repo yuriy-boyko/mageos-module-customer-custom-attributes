@@ -36,7 +36,7 @@ class SettingConflicts
             $messages[] = 'An attribute the customer cannot change is an internal value: it cannot be shown in the order email.';
         }
         if ($showInEmail && !$saveOnOrder) {
-            $messages[] = 'Show in Order Email needs Save on Orders: the email shows the values saved on the order.';
+            $messages[] = 'Show in Emails needs Save on Orders: the email shows the values saved on the order.';
         }
         return $messages;
     }

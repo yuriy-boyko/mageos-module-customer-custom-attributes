@@ -15,6 +15,7 @@ use MageOS\CustomerCustomAttributes\Model\ResourceModel\AttributeGroupStorage;
 use MageOS\CustomerCustomAttributes\Service\CheckoutPositions;
 use MageOS\CustomerCustomAttributes\Service\EntityDefinitions;
 use MageOS\CustomerCustomAttributes\Service\AdminOnlyAccess;
+use MageOS\CustomerCustomAttributes\Service\EmailTypes;
 use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Config\Model\Config\Source\YesnoFactory;
 use Magento\Customer\Model\ResourceModel\Group\CollectionFactory as GroupCollectionFactory;
@@ -107,13 +108,19 @@ class Front extends Generic
                 'value' => $attribute->getData('admin_only') ?? (int) $this->adminOnly->isAdminOnly($rules),
                 'note' => __('For internal values (a price level, an ERP id). A value sent by the customer is ignored: in the registration and account forms, in the API with a customer token or without a token. The field is never shown to the customer. The admin, integrations and imports can still change it. It cannot be required in the registration or account forms.'),
             ]);
-            $fieldset->addField('show_in_email', 'select', [
-                'name' => 'show_in_email',
-                'label' => __('Show in Order Email'),
-                'title' => __('Show in Order Email'),
-                'values' => $this->yesnoFactory->create()->toOptionArray(),
-                'value' => $attribute->getData('show_in_email') ?? (int) $this->rulesBuilder->showsInEmail($rules),
-                'note' => __('Show the customer\'s value in the "Additional Information" section of the new order email, below the payment and shipping method. Needs Save on Orders. Not for internal values: it cannot be combined with "Customer Cannot Change This Value".'),
+            $emailValues = [];
+            foreach (EmailTypes::labels() as $code => $label) {
+                $emailValues[] = ['value' => $code, 'label' => __($label)];
+            }
+            $posted = $attribute->getData('show_in_email');
+            $fieldset->addField('show_in_email', 'multiselect', [
+                'name' => 'show_in_email[]',
+                'style' => 'height: 14rem;',
+                'label' => __('Show in Emails'),
+                'title' => __('Show in Emails'),
+                'values' => $emailValues,
+                'value' => is_array($posted) ? $posted : $this->rulesBuilder->emailTypes($rules),
+                'note' => __('List the customer\'s value in the "Additional Information" section of these order emails, below the payment and shipping method. Select none to keep it out of the emails. Needs Save on Orders. Not for internal values: it cannot be combined with "Customer Cannot Change This Value". Hold Ctrl or Cmd to select several.'),
             ]);
             $this->addCheckoutFields($fieldset, $attribute);
         }

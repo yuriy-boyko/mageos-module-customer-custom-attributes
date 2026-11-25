@@ -26,10 +26,14 @@ Initial version.
 
 - **Also Save to Customer Account** (customer attributes shown in the checkout, default No): the value a logged-in customer types in the
   checkout is copied to the account when the order is placed. An empty value never erases the stored one.
-- **Show in Order Email** (customer attributes, default No): an "Additional Information" section in the new order email, below the
-  payment and shipping method, with the values saved on the order. Template variable `mageos_additional_information_html` for custom templates.
+- **Show in Emails** (customer attributes, a multiselect of New Order, Invoice, Shipment and Credit Memo, default none): an "Additional Information"
+  section in those emails, below the payment and shipping method, with the values saved on the order; each email lists the attributes selected for it. Template variable
+  `mageos_additional_information_html` for custom templates, and the setting "Add the Section Automatically" (Sales Emails, default Yes):
+  choose No to place the variable only in the templates you want.
 
 ### Fixed before the first release
+- An order created in the admin (or through the API) now gets the account value of an attribute that is shown in the checkout. Before, only the
+  storefront checkout, where the customer types the value, wrote a row, so such orders had no row and the admin order view did not list it.
 - An attribute whose code is also a `customer_*` field of the quote (`note` is the cart note) no longer takes the value a customer types in
   that field through the cart API: the order snapshot reads the quote's `customer_<code>` data in the admin area only (the admin order
   create form). The attribute grid warns about attributes with a reserved code, which a data patch can create and the admin form refuses.

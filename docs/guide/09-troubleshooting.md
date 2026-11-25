@@ -52,7 +52,18 @@ The Hyvä Checkout enforces a strict Content Security Policy. Inline scripts of 
 
 ## The customer's account was not updated after the checkout
 
-By design. Values typed in the checkout stay on the order. See [Customer attributes](04-customer-attributes.md).
+By default values typed in the checkout stay on the order. Switch on "Also Save to Customer Account" for the attribute to copy the typed
+value to the account of a logged-in customer (not for guests, not for orders created in the admin or through the API, not for an attribute that
+the customer cannot change, and an empty field never erases the stored value). See [Customer attributes](04-customer-attributes.md).
+
+## An attribute is missing in the order email
+
+- The attribute must have the email selected in **Show in Emails**, **Save on Orders** on, and "Customer Cannot Change This Value" off.
+- The order needs a value for it (an empty value leaves no row).
+- Only the new order, invoice, shipment and credit memo emails carry the section, not the comment emails.
+- With "Add the Section Automatically" set to No (Stores > Configuration > Sales > Sales Emails) the section is only where a template has
+  `{{var mageos_additional_information_html|raw}}`. A theme or custom template without the payment and shipping method cells also needs
+  the variable placed by hand.
 
 ## A prefilled field is filled again after clearing it
 

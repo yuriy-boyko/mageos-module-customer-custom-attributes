@@ -73,6 +73,12 @@ Customer (non-address) attributes: values stay on the customer (core EAV); when 
 | Storefront forms | `ViewModel/FormAttributes`, `Service/FieldAttributeBuilder`, templates `address/`, `customer/`, `form/field.phtml` (radio and checkbox groups), layouts `hyva_customer_*` |
 | Hyvä Checkout | `Plugin/HyvaCheckoutAddressAttributeFilter`, `ViewModel/HyvaCheckoutVisibility`, `view/frontend/layout/hyva_checkout_*`, templates `hyva-checkout/*`, `Model/SavedAddressRequirements`, `Plugin/CustomerManagementSavedAddressMessage`; the form modifier is in the companion module |
 | Customer attributes in the checkout | `Service/CheckoutPositions`, `Model/Checkout/CustomerCheckoutAttributes` (fields per position, values, prefill, rules, validation), `Model/ResourceModel/QuoteValueStorage`, admin fields in `Block/Adminhtml/Attribute/Edit/Tab/Front`, `Observer/QuoteSubmitBefore` (order snapshot + validation, only with the companion enabled), `Observer/QuoteMergeCustomerValues` (guest values fill the empty ones of the customer's cart on login); in the companion module `Magewire/CustomerAttributes` (one virtual type per position in `etc/frontend/di.xml`), `view/frontend/layout/hyva_checkout_index_index.xml` (one block per position in Hyvä Checkout's shared component containers, which every checkout type moves into its steps) and `checkout/customer-attributes.phtml`; the field markup is the main module's `form/field.phtml` bound with `wire:model.lazy`; instant show/hide in `hyva-checkout/visibility.phtml` |
+| Customer attribute settings | `Service/ValidateRulesBuilder` (the keys), `Service/SettingConflicts` (combinations the screen refuses), `Model/Attribute/FormProcessor`, `Block/Adminhtml/Attribute/Edit/Tab/Front` (the fields) |
+| Admin-only attributes | `Service/AdminOnlyAccess`, `Plugin/CustomerAdminOnlyValues`, `ViewModel/FormAttributes` (never prints the field) |
+| Save on Orders | `Observer/QuoteSubmitBefore` (leaves no row), `Observer/OrderSaveAfter`; the two snapshot tables are not in `etc/db_schema_whitelist.json` (`Test/Unit/SchemaWhitelistTest`) |
+| Save to account from the checkout | `Service/AccountSaveDecider`, `Observer/SaveCheckoutValuesToAccount` |
+| Order emails | `Service/{EmailTypes,AdditionalInformation,EmailTemplateInserter}`, `Observer/AddAdditionalInformationToEmails`, `Plugin/OrderEmailTemplate`, `etc/config.xml` and `etc/adminhtml/system.xml` (Sales Emails > "Add the Section Automatically") |
+| Grid column "Shown in" | `Service/FormColumn`, `Model/ResourceModel/AttributeFormStorage`, `Block/Adminhtml/Attribute/Grid/Renderer/Forms` |
 | Admin order create / edit / reorder | `Plugin/AdminOrder*`, `Plugin/AdminOrderCreateAddressFormValues`, `Plugin/QuoteAddressSaveValues`, `Model/QuoteAddressValueReader`; reorder: `Plugin/AdminOrderReorderAddressValues` (after `Create::initFromOrder`, core copies the addresses with a fieldset of standard fields only) + `Service/ReorderValues` |
 | API | `etc/extension_attributes.xml`, `Api/Data/AddressAttributeValueInterface`, `Plugin/OrderAddressExtensionAttributes` (`custom_attribute_values` on order addresses, `customer_attribute_values` on orders) |
 | Hyvä Tailwind | `Observer/RegisterModuleForHyvaConfig` on `hyva_config_generate_before` (adds the module to `app/etc/hyva-themes.json`) |
@@ -145,7 +151,8 @@ Learned the hard way; check them before "simplifying":
   (`mageos_cca_quote_value`) and the order snapshot only; the customer account is written from the checkout only for attributes with "Also Save to Customer Account" (`mageos_checkout_save_to_account`, `Observer/SaveCheckoutValuesToAccount` on `sales_model_service_quote_submit_success`, storefront area, logged-in customers; one `saveAttribute` per changed attribute, then a customer grid reindex; an empty value never erases; errors are logged and never stop the order; the decision is `Service/AccountSaveDecider`). Prefill fills
   only attributes without a value on the quote, on the first render of the page (a guest who logs in keeps what was typed); the
   default value is used when nothing is prefilled. Guests see the fields. The order snapshot of such an attribute reads the quote
-  values, not the customer. Required values and rules are enforced in the storefront area at order placement
+  values, not the customer, in the storefront checkout; an order made in the admin or through the API has no typed values and uses the
+  account value, like an attribute outside the checkout. Required values and rules are enforced in the storefront area at order placement
   (`Observer/QuoteSubmitBefore`) and by the section's completion check; REST orders are not forced to supply them.
 - A later "Update my account" button is possible: the typed values are already separate from the account.
 - Hyvä Checkout hiding is instant in both directions in the browser and the server clears the values of hidden attributes.
@@ -164,14 +171,26 @@ Learned the hard way; check them before "simplifying":
   be data loss, like the order snapshots), add it to `Setup/Uninstall`, document it here.
 - **New per-attribute setting of a customer attribute:** a constant and a key in `Service/ValidateRulesBuilder` (a missing key means the
   old behaviour), the field in `Block/.../Tab/Front`, the decision in a pure `Service/` class, a unit test. Examples:
-  `mageos_order_snapshot` (`Observer/QuoteSubmitBefore`), `mageos_admin_only` (`Service/AdminOnlyAccess`, `Plugin/CustomerAdminOnlyValues`).
+  `mageos_order_snapshot` (`Observer/QuoteSubmitBefore`), `mageos_admin_only` (`Service/AdminOnlyAccess`, `Plugin/CustomerAdminOnlyValues`), `mageos_email` (`Service/EmailTypes`, `Observer/AddAdditionalInformationToEmails`).
 - **New phrase:** wrap in `__()` and regenerate `i18n/en_US.csv`.
 
-## The "Additional Information" section of the new order email
-Setting `mageos_email` ("Show in Order Email"; needs Save on Orders, not admin-only: `Service/SettingConflicts`). The event
-`email_order_set_template_vars_before` (`Observer/AddAdditionalInformationToOrderEmail`, order email only) puts the template variable
-`mageos_additional_information_html` (`Service/AdditionalInformation`) into the email variables, built from the order's snapshot rows
-(`OrderSaveAfter` leaves the rows on the order object under `OrderLoadAfter::DATA_KEY`, so the email of a just placed order has them).
-`Plugin/OrderEmailTemplate` (around `Magento\Email\Model\Template::getProcessedTemplate`) inserts `{{var mageos_additional_information_html|raw}}`
-for that rendering only (`Service/EmailTemplateInserter`): after the last `method-info` cell, at the end of the order details table. A template
-that already contains the variable, or has no `method-info` cell (a custom template), is left alone: the merchant places the variable.
+## The "Additional Information" section of the order emails
+Setting `mageos_email` ("Show in Emails", a multiselect: the list of emails `order`, `invoice`, `shipment`, `creditmemo` in `Service/EmailTypes`; a stored 1 of the
+earlier Yes/No flag means all four; needs Save on Orders, not admin-only: `Service/SettingConflicts`). The observer knows the email from the sender class and lists
+only the attributes selected for it. The events
+`email_order_`, `email_invoice_`, `email_shipment_` and `email_creditmemo_set_template_vars_before` (`Observer/AddAdditionalInformationToEmails`;
+the comment emails are not touched) put the template variable `mageos_additional_information_html` (`Service/AdditionalInformation`) into the
+email variables, built from the order's snapshot rows (`OrderSaveAfter` leaves the rows on the order object under `OrderLoadAfter::DATA_KEY`,
+so the email of a just placed order has them). The variable is filled whatever the config, so a template can place it by hand.
+The config `sales_email/mageos_cca/add_section` (Yes by default, store view scope) adds the flag variable `mageos_additional_information_insert`;
+only with the flag `Plugin/OrderEmailTemplate` (around `Magento\Email\Model\Template::getProcessedTemplate`) inserts
+`{{var mageos_additional_information_html|raw}}` for that rendering (`Service/EmailTemplateInserter`): after the last `method-info` cell, at the end
+of the order details table, which the four core templates and their guest variants share. A template that already contains the variable, or has no
+`method-info` cell (a custom template), is left alone: the merchant places the variable.
+
+## Translations
+`i18n/en_US.csv` lists the phrases of the module (identity rows). Keep template variables out of it: a row that contains the HTML entities of a
+template variable (`&#123;&#123;var ...&#125;&#125;`, as in the help text of the "Add the Section Automatically" setting) broke the product search of
+the admin order create page when it was listed (the browser tests AOC8 and AOC10 found it). That help text is therefore not listed; an
+unlisted phrase is shown as written. After editing the file run the AOC specs.
+

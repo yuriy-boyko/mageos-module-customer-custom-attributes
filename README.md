@@ -55,12 +55,25 @@ Checkout**, in their own sections of the checkout (needs the companion package `
 | Position at Checkout Step | Above/Below Shipping Address, Above/Below Shipping Methods, Above/Below Payment Method, Order Summary |
 | Checkout Sort Order | order inside a position |
 | Prefill from Customer | fills an empty field with the logged-in customer's saved value |
+| Also Save to Customer Account | copies the value typed in the checkout to the account of a logged-in customer when the order is placed (default off) |
 
-Values typed in the checkout are kept on the quote and the order snapshot only: **the customer account is never changed from the
-checkout**, and an empty account value stays empty. Guests see the fields too. A required attribute is enforced in the checkout
+Values typed in the checkout are kept on the quote and the order snapshot only: **by default the customer account is not changed from
+the checkout**, and an empty account value stays empty (switch on "Also Save to Customer Account" per attribute to copy the typed value
+to a logged-in customer's account; an empty value never erases the stored one). Guests see the fields too. A required attribute is enforced in the checkout
 and blocks placing the order (not for REST orders); with prefill off the customer types it on every order. Dependency rules,
 customer group restrictions and website scope apply, and fields show and hide instantly. An attribute ticked only for "Hyvä
 Checkout" (and the admin order form) behaves like an order attribute: the value exists on the order only.
+
+### More settings of a customer attribute (Storefront Properties tab)
+| Setting | Effect |
+|---|---|
+| Save on Orders | default Yes; No keeps the attribute out of the order snapshot and the admin order view |
+| Customer Cannot Change This Value | the value is ignored when a customer or a visitor sends it (account forms, REST, GraphQL); the admin, integrations and imports can still set it; the field is never shown to the customer |
+| Show in Emails | multiselect of New Order, Invoice, Shipment and Credit Memo: the value is listed in an "Additional Information" section of those emails, below the payment and shipping method (needs Save on Orders) |
+
+The setting **Add the Section Automatically** (Stores → Configuration → Sales → Sales Emails, store view scope, default Yes) decides whether the
+module puts the section into the standard email templates. With No, place `{{var mageos_additional_information_html|raw}}` in the templates you
+want. The attribute grid has a **Shown in** column with the storefront forms of every attribute.
 
 ### Show in Forms (address attributes)
 Each address attribute has switches that decide where it appears:
@@ -114,7 +127,7 @@ Hyvä Theme only; Luma is not supported. Layout files use the `hyva_` prefix so 
   `etc/db_schema.xml`. No column is ever added or dropped at runtime.
 - **Orders keep a snapshot** (code, label, input type, value, displayed value) with no foreign key to
   `eav_attribute`. Changing or deleting an attribute later never changes an existing order. The snapshot tables are kept when the
-  module is disabled (they are not in the schema whitelist); a customer attribute can be left out of the snapshot ("Save on Orders"). Optional per attribute: copy checkout values to the customer account ("Also Save to Customer Account") and list values in the new order email ("Show in Order Email").
+  module is disabled (they are not in the schema whitelist); a customer attribute can be left out of the snapshot ("Save on Orders"). Optional per attribute: copy checkout values to the customer account ("Also Save to Customer Account") and list values in the order emails you choose ("Show in Emails").
 - Core's quote address drops unknown custom attributes; this module registers the address attributes through
   `Magento\Quote\Model\Quote\Address\CustomAttributeListInterface` so Hyvä Checkout's `populateWithArray` keeps them.
 
