@@ -32,6 +32,8 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php set-email-section <0|1|default>   the setting "Add the Section Automatically" (Sales Emails) for all scopes: off, on, or the module's default (the row is removed)
  *   php dev/e2e/fixtures.php set-async-email <0|1>   core's "Asynchronous sending" of sales emails (Sales Emails > General Settings): on, or off (the row is removed)
  *   php dev/e2e/fixtures.php send-async-emails   sends the waiting order, invoice, shipment and credit memo emails, as the cron jobs do
+ *   php dev/e2e/fixtures.php set-translation <locale> <text> <translation|--delete>   a translation of a locale in the database (core's
+ *                                     inline translation table, all store views: the admin area reads only those); --delete removes it
  *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
  *
  * Run it from the Magento root (or set MAGENTO_ROOT). The test customer's password is read from the environment variable
@@ -61,7 +63,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form', 'create-raw-attribute', 'quote-snapshot', 'set-email-section', 'set-async-email', 'send-async-emails'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form', 'create-raw-attribute', 'quote-snapshot', 'set-email-section', 'set-async-email', 'send-async-emails', 'set-translation'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -831,6 +833,25 @@ if ($command === 'send-async-emails') {
     foreach (['SalesOrderSendEmails', 'SalesOrderInvoiceSendEmails', 'SalesOrderShipmentSendEmails', 'SalesOrderCreditmemoSendEmails'] as $handler) {
         $objectManager->create($handler)->sendEmails();
     }
+    echo "ok\n";
+    exit(0);
+}
+
+if ($command === 'set-translation') {
+    // store_id 0: in the admin area core reads only these rows (Magento_Translation's adminhtml di.xml sets the scope "admin"), so a row
+    // of one store view would not reach an email sent from the admin
+    [$locale, $text, $translation] = [(string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''), (string) ($argv[4] ?? '')];
+    if (!preg_match('/^[a-z]{2}_[A-Z]{2}$/', $locale) || $text === '' || $translation === '') {
+        fwrite(STDERR, "Usage: set-translation <locale> <text> <translation|--delete>\n");
+        exit(2);
+    }
+    $connection = $objectManager->get(ResourceConnection::class)->getConnection();
+    $table = $connection->getTableName('translation');
+    $connection->delete($table, ['store_id = ?' => 0, 'locale = ?' => $locale, 'crc_string = ?' => crc32($text)]);
+    if ($translation !== '--delete') {
+        $connection->insert($table, ['string' => $text, 'store_id' => 0, 'translate' => $translation, 'locale' => $locale, 'crc_string' => crc32($text)]);
+    }
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('translate');
     echo "ok\n";
     exit(0);
 }

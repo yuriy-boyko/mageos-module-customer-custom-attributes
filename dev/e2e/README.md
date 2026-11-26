@@ -112,6 +112,7 @@ php ... fixtures.php set-attribute <code> save_to_account=0|1   # "Also Save to 
 php ... fixtures.php set-email-section 0|1|default   # the setting "Add the Section Automatically" (Sales Emails) for all scopes; `default` removes the row (EML2)
 php ... fixtures.php set-async-email 0|1             # core's "Asynchronous sending" of sales emails; 0 removes the row (EML3)
 php ... fixtures.php send-async-emails               # sends the waiting order, invoice, shipment and credit memo emails like the cron jobs (EML3)
+php ... fixtures.php set-translation <locale> <text> <translation|--delete>   # a translation of a locale in core's `translation` table, all store views (the admin area reads only those) (EML4)
 php ... fixtures.php create-raw-attribute <customer|address> <code>   # an attribute made like a developer's data patch (no form processor)
 php ... fixtures.php quote-snapshot <quote id> [area]   # run the order snapshot code on a stored quote and print the customer values (SEC2)
 php ... fixtures.php ensure-stock    # raise the salable stock of the test products when it is below 300 (run-all.sh does it before every run, after seeding)

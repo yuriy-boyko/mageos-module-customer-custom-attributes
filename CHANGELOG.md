@@ -42,6 +42,9 @@ Initial version.
 - The invoice, shipment and credit memo emails sent through REST (`POST /V1/order/:id/invoice`, `/ship` and `/refund` with `notify`) or
   other service-contract calls now have the "Additional Information" section. The module recognised the email by the class that sends it
   and knew only the classes of the admin screens; it now uses the event of the email.
+- The heading "Additional Information" of the email section is in the language of the order's store view also when the email is sent from
+  the admin, through REST or by the cron jobs (asynchronous sending). It was built before Magento switched to the store's language, so it
+  came out in the default language or in the admin user's language.
 - An order created in the admin (or through the API) now gets the account value of an attribute that is shown in the checkout. Before, only the
   storefront checkout, where the customer types the value, wrote a row, so such orders had no row and the admin order view did not list it.
 - An attribute whose code is also a `customer_*` field of the quote (`note` is the cart note) no longer takes the value a customer types in

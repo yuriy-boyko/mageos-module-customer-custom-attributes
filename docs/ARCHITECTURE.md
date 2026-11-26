@@ -183,7 +183,12 @@ earlier Yes/No flag means all four; needs Save on Orders, not admin-only: `Servi
 sender class, and lists only the attributes selected for it: core fires each of these events from two kinds of senders, the
 `Order\Email\Sender\*Sender` classes (admin screens, checkout, asynchronous sending by the cron jobs, which load the order through a
 collection) and the service-contract senders `Order\{Invoice,Shipment,Creditmemo}\Sender\EmailSender` (REST `POST /V1/order/:id/invoice`,
-`/ship` and `/refund` with `notify`). Before relying on another core event, grep core for every place that dispatches it. The events
+`/ship` and `/refund` with `notify`). Before relying on another core event, grep core for every place that dispatches it.
+The events fire before core switches to the order's store for the template (`AbstractTemplate::applyDesignConfig`), so the observer builds
+the section in a store emulation of its own (`Magento\Store\Model\App\Emulation`, injected with `shared="false"` in `etc/di.xml`: the shared
+object ignores a nested start, and its stop would end the caller's emulation). Without it the heading of an email sent from the admin, REST
+or cron was in the language of that request. Labels and option values come translated from the snapshot. Core limitation: in the admin
+area database translations are read for store 0 only (`scope` "admin" in Magento_Translation's adminhtml `di.xml`), for the templates too. The events
 `email_order_`, `email_invoice_`, `email_shipment_` and `email_creditmemo_set_template_vars_before` (`Observer/AddAdditionalInformationToEmails`;
 the comment emails are not touched) put the template variable `mageos_additional_information_html` (`Service/AdditionalInformation`) into the
 email variables, built from the order's snapshot rows (`OrderSaveAfter` leaves the rows on the order object under `OrderLoadAfter::DATA_KEY`,

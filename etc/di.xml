@@ -93,4 +93,10 @@
         <plugin name="mageos_cca_quote_address_to_order_address"
                 type="MageOS\CustomerCustomAttributes\Plugin\ConvertQuoteAddressToOrderAddress"/>
     </type>
+    <!-- the email section is built in the order's store: an Emulation of its own, so a nested start never ends a caller's emulation -->
+    <type name="MageOS\CustomerCustomAttributes\Observer\AddAdditionalInformationToEmails">
+        <arguments>
+            <argument name="emulation" xsi:type="object" shared="false">Magento\Store\Model\App\Emulation</argument>
+        </arguments>
+    </type>
 </config>

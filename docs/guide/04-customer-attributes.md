@@ -131,3 +131,8 @@ store view scope, default Yes) decides whether the module puts the section into 
 which templates get the section: the variable `{{var mageos_additional_information_html|raw}}` is filled in all four emails either way
 (with the attributes selected for that email), so place it in the templates you want (Marketing > Communications > Email Templates). A template that already has the variable is never
 changed, and a custom template without the payment and shipping method cells is left alone when the setting is Yes: place the variable there.
+
+The heading "Additional Information" is translated in the language of the order's store view, like the rest of the email, also when the
+email is sent from the admin, through the API or by the cron jobs: translate it in your theme or language pack (`i18n/<locale>.csv`).
+Note that Magento reads translations saved in the database (inline translation) only for all store views when an email is sent from the
+admin, so translate it in a file, or for all store views.

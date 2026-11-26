@@ -18,6 +18,9 @@ use Magento\Customer\Model\Attribute;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\DataObject;
 use Magento\Framework\Event;
+use Magento\Framework\Phrase;
+use Magento\Framework\Phrase\RendererInterface;
+use Magento\Store\Model\App\Emulation;
 use Magento\Framework\Event\Observer;
 use Magento\Sales\Model\Order\Creditmemo\Sender\EmailSender as CreditmemoEmailSender;
 use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
@@ -45,7 +48,7 @@ class AddAdditionalInformationToEmailsTest extends TestCase
      * @param array<string, array<string, mixed>> $rulesByCode
      * @param array<string, mixed> $orderData
      */
-    private function transport(string $event, array $rulesByCode, array $orderData, bool $insert = true, ?object $sender = null): DataObject
+    private function transport(string $event, array $rulesByCode, array $orderData, bool $insert = true, ?object $sender = null, ?Emulation $emulation = null): DataObject
     {
         $attributes = [];
         foreach ($rulesByCode as $code => $rules) {
@@ -59,7 +62,7 @@ class AddAdditionalInformationToEmailsTest extends TestCase
         $transport = new DataObject(['order' => new DataObject($orderData)]);
         $config = $this->createStub(ScopeConfigInterface::class);
         $config->method('isSetFlag')->willReturn($insert);
-        (new AddAdditionalInformationToEmails($provider, new ValidateRulesBuilder(), new AdminOnlyAccess(), new AdditionalInformation(), $config))
+        (new AddAdditionalInformationToEmails($provider, new ValidateRulesBuilder(), new AdminOnlyAccess(), new AdditionalInformation(), $config, $emulation ?? $this->createStub(Emulation::class)))
             ->execute(new Observer(['event' => new Event(['name' => $event]), 'sender' => $sender, 'transportObject' => $transport]));
 
         return $transport;
@@ -215,5 +218,85 @@ class AddAdditionalInformationToEmailsTest extends TestCase
 
         $html = (string) $this->transport(self::SHIPMENT, $rules, $rows, true, $this->createStub(InvoiceSender::class))->getData(AdditionalInformation::VARIABLE);
         self::assertSame('', $html, 'a shipment event is the shipment email');
+    }
+
+    /**
+     * The event fires before core switches to the order's store for the template: the section is built inside a store emulation of its
+     * own, so the heading is in the store's language for an email sent from the admin, REST or cron.
+     */
+    public function testTheHeadingIsTranslatedInTheOrdersStore(): void
+    {
+        $log = [];
+        $previous = Phrase::getRenderer();
+        Phrase::setRenderer($this->renderer($log));
+        try {
+            $transport = $this->transport(self::INVOICE, ['shown' => self::SHOWN], ['store_id' => 2, OrderLoadAfter::DATA_KEY => [$this->row('shown', 'x')]], true, null, $this->emulations($log));
+        } finally {
+            Phrase::setRenderer($previous);
+        }
+
+        self::assertStringContainsString('<h3>Informazioni Aggiuntive</h3>', (string) $transport->getData(AdditionalInformation::VARIABLE));
+        self::assertSame(['start 2 frontend forced', 'translate in store 2', 'stop'], $log);
+    }
+
+    public function testTheEmulationAlwaysEnds(): void
+    {
+        $log = [];
+        $previous = Phrase::getRenderer();
+        Phrase::setRenderer($this->renderer($log, true));
+        try {
+            $this->transport(self::ORDER, ['shown' => self::SHOWN], ['store_id' => 2, OrderLoadAfter::DATA_KEY => [$this->row('shown', 'x')]], true, null, $this->emulations($log));
+            self::fail('the error of the translation reaches the caller');
+        } catch (\RuntimeException) {
+            self::assertSame('stop', end($log), 'the store emulation ends');
+        } finally {
+            Phrase::setRenderer($previous);
+        }
+    }
+
+    public function testNoEmulationWhenNothingIsShown(): void
+    {
+        $emulation = $this->createMock(Emulation::class);
+        $emulation->expects(self::never())->method('startEnvironmentEmulation');
+
+        $this->transport(self::ORDER, ['shown' => []], ['store_id' => 2, OrderLoadAfter::DATA_KEY => [$this->row('shown', 'x')]], true, null, $emulation);
+    }
+
+    /** the observer's own Emulation (the shared one ignores a nested start, and its stop would end the caller's emulation) */
+    private function emulations(array &$log): Emulation
+    {
+        $emulation = $this->createStub(Emulation::class);
+        $emulation->method('startEnvironmentEmulation')->willReturnCallback(function ($storeId, $area, $force) use (&$log): void {
+            $log[] = sprintf('start %d %s %s', $storeId, $area, $force ? 'forced' : 'not forced');
+            $log['store'] = $storeId;
+        });
+        $emulation->method('stopEnvironmentEmulation')->willReturnCallback(function () use (&$log): void {
+            unset($log['store']);
+            $log[] = 'stop';
+        });
+        return $emulation;
+    }
+
+    /** translates "Additional Information" into Italian only while the store 2 is emulated */
+    private function renderer(array &$log, bool $fail = false): RendererInterface
+    {
+        return new class ($log, $fail) implements RendererInterface {
+            public function __construct(private array &$log, private readonly bool $fail)
+            {
+            }
+
+            public function render(array $source, array $arguments)
+            {
+                $text = end($source);
+                if ($text === 'Additional Information' && ($this->log['store'] ?? null) === 2) {
+                    if ($this->fail) {
+                        throw new \RuntimeException('translation failed');
+                    }
+                    $this->log[] = 'translate in store 2';
+                    return 'Informazioni Aggiuntive';
+                }
+                return $text;
+            }
+        };
     }
 }

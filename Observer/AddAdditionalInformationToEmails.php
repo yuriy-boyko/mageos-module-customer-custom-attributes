@@ -14,7 +14,9 @@ use MageOS\CustomerCustomAttributes\Service\EmailTypes;
 use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\Observer;
+use Magento\Framework\App\Area;
 use Magento\Framework\Event\ObserverInterface;
+use Magento\Store\Model\App\Emulation;
 use Magento\Store\Model\ScopeInterface;
 
 /**
@@ -29,6 +31,11 @@ use Magento\Store\Model\ScopeInterface;
  * Order\Email\Sender\*Sender classes (admin screens, checkout, asynchronous sending by cron) and the service-contract senders
  * Order\Invoice\Sender\EmailSender, Order\Shipment\Sender\EmailSender and Order\Creditmemo\Sender\EmailSender (REST
  * POST /V1/order/:id/invoice, /ship and /refund with notify).
+ *
+ * The section is built in the order's store (store emulation: locale, theme and its translations), because the event fires before core
+ * switches to the store for the template: an email sent from the admin, REST or cron would otherwise get the heading in the language of
+ * that request. The observer has an Emulation object of its own (etc/di.xml, shared="false"): the shared one ignores a nested start,
+ * and stopping it then would end an emulation that a caller started.
  */
 class AddAdditionalInformationToEmails implements ObserverInterface
 {
@@ -48,7 +55,8 @@ class AddAdditionalInformationToEmails implements ObserverInterface
         private readonly ValidateRulesBuilder $rulesBuilder,
         private readonly AdminOnlyAccess $adminOnly,
         private readonly AdditionalInformation $additionalInformation,
-        private readonly ScopeConfigInterface $scopeConfig
+        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly Emulation $emulation
     ) {
     }
 
@@ -77,10 +85,24 @@ class AddAdditionalInformationToEmails implements ObserverInterface
         if ($snapshot === []) {
             $snapshot = (array) $order->getData(OrderLoadAfter::DATA_KEY);
         }
-        $html = $codes === [] ? '' : $this->additionalInformation->html((string) __('Additional Information'), $this->additionalInformation->rows($snapshot, $codes));
+        $html = $codes === [] ? '' : $this->inStore((int) $order->getStoreId(), fn (): string =>
+            $this->additionalInformation->html((string) __('Additional Information'), $this->additionalInformation->rows($snapshot, $codes)));
         $transport->setData(AdditionalInformation::VARIABLE, $html);
         if ($html !== '' && $this->scopeConfig->isSetFlag(self::CONFIG_PATH, ScopeInterface::SCOPE_STORE, (int) $order->getStoreId())) {
             $transport->setData(AdditionalInformation::INSERT_VARIABLE, '1');
+        }
+    }
+
+    /**
+     * @param callable(): string $build
+     */
+    private function inStore(int $storeId, callable $build): string
+    {
+        $this->emulation->startEnvironmentEmulation($storeId, Area::AREA_FRONTEND, true);
+        try {
+            return $build();
+        } finally {
+            $this->emulation->stopEnvironmentEmulation();
         }
     }
 }
