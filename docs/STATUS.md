@@ -71,8 +71,9 @@ that become required after addresses exist.
 - **Required in the checkout only.** A customer attribute has one "required" flag. The checkout validation, the field in the checkout
   and the admin customer form all read it, and `adminhtml_customer` is a mandatory form of every customer attribute. A shop that
   needs a value to place an order, but has existing customers without one, cannot make the attribute required: the admin could no
-  longer save those customers. Today the admin fills the value in first.
-  Planned: a per-attribute setting "Required in the checkout" (key `mageos_checkout_required` in the validate rules, next to the other
+  longer save those customers. Today an attribute is required everywhere or optional (by design for this version): the admin fills the
+  value in first, or the shop checks it at order placement in its own code.
+  Possible design, not scheduled: a per-attribute setting "Required in the checkout" (key `mageos_checkout_required` in the validate rules, next to the other
   checkout settings; a missing key means off, so nothing changes for existing installs). `CustomerCheckoutAttributes::validate()` and
   the field attributes would use "required or required in the checkout"; `is_required` stays 0, so the account and admin forms
   stay optional. Rule: a visible field must have a value on the quote when the order is placed (a prefilled value counts). Tests: unit
