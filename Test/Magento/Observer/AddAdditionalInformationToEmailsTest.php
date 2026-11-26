@@ -17,12 +17,12 @@ use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Customer\Model\Attribute;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\DataObject;
+use Magento\Framework\Event;
 use Magento\Framework\Event\Observer;
-use Magento\Sales\Model\Order\Email\Sender\CreditmemoSender;
+use Magento\Sales\Model\Order\Creditmemo\Sender\EmailSender as CreditmemoEmailSender;
 use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
-use Magento\Sales\Model\Order\Email\Sender\OrderCommentSender;
-use Magento\Sales\Model\Order\Email\Sender\OrderSender;
-use Magento\Sales\Model\Order\Email\Sender\ShipmentSender;
+use Magento\Sales\Model\Order\Invoice\Sender\EmailSender as InvoiceEmailSender;
+use Magento\Sales\Model\Order\Shipment\Sender\EmailSender as ShipmentEmailSender;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,6 +31,10 @@ use PHPUnit\Framework\TestCase;
 class AddAdditionalInformationToEmailsTest extends TestCase
 {
     private const SHOWN = [ValidateRulesBuilder::EMAIL_KEY => 1];
+    private const ORDER = 'email_order_set_template_vars_before';
+    private const INVOICE = 'email_invoice_set_template_vars_before';
+    private const SHIPMENT = 'email_shipment_set_template_vars_before';
+    private const CREDITMEMO = 'email_creditmemo_set_template_vars_before';
 
     private function row(string $code, string $value): array
     {
@@ -41,7 +45,7 @@ class AddAdditionalInformationToEmailsTest extends TestCase
      * @param array<string, array<string, mixed>> $rulesByCode
      * @param array<string, mixed> $orderData
      */
-    private function transport(object $sender, array $rulesByCode, array $orderData, bool $insert = true): DataObject
+    private function transport(string $event, array $rulesByCode, array $orderData, bool $insert = true, ?object $sender = null): DataObject
     {
         $attributes = [];
         foreach ($rulesByCode as $code => $rules) {
@@ -56,20 +60,20 @@ class AddAdditionalInformationToEmailsTest extends TestCase
         $config = $this->createStub(ScopeConfigInterface::class);
         $config->method('isSetFlag')->willReturn($insert);
         (new AddAdditionalInformationToEmails($provider, new ValidateRulesBuilder(), new AdminOnlyAccess(), new AdditionalInformation(), $config))
-            ->execute(new Observer(['sender' => $sender, 'transportObject' => $transport]));
+            ->execute(new Observer(['event' => new Event(['name' => $event]), 'sender' => $sender, 'transportObject' => $transport]));
 
         return $transport;
     }
 
-    private function variable(object $sender, array $rulesByCode, array $orderData): ?string
+    private function variable(string $event, array $rulesByCode, array $orderData): ?string
     {
-        return $this->transport($sender, $rulesByCode, $orderData)->getData(AdditionalInformation::VARIABLE);
+        return $this->transport($event, $rulesByCode, $orderData)->getData(AdditionalInformation::VARIABLE);
     }
 
     public function testOnlyTheAttributesSetToShowInTheEmailAppear(): void
     {
         $rows = [$this->row('shown', 'visible value'), $this->row('hidden', 'internal value')];
-        $html = (string) $this->variable($this->createStub(OrderSender::class), ['shown' => self::SHOWN, 'hidden' => []], [OrderLoadAfter::DATA_KEY => $rows]);
+        $html = (string) $this->variable(self::ORDER, ['shown' => self::SHOWN, 'hidden' => []], [OrderLoadAfter::DATA_KEY => $rows]);
 
         self::assertStringContainsString('Label shown: visible value', $html);
         self::assertStringNotContainsString('internal value', $html);
@@ -78,7 +82,7 @@ class AddAdditionalInformationToEmailsTest extends TestCase
 
     public function testAnOrderJustPlacedUsesTheRowsItWasGiven(): void
     {
-        $html = (string) $this->variable($this->createStub(OrderSender::class), ['shown' => self::SHOWN], [QuoteSubmitBefore::DATA_KEY => [$this->row('shown', 'fresh')]]);
+        $html = (string) $this->variable(self::ORDER, ['shown' => self::SHOWN], [QuoteSubmitBefore::DATA_KEY => [$this->row('shown', 'fresh')]]);
 
         self::assertStringContainsString('Label shown: fresh', $html);
     }
@@ -86,7 +90,7 @@ class AddAdditionalInformationToEmailsTest extends TestCase
     public function testAnEmptyListFromTheLoadDoesNotHideTheRowsOfThePlacing(): void
     {
         $html = (string) $this->variable(
-            $this->createStub(OrderSender::class),
+            self::ORDER,
             ['shown' => self::SHOWN],
             [OrderLoadAfter::DATA_KEY => [], QuoteSubmitBefore::DATA_KEY => [$this->row('shown', 'fresh')]]
         );
@@ -101,27 +105,27 @@ class AddAdditionalInformationToEmailsTest extends TestCase
         ];
         $rows = [$this->row('internal', 'secret'), $this->row('off', 'not saved')];
 
-        self::assertSame('', $this->variable($this->createStub(OrderSender::class), $rules, [OrderLoadAfter::DATA_KEY => $rows]));
+        self::assertSame('', $this->variable(self::ORDER, $rules, [OrderLoadAfter::DATA_KEY => $rows]));
     }
 
     public function testAnEmptySectionIsAnEmptyVariable(): void
     {
-        self::assertSame('', $this->variable($this->createStub(OrderSender::class), ['shown' => self::SHOWN], []));
-        self::assertSame('', $this->variable($this->createStub(OrderSender::class), ['shown' => []], [OrderLoadAfter::DATA_KEY => [$this->row('shown', 'x')]]));
+        self::assertSame('', $this->variable(self::ORDER, ['shown' => self::SHOWN], []));
+        self::assertSame('', $this->variable(self::ORDER, ['shown' => []], [OrderLoadAfter::DATA_KEY => [$this->row('shown', 'x')]]));
     }
 
     public function testOtherEmailsAreNotTouched(): void
     {
         $rows = [$this->row('shown', 'visible value')];
 
-        self::assertNull($this->variable($this->createStub(OrderCommentSender::class), ['shown' => self::SHOWN], [OrderLoadAfter::DATA_KEY => $rows]), 'the order update email');
+        self::assertNull($this->variable('email_order_comment_set_template_vars_before', ['shown' => self::SHOWN], [OrderLoadAfter::DATA_KEY => $rows]), 'the order update email');
     }
 
     public function testTheInvoiceShipmentAndCreditMemoEmailsGetTheVariableToo(): void
     {
         $rows = [$this->row('shown', 'visible value')];
-        foreach ([InvoiceSender::class, ShipmentSender::class, CreditmemoSender::class] as $sender) {
-            $html = (string) $this->variable($this->createStub($sender), ['shown' => self::SHOWN], [OrderLoadAfter::DATA_KEY => $rows]);
+        foreach ([self::INVOICE, self::SHIPMENT, self::CREDITMEMO] as $sender) {
+            $html = (string) $this->variable($sender, ['shown' => self::SHOWN], [OrderLoadAfter::DATA_KEY => $rows]);
 
             self::assertStringContainsString('visible value', $html, $sender);
         }
@@ -131,17 +135,17 @@ class AddAdditionalInformationToEmailsTest extends TestCase
     {
         $rows = [OrderLoadAfter::DATA_KEY => [$this->row('shown', 'visible value')]];
 
-        $on = $this->transport($this->createStub(OrderSender::class), ['shown' => self::SHOWN], $rows, true);
+        $on = $this->transport(self::ORDER, ['shown' => self::SHOWN], $rows, true);
         self::assertSame('1', $on->getData(AdditionalInformation::INSERT_VARIABLE));
 
-        $off = $this->transport($this->createStub(OrderSender::class), ['shown' => self::SHOWN], $rows, false);
+        $off = $this->transport(self::ORDER, ['shown' => self::SHOWN], $rows, false);
         self::assertStringContainsString('visible value', (string) $off->getData(AdditionalInformation::VARIABLE), 'the variable stays for a template that places it');
         self::assertNull($off->getData(AdditionalInformation::INSERT_VARIABLE));
     }
 
     public function testNothingToShowAsksForNoInsertion(): void
     {
-        $transport = $this->transport($this->createStub(OrderSender::class), ['shown' => []], [OrderLoadAfter::DATA_KEY => [$this->row('shown', 'x')]], true);
+        $transport = $this->transport(self::ORDER, ['shown' => []], [OrderLoadAfter::DATA_KEY => [$this->row('shown', 'x')]], true);
 
         self::assertNull($transport->getData(AdditionalInformation::INSERT_VARIABLE));
     }
@@ -157,13 +161,13 @@ class AddAdditionalInformationToEmailsTest extends TestCase
             'cm' => [ValidateRulesBuilder::EMAIL_KEY => ['creditmemo']],
         ];
         $expected = [
-            OrderSender::class => ['for the order', 'for all'],
-            InvoiceSender::class => ['for the invoice', 'for all'],
-            ShipmentSender::class => ['for all', 'for the shipment'],
-            CreditmemoSender::class => ['for all', 'for the credit memo'],
+            self::ORDER => ['for the order', 'for all'],
+            self::INVOICE => ['for the invoice', 'for all'],
+            self::SHIPMENT => ['for all', 'for the shipment'],
+            self::CREDITMEMO => ['for all', 'for the credit memo'],
         ];
         foreach ($expected as $sender => $texts) {
-            $html = (string) $this->variable($this->createStub($sender), $rules, $rows);
+            $html = (string) $this->variable($sender, $rules, $rows);
             foreach (['for the invoice', 'for the order', 'for all', 'for the shipment', 'for the credit memo'] as $text) {
                 in_array($text, $texts, true)
                     ? self::assertStringContainsString($text, $html, "$sender has $text")
@@ -175,12 +179,41 @@ class AddAdditionalInformationToEmailsTest extends TestCase
     public function testAnEmailNobodyIsSetForGetsAnEmptyVariableAndNoInsertion(): void
     {
         $transport = $this->transport(
-            $this->createStub(ShipmentSender::class),
+            self::SHIPMENT,
             ['inv' => [ValidateRulesBuilder::EMAIL_KEY => ['invoice']]],
             [OrderLoadAfter::DATA_KEY => [$this->row('inv', 'x')]]
         );
 
         self::assertSame('', $transport->getData(AdditionalInformation::VARIABLE));
         self::assertNull($transport->getData(AdditionalInformation::INSERT_VARIABLE));
+    }
+
+    /**
+     * Core fires the events from two kinds of senders: the Order\Email\Sender classes (admin, checkout, cron) and the service-contract
+     * EmailSender classes (REST invoice, ship and refund with notify). The email is known from the event, whichever class sends it.
+     */
+    public function testTheServiceContractSendersGetTheSectionToo(): void
+    {
+        $rows = [OrderLoadAfter::DATA_KEY => [$this->row('shown', 'visible value')]];
+        $senders = [
+            self::INVOICE => InvoiceEmailSender::class,
+            self::SHIPMENT => ShipmentEmailSender::class,
+            self::CREDITMEMO => CreditmemoEmailSender::class,
+        ];
+        foreach ($senders as $event => $sender) {
+            $transport = $this->transport($event, ['shown' => self::SHOWN], $rows, true, $this->createStub($sender));
+
+            self::assertStringContainsString('visible value', (string) $transport->getData(AdditionalInformation::VARIABLE), $sender);
+            self::assertSame('1', $transport->getData(AdditionalInformation::INSERT_VARIABLE), $sender);
+        }
+    }
+
+    public function testTheSenderClassDoesNotDecideTheEmail(): void
+    {
+        $rows = [OrderLoadAfter::DATA_KEY => [$this->row('inv', 'for the invoice')]];
+        $rules = ['inv' => [ValidateRulesBuilder::EMAIL_KEY => ['invoice']]];
+
+        $html = (string) $this->transport(self::SHIPMENT, $rules, $rows, true, $this->createStub(InvoiceSender::class))->getData(AdditionalInformation::VARIABLE);
+        self::assertSame('', $html, 'a shipment event is the shipment email');
     }
 }

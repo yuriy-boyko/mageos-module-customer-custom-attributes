@@ -53,7 +53,7 @@ when a required attribute was hidden by a dependency rule (DEP14), and the same 
 - Manual checks: other Hyvä Checkout variants (multi-step, mobile), a second store view with another locale, card payments with
   3D Secure, real order emails and PDF files, keyboard and screen reader use.
 
-- **Save to account and order email:** "Also Save to Customer Account" (logged-in checkout, per attribute) and "Show in Emails" (a multiselect per attribute: new order, invoice, shipment and credit memo emails, section "Additional Information", variable `mageos_additional_information_html` always filled; the setting "Add the Section Automatically" in Sales Emails, default Yes, puts it into the standard templates, which have the payment and shipping method cells). Verified: unit, adapter, ACC1, EML1 and EML2 browser tests.
+- **Save to account and order email:** "Also Save to Customer Account" (logged-in checkout, per attribute) and "Show in Emails" (a multiselect per attribute: new order, invoice, shipment and credit memo emails, section "Additional Information", variable `mageos_additional_information_html` always filled; the setting "Add the Section Automatically" in Sales Emails, default Yes, puts it into the standard templates, which have the payment and shipping method cells). Verified: unit, adapter, ACC1, EML1, EML2 and EML3 browser tests (EML3: emails of invoices, shipments and credit memos created through REST, and asynchronous sending by cron).
 
 ## Not built (by decision)
 Multiline, file and image types, GraphQL, per-option control of dependent options,

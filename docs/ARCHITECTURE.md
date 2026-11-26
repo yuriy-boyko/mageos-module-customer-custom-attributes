@@ -179,8 +179,11 @@ Learned the hard way; check them before "simplifying":
 
 ## The "Additional Information" section of the order emails
 Setting `mageos_email` ("Show in Emails", a multiselect: the list of emails `order`, `invoice`, `shipment`, `creditmemo` in `Service/EmailTypes`; a stored 1 of the
-earlier Yes/No flag means all four; needs Save on Orders, not admin-only: `Service/SettingConflicts`). The observer knows the email from the sender class and lists
-only the attributes selected for it. The events
+earlier Yes/No flag means all four; needs Save on Orders, not admin-only: `Service/SettingConflicts`). The observer knows the email from the event name, not from the
+sender class, and lists only the attributes selected for it: core fires each of these events from two kinds of senders, the
+`Order\Email\Sender\*Sender` classes (admin screens, checkout, asynchronous sending by the cron jobs, which load the order through a
+collection) and the service-contract senders `Order\{Invoice,Shipment,Creditmemo}\Sender\EmailSender` (REST `POST /V1/order/:id/invoice`,
+`/ship` and `/refund` with `notify`). Before relying on another core event, grep core for every place that dispatches it. The events
 `email_order_`, `email_invoice_`, `email_shipment_` and `email_creditmemo_set_template_vars_before` (`Observer/AddAdditionalInformationToEmails`;
 the comment emails are not touched) put the template variable `mageos_additional_information_html` (`Service/AdditionalInformation`) into the
 email variables, built from the order's snapshot rows (`OrderSaveAfter` leaves the rows on the order object under `OrderLoadAfter::DATA_KEY`,

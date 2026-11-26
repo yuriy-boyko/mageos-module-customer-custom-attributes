@@ -15,10 +15,6 @@ use MageOS\CustomerCustomAttributes\Service\ValidateRulesBuilder;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Magento\Sales\Model\Order\Email\Sender\CreditmemoSender;
-use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
-use Magento\Sales\Model\Order\Email\Sender\OrderSender;
-use Magento\Sales\Model\Order\Email\Sender\ShipmentSender;
 use Magento\Store\Model\ScopeInterface;
 
 /**
@@ -28,11 +24,24 @@ use Magento\Store\Model\ScopeInterface;
  * admin-only) for that email. The variable is always there, so a template can place it by hand. When "Add the Section Automatically" is on
  * (Stores > Configuration > Sales > Sales Emails), the flag variable `mageos_additional_information_insert` is set too and
  * Plugin\OrderEmailTemplate puts the variable into the template text.
+ *
+ * The email is known from the event name, not from the sender: core fires these events from two kinds of senders, the
+ * Order\Email\Sender\*Sender classes (admin screens, checkout, asynchronous sending by cron) and the service-contract senders
+ * Order\Invoice\Sender\EmailSender, Order\Shipment\Sender\EmailSender and Order\Creditmemo\Sender\EmailSender (REST
+ * POST /V1/order/:id/invoice, /ship and /refund with notify).
  */
 class AddAdditionalInformationToEmails implements ObserverInterface
 {
     /** Stores > Configuration > Sales > Sales Emails > Additional Information > Add the Section Automatically */
     public const CONFIG_PATH = 'sales_email/mageos_cca/add_section';
+
+    /** the events this observer handles and their email (a code of EmailTypes) */
+    public const EVENTS = [
+        'email_order_set_template_vars_before' => EmailTypes::ORDER,
+        'email_invoice_set_template_vars_before' => EmailTypes::INVOICE,
+        'email_shipment_set_template_vars_before' => EmailTypes::SHIPMENT,
+        'email_creditmemo_set_template_vars_before' => EmailTypes::CREDITMEMO,
+    ];
 
     public function __construct(
         private readonly CustomerAttributeProvider $attributeProvider,
@@ -45,7 +54,7 @@ class AddAdditionalInformationToEmails implements ObserverInterface
 
     public function execute(Observer $observer): void
     {
-        $type = $this->emailType($observer->getData('sender'));
+        $type = self::EVENTS[(string) $observer->getEvent()->getName()] ?? null;
         if ($type === null) {
             return;
         }
@@ -73,19 +82,5 @@ class AddAdditionalInformationToEmails implements ObserverInterface
         if ($html !== '' && $this->scopeConfig->isSetFlag(self::CONFIG_PATH, ScopeInterface::SCOPE_STORE, (int) $order->getStoreId())) {
             $transport->setData(AdditionalInformation::INSERT_VARIABLE, '1');
         }
-    }
-
-    /**
-     * @return string|null the email (a code of EmailTypes), null for a comment email or any other sender
-     */
-    private function emailType(mixed $sender): ?string
-    {
-        return match (true) {
-            $sender instanceof OrderSender => EmailTypes::ORDER,
-            $sender instanceof InvoiceSender => EmailTypes::INVOICE,
-            $sender instanceof ShipmentSender => EmailTypes::SHIPMENT,
-            $sender instanceof CreditmemoSender => EmailTypes::CREDITMEMO,
-            default => null,
-        };
     }
 }

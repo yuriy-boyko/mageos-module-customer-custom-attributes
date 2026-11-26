@@ -30,6 +30,8 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php create-raw-attribute <customer|address> <code> [--input=type]   a user defined text attribute (or of the given input type, also one the module does not know) made like a data patch does (no form processor, so no reserved code check), label "ADM reserved column"; delete-created removes it (SEC2)
  *   php dev/e2e/fixtures.php quote-snapshot <quote id> [area]   run the order snapshot code (QuoteSubmitBefore) on a stored quote without placing an order, in the area given (default adminhtml, e.g. webapi_rest for a cart API call): the customer values it would put on the order (JSON)
  *   php dev/e2e/fixtures.php set-email-section <0|1|default>   the setting "Add the Section Automatically" (Sales Emails) for all scopes: off, on, or the module's default (the row is removed)
+ *   php dev/e2e/fixtures.php set-async-email <0|1>   core's "Asynchronous sending" of sales emails (Sales Emails > General Settings): on, or off (the row is removed)
+ *   php dev/e2e/fixtures.php send-async-emails   sends the waiting order, invoice, shipment and credit memo emails, as the cron jobs do
  *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
  *
  * Run it from the Magento root (or set MAGENTO_ROOT). The test customer's password is read from the environment variable
@@ -59,7 +61,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $command = $argv[1] ?? '';
-if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form', 'create-raw-attribute', 'quote-snapshot', 'set-email-section'], true)) {
+if (!in_array($command, ['seed', 'teardown', 'status', 'purge', 'delete-option', 'delete-attribute', 'set-customer', 'drop-quotes', 'set-attribute', 'delete-created', 'create-attributes', 'set-admin', 'delete-admin', 'secret-key', 'set-address', 'quote-address-saves', 'set-website', 'create-customer', 'bulk-attributes', 'bulk-addresses', 'bulk-clean', 'ensure-stock', 'set-visible-all', 'set-customer-group', 'rename-option', 'set-stock', 'add-form', 'create-raw-attribute', 'quote-snapshot', 'set-email-section', 'set-async-email', 'send-async-emails'], true)) {
     fwrite(STDERR, "Usage: php dev/e2e/fixtures.php seed|teardown|status|purge|delete-option <code> <label>|delete-attribute <code>|set-customer <email> <code=value>...|delete-created <code>|drop-quotes <email>|set-attribute <code> required=0|1 forms=a,b\n");
     exit(2);
 }
@@ -807,6 +809,28 @@ if ($command === 'set-email-section') {
         $writer->save($path, $value);
     }
     $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('config');
+    echo "ok\n";
+    exit(0);
+}
+
+if ($command === 'set-async-email') {
+    $value = (string) ($argv[2] ?? '');
+    if (!in_array($value, ['0', '1'], true)) {
+        fwrite(STDERR, "Usage: set-async-email <0|1>\n");
+        exit(2);
+    }
+    $writer = $objectManager->get(\Magento\Framework\App\Config\Storage\WriterInterface::class);
+    $value === '1' ? $writer->save('sales_email/general/async_sending', '1') : $writer->delete('sales_email/general/async_sending');
+    $objectManager->get(\Magento\Framework\App\Cache\TypeListInterface::class)->cleanType('config');
+    echo "ok\n";
+    exit(0);
+}
+
+if ($command === 'send-async-emails') {
+    // the handlers of the cron jobs sales_send_order_emails, sales_send_order_invoice_emails, ..._shipment_... and ..._creditmemo_...
+    foreach (['SalesOrderSendEmails', 'SalesOrderInvoiceSendEmails', 'SalesOrderShipmentSendEmails', 'SalesOrderCreditmemoSendEmails'] as $handler) {
+        $objectManager->create($handler)->sendEmails();
+    }
     echo "ok\n";
     exit(0);
 }
