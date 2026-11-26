@@ -125,6 +125,10 @@ class Front extends Generic
             $this->addCheckoutFields($fieldset, $attribute);
         }
 
+        if ($this->entityContext->getKey() === EntityDefinitions::CUSTOMER) {
+            $this->addGridFields($form, $attribute);
+        }
+
         $groups = $this->getData('customer_groups_posted');
         if (!is_array($groups)) {
             $groups = $attribute->getId() ? $this->groupStorage->load((int) $attribute->getId()) : [];
@@ -185,5 +189,31 @@ class Front extends Generic
             'value' => $attribute->getData('checkout_save_to_account') ?? (int) $this->rulesBuilder->savesToAccount((array) $attribute->getValidateRules()),
             'note' => __('When a logged-in customer places an order, copy the value typed in the checkout to the customer account. An empty value never erases the stored one. Not for guests. Cannot be combined with "Customer Cannot Change This Value".'),
         ]);
+    }
+
+    /**
+     * The core flags of the admin customer grid (Customers > All Customers). They are core's own columns of customer_eav_attribute; core
+     * invalidates the customer grid index when "Add to Customer Grid" changes.
+     */
+    private function addGridFields(\Magento\Framework\Data\Form $form, $attribute): void
+    {
+        $fieldset = $form->addFieldset('grid_fieldset', ['legend' => __('Customer Grid')]);
+        $yesNo = $this->yesnoFactory->create()->toOptionArray();
+        $fields = [
+            'is_used_in_grid' => [__('Add to Customer Grid'), __('Make the attribute available as a column of the customer grid (Customers > All Customers). After a change the customer grid index must be rebuilt (bin/magento indexer:reindex customer_grid). The settings below need this one.')],
+            'is_visible_in_grid' => [__('Show Column by Default'), __('Show the column without choosing it in the Columns menu of the grid.')],
+            'is_filterable_in_grid' => [__('Use in Grid Filters'), __('Offer the attribute in the Filters of the grid.')],
+            'is_searchable_in_grid' => [__('Use in Grid Keyword Search'), __('Find customers by this value with the keyword search of the grid.')],
+        ];
+        foreach ($fields as $code => [$label, $note]) {
+            $fieldset->addField($code, 'select', [
+                'name' => $code,
+                'label' => $label,
+                'title' => $label,
+                'values' => $yesNo,
+                'value' => (int) $attribute->getData($code),
+                'note' => $note,
+            ]);
+        }
     }
 }

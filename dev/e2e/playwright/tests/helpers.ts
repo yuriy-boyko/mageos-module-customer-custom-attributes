@@ -575,6 +575,8 @@ export type AttributeRow = {
     default_value: string | null;
     is_visible: boolean;
     sort_order: number;
+    /** the core customer grid flags (customer attributes) */
+    grid: { used: boolean; visible: boolean; filterable: boolean; searchable: boolean };
     forms: string[];
     options: { id: number; label: string; sort_order: number; is_default: boolean; store_labels: Record<string, string> }[];
     rules: Record<string, unknown>;
@@ -648,10 +650,16 @@ export async function addOption(page: Page, label: string, storeLabels: Record<n
 export async function saveAttribute(page: Page, stay = false): Promise<void> {
     // The button first validates the form by AJAX and only then submits it. "networkidle" alone can settle between the two, and a
     // success message from an earlier save is still on the page, so wait for the save request itself when the validation passed.
-    const validated = page.waitForResponse((response) => response.url().includes('/attribute/validate/'), { timeout: 15_000 }).catch(() => null);
     const saved = page.waitForResponse((response) => response.url().includes('/attribute/save/') && response.request().method() === 'POST', { timeout: 60_000 }).catch(() => null);
-    await page.locator(stay ? '#save_and_edit_button' : '#save').click();
-    const validation = await validated;
+    // A click before the page's scripts have bound the button does nothing (no request at all): wait for the scripts, and click again
+    // when no validation request follows.
+    await page.waitForLoadState('networkidle');
+    let validation = null;
+    for (let attempt = 0; attempt < 3 && validation === null; attempt++) {
+        const validated = page.waitForResponse((response) => response.url().includes('/attribute/validate/'), { timeout: attempt < 2 ? 5_000 : 15_000 }).catch(() => null);
+        await page.locator(stay ? '#save_and_edit_button' : '#save').click();
+        validation = await validated;
+    }
     // The body cannot be read when the page has already navigated away: the form was submitted, so the validation passed.
     const body = validation === null ? null : await validation.json().catch((error: Error) => (/navigated away/i.test(error.message) ? { error: false } : { error: true }));
     const passed = body !== null && body.error === false;
@@ -851,11 +859,24 @@ export async function startAdminOrder(page: Page, email: string, storeView = 'De
 
 /** Adds a product to the admin order by SKU through the "Add Products" grid. */
 export async function addAdminOrderProduct(page: Page, sku: string): Promise<void> {
+    // a click or a key press before the page's scripts are ready does nothing: wait for them, and press Enter again when the grid
+    // was not reloaded
+    await page.waitForLoadState('networkidle');
     await page.locator('#add_products, button:has-text("Add Products")').first().click();
     const filter = page.locator('#sales_order_create_search_grid_filter_sku');
     await filter.fill(sku);
-    await filter.press('Enter');
-    await adminOrderIdle(page);
+    const row = page.locator('#sales_order_create_search_grid_table tbody tr', { hasText: sku }).first();
+    for (let attempt = 0; attempt < 3; attempt++) {
+        await filter.press('Enter');
+        await adminOrderIdle(page);
+        if (await row.isVisible().catch(() => false)) {
+            break;
+        }
+        await row.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => undefined);
+        if (await row.isVisible().catch(() => false)) {
+            break;
+        }
+    }
     await page.locator('#sales_order_create_search_grid_table tbody tr', { hasText: sku }).first().locator('input[type=checkbox]').check();
     await page.locator('button:has-text("Add Selected Product(s) to Order")').first().click();
     await adminOrderIdle(page);

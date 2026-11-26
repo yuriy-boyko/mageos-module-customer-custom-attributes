@@ -61,7 +61,17 @@ class Main extends AbstractMain
         foreach ($this->inputTypes->getLabels() as $type => $label) {
             $values[] = ['value' => $type, 'label' => __($label)];
         }
-        $form->getElement('frontend_input')->setValues($values)->setLabel(__('Input Type'))->setTitle(__('Input Type'));
+        $inputField = $form->getElement('frontend_input')->setValues($values)->setLabel(__('Input Type'))->setTitle(__('Input Type'));
+
+        // An input type of another module (an attribute it left behind): shown as it is, so the page does not pretend it is a text field.
+        $attribute = $this->getAttributeObject();
+        $type = $attribute !== null && $attribute->getId() ? (string) $attribute->getFrontendInput() : '';
+        if ($type !== '' && !$this->inputTypes->isSupported($type)) {
+            $values[] = ['value' => $type, 'label' => __('%1 (not supported)', $type)];
+            $inputField->setValues($values)->setValue($type)->setNote(__(
+                'This input type comes from another module and is not supported here. Saving keeps it: the labels, the forms and the other settings can be changed, but no default value, validation or options. Convert the attribute to a supported type with a data patch (for example a multiple select), or delete it.'
+            ));
+        }
 
         $maxLength = $this->entityContext->getMaxCodeLength();
         $form->getElement('attribute_code')

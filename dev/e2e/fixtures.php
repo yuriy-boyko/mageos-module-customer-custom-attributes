@@ -27,7 +27,7 @@ declare(strict_types=1);
  *   php dev/e2e/fixtures.php bulk-attributes <n>   create n address attributes e2e_bulk_01... (every third a dropdown with 3 options) in all storefront address forms (ROB3); bulk-addresses <email> <n> gives a customer n saved addresses with values for them; bulk-clean deletes them and the addresses
  *   php dev/e2e/fixtures.php add-form <code> <form>   assign an attribute a test created (code starts with e2e_) to a form this module does not offer, like another module would (ADM18)
  *   php dev/e2e/fixtures.php drop-quotes <email>   delete the quotes of a customer or e-mail (a customer without an active cart)
- *   php dev/e2e/fixtures.php create-raw-attribute <customer|address> <code>   a user defined text attribute made like a data patch does (no form processor, so no reserved code check), label "ADM reserved column"; delete-created removes it (SEC2)
+ *   php dev/e2e/fixtures.php create-raw-attribute <customer|address> <code> [--input=type]   a user defined text attribute (or of the given input type, also one the module does not know) made like a data patch does (no form processor, so no reserved code check), label "ADM reserved column"; delete-created removes it (SEC2)
  *   php dev/e2e/fixtures.php quote-snapshot <quote id> [area]   run the order snapshot code (QuoteSubmitBefore) on a stored quote without placing an order, in the area given (default adminhtml, e.g. webapi_rest for a cart API call): the customer values it would put on the order (JSON)
  *   php dev/e2e/fixtures.php set-email-section <0|1|default>   the setting "Add the Section Automatically" (Sales Emails) for all scopes: off, on, or the module's default (the row is removed)
  *   php dev/e2e/fixtures.php purge       delete the orders, quotes and customers of test runs (e-mail like %e2e%@example.com)
@@ -384,8 +384,10 @@ if ($command === 'create-attributes') {
 if ($command === 'create-raw-attribute') {
     $entity = (string) ($argv[2] ?? '');
     $code = (string) ($argv[3] ?? '');
+    // an input type of another module (for example "checkboxs") makes an attribute the module cannot edit
+    $input = str_starts_with((string) ($argv[4] ?? ''), '--input=') ? substr((string) $argv[4], 8) : 'text';
     if (!isset($entityTypeCodes[$entity]) || preg_match('/^[a-z][a-z0-9_]{0,50}$/', $code) !== 1) {
-        fwrite(STDERR, "Usage: create-raw-attribute <customer|address> <code>\n");
+        fwrite(STDERR, "Usage: create-raw-attribute <customer|address> <code> [--input=type]\n");
         exit(2);
     }
     if ($findAttribute($entity, $code) !== null) {
@@ -398,7 +400,7 @@ if ($command === 'create-raw-attribute') {
     $attribute->setData([
         'attribute_code' => $code,
         'entity_type_id' => $type->getId(),
-        'frontend_input' => 'text',
+        'frontend_input' => $input,
         'backend_type' => 'varchar',
         'frontend_label' => 'ADM reserved column',
         'is_user_defined' => 1,

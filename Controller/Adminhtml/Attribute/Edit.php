@@ -9,7 +9,7 @@ namespace MageOS\CustomerCustomAttributes\Controller\Adminhtml\Attribute;
 
 use MageOS\CustomerCustomAttributes\Controller\Adminhtml\Attribute;
 use MageOS\CustomerCustomAttributes\Model\Attribute\EntityContext;
-use MageOS\CustomerCustomAttributes\Model\Attribute\RequiredAddressFormWarning;
+use MageOS\CustomerCustomAttributes\Model\Attribute\RequiredFormWarning;
 use Magento\Backend\App\Action\Context;
 use Magento\Customer\Model\AttributeFactory;
 use Magento\Framework\App\Action\HttpGetActionInterface;
@@ -28,7 +28,7 @@ class Edit extends Attribute implements HttpGetActionInterface
         AttributeFactory $attributeFactory,
         Registry $coreRegistry,
         WebsiteFactory $websiteFactory,
-        private readonly RequiredAddressFormWarning $requiredFormWarning
+        private readonly RequiredFormWarning $requiredFormWarning
     ) {
         parent::__construct($context, $entityContext, $attributeFactory, $coreRegistry, $websiteFactory);
     }

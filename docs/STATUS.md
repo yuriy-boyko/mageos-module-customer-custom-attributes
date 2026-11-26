@@ -26,7 +26,7 @@ listed one by one in [TESTING.md](TESTING.md); the code map is in [ARCHITECTURE.
 - **Saved address missing a required attribute:** checkout notice with an edit link, clear place-order message.
 - **API:** `custom_attributes` on cart addresses and `customers/me`; extension attributes `custom_attribute_values` (order addresses)
   and `customer_attribute_values` (orders).
-- **Release tooling:** `dev/check.sh` (229 unit tests of `Service/` and the schema whitelist), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
+- **Release tooling:** `dev/check.sh` (233 unit tests of `Service/` and the schema whitelist), `phpunit.magento.xml.dist` (adapter tests of plugins and observers, run in a
   Magento install and in CI), `phpstan.neon.dist` (level 5), `i18n/en_US.csv`, `CHANGELOG.md`,
   `.github/workflows/ci.yml`, `Setup/Uninstall` (drops the tables and form assignments; attributes stay).
 
@@ -61,6 +61,10 @@ import/export of attribute definitions, grid columns or filters for the values, 
 that become required after addresses exist.
 
 ## Future improvements
+- **Values on the account dashboard.** A per-attribute setting to list the value read-only on the storefront dashboard (My Account), for
+  values the customer cannot see elsewhere: attributes set to "Customer Cannot Change This Value" or shown only in the checkout.
+- **A change log of attribute values** (who changed a value, when, old and new value, admin / API / import) and a **REST endpoint to set one
+  attribute value** of a customer without sending the whole customer.
 - **Customer attribute settings not built yet:** "Show in the admin order view" (a saved row can be hidden in the admin only by not saving
   it, "Save on Orders"); "Customer Cannot Change This Value" for address attributes (customer attributes only); a command that
   removes the rows of an attribute that was switched off for orders.

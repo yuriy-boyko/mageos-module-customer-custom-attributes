@@ -16,6 +16,24 @@ bin/magento cache:flush
 Install both packages on the same version (they are released together). `setup:upgrade` creates the seven module tables. In production mode also run `bin/magento setup:di:compile` and
 `bin/magento setup:static-content:deploy`.
 
+## Installing on a store that already has customer attributes
+
+Attributes made by another module or by data patches become visible to the module as soon as they are user-defined. Before going live:
+
+1. Open **Stores > Attributes > Customer Attributes** and read the **Shown in** column. Every attribute assigned to the registration or
+   account edit form (bold) is printed to customers and accepted from their posts. "+N other" counts form codes of other modules; they do
+   nothing in this module and can be removed with a patch (`customer_form_attribute`).
+2. Set **Customer Cannot Change This Value** on every internal value (price level, ERP id, agent code, flags): the field is never printed and
+   a value a customer sends is ignored. The admin, integrations and imports can still change it.
+3. Read the warnings of the grid: a required attribute that customers cannot fill in blocks registrations or account saves, and an
+   attribute with a reserved code can be mixed up with a field of the customer, the cart or the order.
+4. Switch **Save on Orders** off for internal values that do not belong to the order history, and choose **Show in Emails** for the values
+   the customer should see in the emails.
+5. Attributes whose input type the module does not know open with a "(not supported)" note: convert them with a data patch (see
+   [Managing attributes](03-managing-attributes.md)).
+6. A theme that hardcodes the registration or account edit form must print the module's fields, see
+   [Customer attributes](04-customer-attributes.md).
+
 ## Hyvä styles
 
 The module registers itself for the Hyvä modules configuration so the Tailwind build includes its templates. After installing:

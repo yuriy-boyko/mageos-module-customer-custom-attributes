@@ -11,6 +11,33 @@ attributes can be shown as radio buttons or checkboxes ([Managing attributes](03
 
 ![The registration form with customer attributes: the text field appears when Gold is chosen](images/registration-form.png)
 
+### A theme with its own registration or account edit template
+
+The module adds its fields as a block in the containers `fieldset.create.info.additional` (registration) and `fieldset.edit.info.additional`
+(account edit). Hyvä's default templates print them with `getChildHtml('fieldset_create_info_additional')` and
+`getChildHtml('fieldset_edit_info_additional')`. A theme that replaces `Magento_Customer::form/register.phtml` or `form/edit.phtml` keeps the
+fields, the browser validation, the dependency rules and the group restrictions when its template prints that line **inside the `<form>`**:
+
+```php
+<?= $block->getChildHtml('fieldset_create_info_additional') ?>   <!-- in register.phtml -->
+<?= $block->getChildHtml('fieldset_edit_info_additional') ?>     <!-- in edit.phtml -->
+```
+
+To place the fields somewhere else in the form, move the module's block (`mageos.cca.customer.attributes`) in the theme's layout and print it
+by its alias:
+
+```xml
+<!-- Magento_Customer/layout/customer_account_create.xml of the theme -->
+<move element="mageos.cca.customer.attributes" destination="customer_form_register" as="mageos_cca_fields"/>
+```
+
+```php
+<?= $block->getChildHtml('mageos_cca_fields') ?>
+```
+
+Do not copy single fields into the template by hand: they would lose the validation, the rules and the groups, and a field of an attribute
+that the customer cannot change would be printed again. Which attributes appear is still decided by **Show in Forms**.
+
 ## Admin
 
 Customer attributes are always part of the admin customer edit form. Tick **Admin Order Create (Account Information)** to show

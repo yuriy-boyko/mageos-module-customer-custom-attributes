@@ -461,7 +461,8 @@ if ($command === 'attribute') {
     $typeCode = $argument === 'address' ? 'customer_address' : 'customer';
     $row = $db->fetchRow(
         $sql('SELECT a.attribute_id, a.frontend_label, a.frontend_input, a.backend_type, a.source_model, a.is_required, a.is_user_defined, a.default_value,
-                     e.is_visible, e.sort_order, e.validate_rules
+                     e.is_visible, e.sort_order, e.validate_rules,
+                     e.is_used_in_grid, e.is_visible_in_grid, e.is_filterable_in_grid, e.is_searchable_in_grid
               FROM {{eav_attribute}} a
               JOIN {{eav_entity_type}} t ON t.entity_type_id = a.entity_type_id AND t.entity_type_code = ?
               LEFT JOIN {{customer_eav_attribute}} e ON e.attribute_id = a.attribute_id
@@ -503,6 +504,10 @@ if ($command === 'attribute') {
         'default_value' => $row['default_value'],
         'is_visible' => (bool) $row['is_visible'],
         'sort_order' => (int) $row['sort_order'],
+        'grid' => [
+            'used' => (bool) $row['is_used_in_grid'], 'visible' => (bool) $row['is_visible_in_grid'],
+            'filterable' => (bool) $row['is_filterable_in_grid'], 'searchable' => (bool) $row['is_searchable_in_grid'],
+        ],
         'forms' => $db->fetchCol($sql('SELECT form_code FROM {{customer_form_attribute}} WHERE attribute_id = ? ORDER BY form_code'), [$id]),
         'options' => $options,
         'rules' => $rules,

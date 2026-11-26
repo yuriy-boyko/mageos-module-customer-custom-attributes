@@ -228,6 +228,9 @@ Main run on the one-page variant. Cases marked ★ are repeated on the other var
 | ID | Test | Expected | Status |
 |---|---|---|---|
 | ADM20 | Customer and address grid with attributes in different forms | the "Shown in" column lists the storefront forms (account forms in bold), "+N other" for forms of other modules, "Admin only" for none; admin forms are not listed | ✅ automated: playwright/tests/adm20-grid-forms-column.spec.ts; unit test FormColumnTest |
+| ADM21 | Attribute with an input type of another module (`checkboxs`, made like a data patch) | the edit page shows the type as "(not supported)" with a note, no text validation fields; saving keeps the type and changes the label | ✅ automated: playwright/tests/adm21-unknown-input-type.spec.ts |
+| ADM22 | Required customer attribute missing from the registration or account edit form | the grid warns and lists it; the edit page says which form is missing; in both forms or optional: no warning; a required attribute the customer cannot change is listed even in both forms (unit RequiredCustomerFormCheckTest; adapter RequiredFormWarningTest: website-required, admin-only) | ✅ automated: playwright/tests/adm22-required-unfillable.spec.ts |
+| ADM23 | Customer grid flags on the attribute screen ("Customer Grid" on Storefront Properties) | the four core flags are saved and read back; address attributes have no such fields (adapter FormProcessorGridFlagsTest: only posted flags are saved, never for address attributes) | ✅ automated: playwright/tests/adm23-customer-grid-flags.spec.ts |
 
 ### SNAP11, SEC. Values on the order, values only the admin may change
 | ID | Test | Expected | Status |

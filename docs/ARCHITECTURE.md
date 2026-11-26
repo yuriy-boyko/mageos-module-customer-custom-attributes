@@ -78,6 +78,9 @@ Customer (non-address) attributes: values stay on the customer (core EAV); when 
 | Save on Orders | `Observer/QuoteSubmitBefore` (leaves no row), `Observer/OrderSaveAfter`; the two snapshot tables are not in `etc/db_schema_whitelist.json` (`Test/Unit/SchemaWhitelistTest`) |
 | Save to account from the checkout | `Service/AccountSaveDecider`, `Observer/SaveCheckoutValuesToAccount` |
 | Order emails | `Service/{EmailTypes,AdditionalInformation,EmailTemplateInserter}`, `Observer/AddAdditionalInformationToEmails`, `Plugin/OrderEmailTemplate`, `etc/config.xml` and `etc/adminhtml/system.xml` (Sales Emails > "Add the Section Automatically") |
+| Admin warnings for required attributes | `Model/Attribute/RequiredFormWarning` (edit and save: address attributes and the checkout, customer attributes and the account forms), `Service/RequiredAddressFormCheck`, `Service/RequiredCustomerFormCheck`, the grid list in `Controller/Adminhtml/Attribute/Index` |
+| Customer grid flags | `Block/Adminhtml/Attribute/Edit/Tab/Front` (fieldset "Customer Grid"), `Model/Attribute/FormProcessor` (saved only when posted); core invalidates the customer grid index |
+| Unknown input types | `Block/Adminhtml/Attribute/Edit/Tab/Main` (shown as "(not supported)"); `FormProcessor` keeps the type and touches no type-specific data |
 | Grid column "Shown in" | `Service/FormColumn`, `Model/ResourceModel/AttributeFormStorage`, `Block/Adminhtml/Attribute/Grid/Renderer/Forms` |
 | Admin order create / edit / reorder | `Plugin/AdminOrder*`, `Plugin/AdminOrderCreateAddressFormValues`, `Plugin/QuoteAddressSaveValues`, `Model/QuoteAddressValueReader`; reorder: `Plugin/AdminOrderReorderAddressValues` (after `Create::initFromOrder`, core copies the addresses with a fieldset of standard fields only) + `Service/ReorderValues` |
 | API | `etc/extension_attributes.xml`, `Api/Data/AddressAttributeValueInterface`, `Plugin/OrderAddressExtensionAttributes` (`custom_attribute_values` on order addresses, `customer_attribute_values` on orders) |
@@ -121,7 +124,7 @@ Learned the hard way; check them before "simplifying":
   passes `false` as the value. Core wraps validation messages of the shipping-information endpoint into a generic text.
 - Core also validates every required attribute of the address book form (`customer_address_edit`) on the quote address at the
   checkout. A required attribute that is in that form but not in the Hyvä Checkout address forms can never be filled, so no order can
-  be placed. The module keeps core's behaviour and warns on the attribute's edit page (`Model/Attribute/RequiredAddressFormWarning`,
+  be placed. The module keeps core's behaviour and warns on the attribute's edit page (`Model/Attribute/RequiredFormWarning`,
   rule in the pure `Service/RequiredAddressFormCheck`).
 - Core's mass action reads ids without collection bind parameters: `Block/Adminhtml/Attribute/Grid/Massaction` overrides
   `getGridIdsJson` to use `getAllIds()`.
@@ -187,10 +190,3 @@ only with the flag `Plugin/OrderEmailTemplate` (around `Magento\Email\Model\Temp
 `{{var mageos_additional_information_html|raw}}` for that rendering (`Service/EmailTemplateInserter`): after the last `method-info` cell, at the end
 of the order details table, which the four core templates and their guest variants share. A template that already contains the variable, or has no
 `method-info` cell (a custom template), is left alone: the merchant places the variable.
-
-## Translations
-`i18n/en_US.csv` lists the phrases of the module (identity rows). Keep template variables out of it: a row that contains the HTML entities of a
-template variable (`&#123;&#123;var ...&#125;&#125;`, as in the help text of the "Add the Section Automatically" setting) broke the product search of
-the admin order create page when it was listed (the browser tests AOC8 and AOC10 found it). That help text is therefore not listed; an
-unlisted phrase is shown as written. After editing the file run the AOC specs.
-

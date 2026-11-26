@@ -31,6 +31,13 @@ Initial version.
   `mageos_additional_information_html` for custom templates, and the setting "Add the Section Automatically" (Sales Emails, default Yes):
   choose No to place the variable only in the templates you want.
 
+- Warning in the attribute grid and on the edit page for a required customer attribute that customers cannot fill in (not in the
+  registration or account edit form, or "Customer Cannot Change This Value"): Magento checks every required attribute on each customer save.
+- **Customer Grid** on the Storefront Properties tab: core's four customer grid flags (column, shown by default, filter, keyword search).
+- An attribute with an input type of another module opens with the type shown as "(not supported)" and a note; saving keeps the type.
+- Guide: installing on a store with existing attributes, a data patch recipe with the module's settings, keeping developer option values
+  stable, and fields in a theme's own registration or account edit template.
+
 ### Fixed before the first release
 - An order created in the admin (or through the API) now gets the account value of an attribute that is shown in the checkout. Before, only the
   storefront checkout, where the customer types the value, wrote a row, so such orders had no row and the admin order view did not list it.

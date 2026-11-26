@@ -70,6 +70,15 @@ class FormProcessor
             $existing !== null ? array_values((array) $existing->getUsedInForms()) : []
         );
 
+        // the core flags of the customer grid: only when the form posted them, so a save from elsewhere keeps what the attribute has
+        if ($context->getKey() === EntityDefinitions::CUSTOMER) {
+            foreach (['is_used_in_grid', 'is_visible_in_grid', 'is_filterable_in_grid', 'is_searchable_in_grid'] as $flag) {
+                if (array_key_exists($flag, $post)) {
+                    $data[$flag] = (int) $post[$flag] ? 1 : 0;
+                }
+            }
+        }
+
         if ($context->getKey() === EntityDefinitions::CUSTOMER
             && $this->adminOnly->conflictsWithRequired(!empty($post['admin_only']), (bool) $data['is_required'], $data['used_in_forms'])
         ) {

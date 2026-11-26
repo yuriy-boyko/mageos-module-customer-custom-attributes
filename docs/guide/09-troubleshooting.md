@@ -65,6 +65,12 @@ the customer cannot change, and an empty field never erases the stored value). S
   `{{var mageos_additional_information_html|raw}}`. A theme or custom template without the payment and shipping method cells also needs
   the variable placed by hand.
 
+## Registrations or account saves fail with "X is a required value"
+
+Magento checks every required customer attribute whenever a customer is saved, also those not shown in the form. The attribute grid warns
+about such attributes ("required, but customers cannot fill them in"). Show the attribute in the registration and account edit forms, or make it
+optional. The same happens with a required attribute set to "Customer Cannot Change This Value".
+
 ## A prefilled field is filled again after clearing it
 
 Prefill runs at every page load and fills empty fields. Switch "Prefill from Customer" off for the attribute if this is not wanted.
