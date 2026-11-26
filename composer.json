@@ -13,16 +13,19 @@
     "require": {
         "php": "~8.3.0||~8.4.0||~8.5.0",
         "magento/framework": "*",
+        "magento/module-authorization": "*",
         "magento/module-backend": "*",
         "magento/module-catalog": "*",
         "magento/module-checkout": "*",
         "magento/module-config": "*",
         "magento/module-customer": "*",
         "magento/module-eav": "*",
+        "magento/module-email": "*",
         "magento/module-quote": "*",
         "magento/module-sales": "*",
         "magento/module-store": "*",
-        "magento/module-ui": "*"
+        "magento/module-ui": "*",
+        "psr/log": "*"
     },
     "suggest": {
         "mage-os/module-customer-custom-attributes-hyva-checkout": "Hyvä Checkout integration: shows and hides the custom address attributes in the checkout address forms"
